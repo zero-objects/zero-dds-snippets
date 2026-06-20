@@ -1,0 +1,12 @@
+[package]
+name = "rust-audit-syslog"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-security = { path = "../../crates/security" }
+zerodds-security-logging = { path = "../../crates/security-logging" }
+zerodds-security-runtime = { path = "../../crates/security-runtime" }
+zerodds-dcps = { path = "../../crates/dcps", features = ["security"] }

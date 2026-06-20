@@ -1,0 +1,9 @@
+[package]
+name = "rust-transport-tuning"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps", features = ["same-host-shm", "same-host-uds"] }

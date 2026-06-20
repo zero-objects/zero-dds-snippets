@@ -1,0 +1,10 @@
+[package]
+name = "rust-security-plugin-chain"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps", features = ["security"] }
+zerodds-qos = { path = "../../crates/qos" }
