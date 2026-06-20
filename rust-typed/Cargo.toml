@@ -1,0 +1,17 @@
+[package]
+name = "rust-typed"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../crates.
+[workspace]
+
+[dependencies]
+# DdsType trait + DCPS entities (DomainParticipantFactory, Topic, Writer, ...).
+zerodds-dcps = { path = "../../crates/dcps" }
+# #[derive(DdsType)] proc-macro lives in its own crate.
+zerodds-cdr-derive = { path = "../../crates/cdr-derive" }
+# The derive expands to `::zerodds_cdr::BufferWriter` etc., so the generated
+# code needs zerodds-cdr in scope at the call site.
+zerodds-cdr = { path = "../../crates/cdr" }
