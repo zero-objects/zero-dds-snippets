@@ -1,0 +1,10 @@
+{
+  "name": "zerodds-example-typescript-node-typed",
+  "private": true,
+  "type": "module",
+  "description": "DDS-TS typed topics: IDL->TS codegen (gen/temperature.ts) + typed pub via createTypedTopic/createTypedWriter. Verifies the website §typed snippet.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "start": "tsx src/typed.ts"
+  }
+}

@@ -1,0 +1,9 @@
+[package]
+name = "rust-audit-loggingplugin"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-security = { path = "../../crates/security" }

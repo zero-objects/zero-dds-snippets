@@ -1,0 +1,9 @@
+[package]
+name = "pubsub-roundtrip"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-dcps = "1.0.0-rc.3"

@@ -1,0 +1,10 @@
+[package]
+name = "hello-publisher"
+version = "0.1.0"
+edition = "2024"
+
+# Empty [workspace] isolates this from the parent zerodds workspace.
+[workspace]
+
+[dependencies]
+zerodds-dcps = "1.0.0-rc.3"

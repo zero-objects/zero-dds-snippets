@@ -1,0 +1,9 @@
+[package]
+name = "rust-dev-install-runtimeconfig"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps" }

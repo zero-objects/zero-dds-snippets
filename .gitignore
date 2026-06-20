@@ -1,0 +1,28 @@
+# Rust
+target/
+**/target/
+
+# Node / TypeScript
+node_modules/
+**/node_modules/
+dist/
+pkg-web/
+pkg-node/
+*.tsbuildinfo
+
+# .NET
+bin/
+obj/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+
+# Compiled C/C++ demo executables (no extension)
+c-ffi-hello/hello
+cpp-hello/hello
+cpp-typed/typed

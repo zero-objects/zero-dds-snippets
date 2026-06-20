@@ -1,0 +1,10 @@
+{
+  "name": "zerodds-example-typescript-node-async",
+  "private": true,
+  "type": "module",
+  "description": "DDS-TS async/await: writeAsync/takeAsync/streamSamples. Verifies the website §async snippet against the real @zerodds/node types.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "start": "tsx src/async.ts"
+  }
+}

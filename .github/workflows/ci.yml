@@ -1,0 +1,23 @@
+name: examples
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'   # weekly: catch crates.io drift even without a push
+
+jobs:
+  build:
+    name: build + run examples (crates.io)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build + run every example against published crates
+        run: |
+          set -e
+          for dir in */; do
+            [ -f "$dir/Cargo.toml" ] || continue
+            echo "::group::$dir"
+            ( cd "$dir" && cargo run )
+            echo "::endgroup::"
+          done

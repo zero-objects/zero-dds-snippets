@@ -1,0 +1,8 @@
+module sensor_msgs {
+    module msg {
+        struct Temperature {
+            long celsius;
+            string sensor_id;
+        };
+    };
+};

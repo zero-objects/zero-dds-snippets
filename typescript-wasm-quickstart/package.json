@@ -1,0 +1,9 @@
+{
+  "name": "zerodds-example-typescript-wasm-quickstart",
+  "private": true,
+  "type": "module",
+  "description": "DDS-TS browser quickstart: WASM bootstrap + DCPS-over-WebSocket pub/sub (app.ts). Verifies the website §quickstart snippet against the real @zerodds/wasm types.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}
