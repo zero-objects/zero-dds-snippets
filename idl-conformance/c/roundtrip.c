@@ -1,44 +1,56 @@
 /*
- * IDL conformance roundtrip — C Foundation profile.
+ * IDL conformance roundtrip — C "Foundation profile" (now widened).
  *
  * Drives a REAL DCPS pub->sub loopback over a single ZeroDDS participant,
- * using a typed IDL topic generated from the conformance fixture
- * tools/idlc/tests/conformance/fixtures/10_keys.idl by:
+ * using a typed IDL topic generated from this example's local fixture
+ * `sensor.idl` by:
  *
- *   zerodds-idlc generate 10_keys.idl --c -o .
+ *   zerodds-idlc generate sensor.idl --c -o .
  *
- * The C backend is the narrow "Foundation scope": it only accepts flat
- * structs of directly-encodable members (primitives + bounded string), so
- * this example exercises the largest type that backend supports:
+ * After the real-DCPS codegen fixes, the C backend now accepts a much richer
+ * keyed struct than the earlier flat-primitive-only profile. This example
+ * exercises the largest type the C stack supports end-to-end:
  *
- *   struct conf::Keyed { @key long id; @key string<16> region; double value; }
+ *   module conf {
+ *     enum Status { OFFLINE, NOMINAL, DEGRADED, FAULT };
+ *     typedef double  Celsius;
+ *     typedef Celsius TemperatureType;            // alias chain
+ *     struct GeoPoint { double lat; double lon; };
+ *     struct SensorReading {
+ *       @key long        sensor_id;
+ *       @key string<16>  site;
+ *       Status           status;                  // enum member
+ *       TemperatureType  temperature;             // typedef-to-double
+ *       GeoPoint         location;                // nested struct
+ *       long             samples[4];              // fixed array
+ *       @optional double calibration;             // @optional primitive
+ *       @optional string note;                    // @optional string
+ *     };
+ *   };
  *
  * IDL features exercised end-to-end (encode -> wire -> decode, asserted):
- *   - flat struct
- *   - @key members (composite key: long + bounded string)
- *   - bounded string member (string<16>)
- *   - long (int32) and double primitive members
- *   - XCDR2 DHEADER framing + per-type XTypes TypeObject (emitted in header)
+ *   - flat-but-rich keyed struct as a DCPS topic type
+ *   - @key members (composite key: long sensor_id + bounded string<16> site)
+ *   - enum member (conf::Status, encoded as int32)
+ *   - typedef-to-primitive + alias chain (TemperatureType -> Celsius -> double)
+ *   - nested struct member (conf::GeoPoint)
+ *   - fixed-size array member (long samples[4])
+ *   - @optional members WITH presence flags (calibration present, note present)
+ *   - bounded string member, long (int32) and double primitive members
+ *   - module nesting (module conf { ... })
+ *   - XCDR2 DHEADER framing + per-type XTypes TypeObjects (emitted in header)
  *
- * We publish one fully-populated sample and take it back, asserting every
- * field survived the wire.
+ * We publish one fully-populated sample (including both @optional members set)
+ * and take it back, asserting every field — and the optional presence flags —
+ * survived the wire.
+ *
+ * NOTE on includes: the generated header `sensor.h` now pulls in ONLY
+ * `zerodds_xcdr2.h` (the earlier self-conflicting `#include "zerodds.h"` was
+ * removed by the codegen fix), so no include-guard workaround is needed. We
+ * still hand-forward-declare the handful of DCPS entity functions we call,
+ * since `sensor.h` deliberately carries only the typed codec surface.
  */
-/*
- * NOTE on includes (header-packaging workaround, see README "Known
- * limitations"): the generated header `10_keys.h` pulls in BOTH the full
- * cbindgen `zerodds.h` AND the hand-written `zerodds_xcdr2.h`, and those two
- * headers re-declare the typed FFI prototypes (zerodds_writer_write_typed,
- * zerodds_reader_take_typed, zerodds_topic_create_typed, zerodds_xcdr2_*)
- * with structurally-identical-but-differently-named struct pointers
- * (`zerodds_typesupport_t*` vs `struct zerodds_ZeroDdsTypeSupport*` and
- * `struct ZeroDdsTopic*` vs `struct zerodds_ZeroDdsTopic*`), which C treats as
- * a conflicting redeclaration. We suppress the duplicate by pre-defining the
- * `zerodds.h` include guard (so only `zerodds_xcdr2.h` provides the typed
- * prototypes + inline XCDR2 helpers the generated codec needs) and then
- * forward-declare the handful of DCPS entity functions we use ourselves.
- */
-#define ZERODDS_H  /* suppress generated header's #include "zerodds.h" */
-#include "10_keys.h"   /* generated: conf_Keyed_t + conf_Keyed_typesupport */
+#include "sensor.h"   /* generated: conf_SensorReading_t + typesupport */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -61,6 +73,12 @@ int zerodds_writer_wait_for_matched(struct zerodds_ZeroDdsWriter *writer,
                                     int min_count, uint64_t timeout_ms);
 int zerodds_reader_wait_for_matched(struct zerodds_ZeroDdsReader *reader,
                                     int min_count, uint64_t timeout_ms);
+int zerodds_writer_write_typed(struct zerodds_ZeroDdsWriter *writer,
+                               const zerodds_typesupport_t *ts,
+                               const void *sample);
+int zerodds_reader_take_typed(struct zerodds_ZeroDdsReader *reader,
+                              const zerodds_typesupport_t *ts,
+                              void *out_sample, void *out_info);
 void zerodds_writer_destroy(struct zerodds_ZeroDdsWriter *writer);
 void zerodds_reader_destroy(struct zerodds_ZeroDdsReader *reader);
 
@@ -75,8 +93,8 @@ int main(void) {
     struct zerodds_ZeroDdsRuntime *rt = zerodds_runtime_create(0);
     if (!rt) return fail("runtime_create");
 
-    const char *topic = "ConfKeyed";
-    const char *tname = conf_Keyed_type_name; /* "conf::Keyed" */
+    const char *topic = "ConfSensorReading";
+    const char *tname = conf_SensorReading_type_name; /* "conf::SensorReading" */
 
     /* Keyed writer/reader (entityKind WithKey) — the type carries @key. */
     struct zerodds_ZeroDdsWriter *w =
@@ -90,56 +108,94 @@ int main(void) {
     if (zerodds_reader_wait_for_matched(r, 1, 5000) != 0)
         return fail("reader never matched");
 
-    /* Fully-populated sample. region is a heap-owned char* (bounded string<16>). */
-    conf_Keyed_t out_sample;
-    out_sample.id = 4242;
-    out_sample.region = strdup("EU-CENTRAL-1");  /* 12 chars, fits string<16> */
-    out_sample.value = 3.14159265358979;
+    /* Fully-populated sample — every member set, both @optionals present. */
+    conf_SensorReading_t out_sample;
+    memset(&out_sample, 0, sizeof out_sample);
+    out_sample.sensor_id          = 4242;
+    out_sample.site               = strdup("EU-CENTRAL-1");  /* fits string<16> */
+    out_sample.status             = conf_Status_DEGRADED;    /* enum */
+    out_sample.temperature        = 36.625;                  /* typedef->double */
+    out_sample.location.lat       = 50.110924;               /* nested struct */
+    out_sample.location.lon       = 8.682127;
+    out_sample.samples[0]         = 11;                       /* fixed array */
+    out_sample.samples[1]         = 22;
+    out_sample.samples[2]         = 33;
+    out_sample.samples[3]         = 44;
+    out_sample.calibration        = 0.998001;                /* @optional set */
+    out_sample.calibration_present = 1;
+    out_sample.note               = strdup("recalibrate");   /* @optional set */
+    out_sample.note_present       = 1;
 
-    if (zerodds_writer_write_typed(w, &conf_Keyed_typesupport, &out_sample) != 0)
+    if (zerodds_writer_write_typed(w, &conf_SensorReading_typesupport, &out_sample) != 0)
         return fail("write_typed");
 
-    printf("published: id=%d region=\"%s\" value=%.14f\n",
-           out_sample.id, out_sample.region, out_sample.value);
+    printf("published: id=%d site=\"%s\" status=%d temp=%.3f loc=(%.6f,%.6f) "
+           "samples=[%d,%d,%d,%d] calib=%.6f(present=%d) note=\"%s\"(present=%d)\n",
+           out_sample.sensor_id, out_sample.site, (int)out_sample.status,
+           out_sample.temperature, out_sample.location.lat, out_sample.location.lon,
+           out_sample.samples[0], out_sample.samples[1], out_sample.samples[2],
+           out_sample.samples[3], out_sample.calibration, out_sample.calibration_present,
+           out_sample.note, out_sample.note_present);
 
-    /* Poll the reader for the sample (event would be nicer, but the runtime
-     * reader take is the simple typed path). Bounded retry, short window. */
-    conf_Keyed_t in_sample;
+    /* Poll the reader for the sample. Bounded retry, short window. */
+    conf_SensorReading_t in_sample;
     memset(&in_sample, 0, sizeof in_sample);
     int got = -1;
     for (int i = 0; i < 200; ++i) {
-        got = zerodds_reader_take_typed(r, &conf_Keyed_typesupport, &in_sample, NULL);
+        got = zerodds_reader_take_typed(r, &conf_SensorReading_typesupport, &in_sample, NULL);
         if (got == 0) break;
         usleep(5000); /* 5ms */
     }
     if (got != 0) {
-        free(out_sample.region);
+        free(out_sample.site);
+        free(out_sample.note);
         return fail("take_typed: no sample recovered");
     }
 
-    printf("recovered: id=%d region=\"%s\" value=%.14f\n",
-           in_sample.id, in_sample.region ? in_sample.region : "(null)",
-           in_sample.value);
+    printf("recovered: id=%d site=\"%s\" status=%d temp=%.3f loc=(%.6f,%.6f) "
+           "samples=[%d,%d,%d,%d] calib=%.6f(present=%d) note=\"%s\"(present=%d)\n",
+           in_sample.sensor_id, in_sample.site ? in_sample.site : "(null)",
+           (int)in_sample.status, in_sample.temperature,
+           in_sample.location.lat, in_sample.location.lon,
+           in_sample.samples[0], in_sample.samples[1], in_sample.samples[2],
+           in_sample.samples[3], in_sample.calibration, in_sample.calibration_present,
+           in_sample.note ? in_sample.note : "(null)", in_sample.note_present);
 
     /* Assert the wire preserved every field. */
     int ok = 1;
-    if (in_sample.id != out_sample.id) { ok = 0; fprintf(stderr, "MISMATCH id\n"); }
-    if (!in_sample.region ||
-        strcmp(in_sample.region, out_sample.region) != 0) {
-        ok = 0; fprintf(stderr, "MISMATCH region\n");
-    }
-    if (in_sample.value != out_sample.value) { ok = 0; fprintf(stderr, "MISMATCH value\n"); }
+#define CHECK(cond, what) do { if (!(cond)) { ok = 0; fprintf(stderr, "MISMATCH %s\n", what); } } while (0)
+    CHECK(in_sample.sensor_id == out_sample.sensor_id, "sensor_id (key/long)");
+    CHECK(in_sample.site && strcmp(in_sample.site, out_sample.site) == 0,
+          "site (key/bounded-string)");
+    CHECK(in_sample.status == out_sample.status, "status (enum)");
+    CHECK(in_sample.temperature == out_sample.temperature, "temperature (typedef->double)");
+    CHECK(in_sample.location.lat == out_sample.location.lat, "location.lat (nested)");
+    CHECK(in_sample.location.lon == out_sample.location.lon, "location.lon (nested)");
+    CHECK(in_sample.samples[0] == out_sample.samples[0], "samples[0] (fixed array)");
+    CHECK(in_sample.samples[1] == out_sample.samples[1], "samples[1] (fixed array)");
+    CHECK(in_sample.samples[2] == out_sample.samples[2], "samples[2] (fixed array)");
+    CHECK(in_sample.samples[3] == out_sample.samples[3], "samples[3] (fixed array)");
+    CHECK(in_sample.calibration_present == out_sample.calibration_present,
+          "calibration_present (@optional flag)");
+    CHECK(in_sample.calibration == out_sample.calibration, "calibration (@optional value)");
+    CHECK(in_sample.note_present == out_sample.note_present, "note_present (@optional flag)");
+    CHECK(in_sample.note && out_sample.note &&
+          strcmp(in_sample.note, out_sample.note) == 0, "note (@optional value)");
+#undef CHECK
 
     /* Free heap fields owned by the decoded sample + our published one. */
-    conf_Keyed_sample_free(&in_sample);
-    free(out_sample.region);
+    conf_SensorReading_sample_free(&in_sample);
+    free(out_sample.site);
+    free(out_sample.note);
 
     zerodds_reader_destroy(r);
     zerodds_writer_destroy(w);
     zerodds_runtime_destroy(rt);
 
     if (ok) {
-        printf("ROUNDTRIP OK: recovered sample equals published sample\n");
+        printf("ROUNDTRIP OK: recovered sample equals published sample "
+               "(enum + typedef-double + nested struct + fixed array + "
+               "@optional + composite @key all survived the wire)\n");
         return 0;
     }
     return fail("roundtrip mismatch");

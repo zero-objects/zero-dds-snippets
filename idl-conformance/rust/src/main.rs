@@ -5,9 +5,9 @@
 //! process, same domain) publishes one fully-populated sample and reads it
 //! back, asserting every field survived the XCDR2 wire roundtrip.
 //!
-//! Combined IDL features exercised by `combo::Telemetry` (see
-//! `idl/combo_no_array.idl`, derived from
-//! `tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl`):
+//! Combined IDL features exercised by `combo::Telemetry` (the FULL upstream
+//! `tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl`, copied verbatim
+//! into `idl/20_mixed_combo.idl`):
 //!   * enum                 (`Mode`)
 //!   * typedef-to-primitive (`CurrentInAmpsType` = double)
 //!   * nested struct        (`Sample`)
@@ -16,12 +16,9 @@
 //!   * union over enum disc. (`Reading switch(Mode)`)
 //!   * map                  (`map<string,long> counters`)
 //!   * @optional            (`@optional double calibration`)
+//!   * fixed-size array     (`long window[4]`)
 //!   * @key                 (`@key long unitId`, `@key string<32> region`)
 //!   * @appendable          (struct extensibility)
-//!
-//! The one upstream feature NOT included is the fixed array `long window[4]` —
-//! the Rust backend currently mis-generates the array *decode* path. See the
-//! README "Known limitations".
 
 use std::time::Duration;
 
@@ -32,7 +29,7 @@ use zerodds_dcps::{
 };
 
 // Pull the generated module in as a child module of this crate.
-#[path = "../generated/combo_no_array.rs"]
+#[path = "../generated/20_mixed_combo.rs"]
 mod generated;
 
 use generated::combo::{Mode, Reading, Sample, Telemetry};
@@ -56,6 +53,7 @@ fn make_sample() -> Telemetry {
             m
         },
         calibration: Some(0.001_f64),
+        window: [10, 20, 30, 40],
     }
 }
 
@@ -127,11 +125,12 @@ fn main() {
         got.calibration, sent.calibration,
         "calibration (@optional double)"
     );
+    assert_eq!(got.window, sent.window, "window (fixed-size array long[4])");
     // Whole-struct equality as a belt-and-suspenders final check.
     assert_eq!(got, &sent, "full Telemetry struct roundtrip");
 
     println!(
         "\nOK: DCPS pub->sub roundtrip recovered the sample; all {} field groups matched.",
-        8
+        9
     );
 }

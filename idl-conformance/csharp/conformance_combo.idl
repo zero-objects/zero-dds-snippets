@@ -1,42 +1,64 @@
 // Combined-feature conformance type for the ZeroDDS C# (XCDR2) binding.
 //
-// This is the LARGEST feature combination that the C# stack actually
-// ROUND-TRIPS end-to-end over a real DCPS loopback. Several IDL features had to
-// be excluded because the C# code generator / runtime cannot round-trip them
-// today (each is a real, reproduced bug — see README "Known limitations" and
-// the blocker list for exact symptoms):
+// This is the LARGEST feature combination that the C# stack ROUND-TRIPS
+// end-to-end over a real DCPS loopback. After the 2026-06 codegen/runtime fix
+// pass (ref-struct reader passed by ref, map/union/fixed-array/typedef-to-
+// primitive/nested-seq codecs), the previously-blocked aggregate features are
+// now back in this one @key'd topic:
 //
-//   * map<>                          — backend emits no wire codec (struct gets no TypeSupport)
-//   * union                          — backend emits no TypeSupport at all
-//   * fixed array (long v[N])        — backend emits scalar WriteInt32(array) (does not compile)
-//   * typedef-to-primitive member    — backend emits WriteFloat64(record) (does not compile)
-//   * nested sequence<sequence<T>>   — backend reuses __seq/__mat/__cnt temp names (CS0136)
-//   * nested struct member           — reader is a `ref struct` passed BY VALUE to the
-//                                      nested DecodeFrom, so the cursor never advances
-//                                      (decode desyncs: "sequence length overflow")
-//   * sequence<struct>               — same by-value reader bug (per-element DecodeFrom)
-//
-// What survives and is asserted equal after the DCPS round-trip:
 //   * enum member
+//   * nested struct member        (Position location)
+//   * sequence<struct>            (sequence<Sample> history)
 //   * bounded string<32>
 //   * bounded   sequence<long, N>
 //   * unbounded sequence<long>
 //   * sequence<string>
+//   * nested sequence<sequence<long>>
+//   * map<string, long>
+//   * union member (switch on enum) + standalone union topic-capable codec
+//   * fixed array  long window[4]
+//   * typedef-to-primitive member (CurrentInAmps battery)
 //   * @optional double  (exercised both present and absent)
 //   * two @key members (long + bounded string)
 module confcombo {
 
   enum Mode { MODE_IDLE, MODE_ACTIVE, MODE_FAULT };
 
+  typedef double CurrentInAmps;
+
+  struct Position {
+    double x;
+    double y;
+    double z;
+  };
+
+  struct Sample {
+    long   seq;
+    double value;
+  };
+
+  union Reading switch (Mode) {
+    case MODE_IDLE:   long       idleTicks;
+    case MODE_ACTIVE: double     activeRate;
+    default:          string<16> faultCode;
+  };
+
   @appendable
   struct Telemetry {
-    @key long              unitId;
-    @key string<32>        region;
-    Mode                   mode;
-    double                 batteryVolts;
-    sequence<long>         samples;
-    sequence<long, 8>      recentCodes;
-    sequence<string>       tags;
-    @optional double       calibration;
+    @key long                       unitId;
+    @key string<32>                 region;
+    Mode                            mode;
+    double                          batteryVolts;
+    CurrentInAmps                   batteryCurrent;
+    Position                        location;
+    sequence<Sample>                history;
+    sequence<long>                  samples;
+    sequence<long, 8>               recentCodes;
+    sequence<string>                tags;
+    sequence<sequence<long> >       matrix;
+    map<string, long>               counters;
+    Reading                         reading;
+    long                            window[4];
+    @optional double                calibration;
   };
 };

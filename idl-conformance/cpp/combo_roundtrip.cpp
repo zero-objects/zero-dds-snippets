@@ -15,14 +15,12 @@
 // published — proving the data survived the XCDR2 wire, not just an in-memory
 // encode/decode.
 //
+// The union member `reading` (union Reading switch (Mode)) now round-trips:
+// the cpp codegen emits a real XCDR2 union codec (discriminator + active arm),
+// so it is asserted equal after the DCPS roundtrip like every other field.
+//
 // KNOWN LIMITATIONS (see README):
-//   1. The union member `reading` is silently dropped by the current cpp codegen
-//      (encode/decode emit
-//      "// xcdr2: member 'reading' not supported (nested/enum/map/fixed; skip)").
-//      It is symmetric (skipped on both sides), so the rest of the sample still
-//      round-trips, but the union value itself does NOT survive the wire and is
-//      therefore excluded from the equality assertions.
-//   2. The byte-oriented C-API write path does not carry the XCDR data-
+//   1. The byte-oriented C-API write path does not carry the XCDR data-
 //      representation tag, so `zerodds_reader_take` reports repr=0 (XCDR1) even
 //      for an XCDR2 payload. We therefore use the byte-oriented Writer/Reader
 //      and decode explicitly with the same XCDR2 version we encoded with —
@@ -38,6 +36,7 @@
 #include <map>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -65,9 +64,9 @@ int main() {
     hist.emplace_back(3, -3.5);
     sent.history(hist);
 
-    // union member `reading` — populated, but does NOT round-trip (see README).
-    sent.reading().value() = 0.987;
+    // union member `reading` — MODE_ACTIVE arm carries a double (activeRate).
     sent.reading()._d(combo::Mode::MODE_ACTIVE);
+    sent.reading().value() = 0.987;                 // activeRate (double)
 
     std::map<std::string, int32_t> ctr;             // map<string, long>
     ctr["ok"] = 7;
@@ -154,8 +153,11 @@ int main() {
     check("array long[4] [2]",         got.window()[2],       sent.window()[2]);
     check("array long[4] [3]",         got.window()[3],       sent.window()[3]);
 
-    std::cout << "\nNote: union member 'reading' is excluded — the cpp codegen "
-                 "drops it on the wire (see README Known limitations).\n";
+    // union<Mode> reading — discriminator + the active (MODE_ACTIVE/double) arm.
+    check("union reading _d",          static_cast<int>(got.reading()._d()),
+                                       static_cast<int>(sent.reading()._d()));
+    check("union reading activeRate",  std::get<double>(got.reading().value()),
+                                       std::get<double>(sent.reading().value()));
 
     if (g_failures == 0) {
         std::cout << "\nROUNDTRIP OK: all wire-supported combo features survived DCPS.\n";

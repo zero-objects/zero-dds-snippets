@@ -68,7 +68,7 @@ namespace combo {
     public:
         Telemetry() = default;
         ~Telemetry() = default;
-        Telemetry(int32_t unitId, std::string region, ::combo::Mode mode, CurrentInAmpsType batteryCurrent, std::vector<::combo::Sample> history, Reading reading, std::map<std::string, int32_t> counters, std::optional<double> calibration, std::array<int32_t, 4> window)
+        Telemetry(int32_t unitId, std::string region, ::combo::Mode mode, CurrentInAmpsType batteryCurrent, std::vector<::combo::Sample> history, ::combo::Reading reading, std::map<std::string, int32_t> counters, std::optional<double> calibration, std::array<int32_t, 4> window)
             : unitId_(std::move(unitId)), region_(std::move(region)), mode_(std::move(mode)), batteryCurrent_(std::move(batteryCurrent)), history_(std::move(history)), reading_(std::move(reading)), counters_(std::move(counters)), calibration_(std::move(calibration)), window_(std::move(window)) {}
 
     private:
@@ -77,7 +77,7 @@ namespace combo {
         ::combo::Mode mode_;
         CurrentInAmpsType batteryCurrent_;
         std::vector<::combo::Sample> history_;
-        Reading reading_;
+        ::combo::Reading reading_;
         std::map<std::string, int32_t> counters_;
         std::optional<double> calibration_;
         std::array<int32_t, 4> window_;
@@ -98,9 +98,9 @@ namespace combo {
         std::vector<::combo::Sample>& history() { return history_; }
         const std::vector<::combo::Sample>& history() const { return history_; }
         void history(const std::vector<::combo::Sample>& value) { history_ = value; }
-        Reading& reading() { return reading_; }
-        const Reading& reading() const { return reading_; }
-        void reading(const Reading& value) { reading_ = value; }
+        ::combo::Reading& reading() { return reading_; }
+        const ::combo::Reading& reading() const { return reading_; }
+        void reading(const ::combo::Reading& value) { reading_ = value; }
         std::map<std::string, int32_t>& counters() { return counters_; }
         const std::map<std::string, int32_t>& counters() const { return counters_; }
         void counters(const std::map<std::string, int32_t>& value) { counters_ = value; }
@@ -119,55 +119,27 @@ namespace dds {
 namespace topic {
 
 template <>
+struct topic_type_support<::combo::Reading> {
+    static const char* type_name() { return "combo::Reading"; }
+    static constexpr bool is_keyed() { return false; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE; }
+    static std::vector<uint8_t> encode(const ::combo::Reading& zd_v);
+    static std::vector<uint8_t> encode(const ::combo::Reading& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::combo::Reading& zd_v);
+    static ::combo::Reading decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::combo::Reading& zd_v);
+};
+
+template <>
 struct topic_type_support<::combo::Sample> {
     static const char* type_name() { return "combo::Sample"; }
     static constexpr bool is_keyed() { return false; }
     static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE; }
-    static std::vector<uint8_t> encode(const ::combo::Sample& __v) {
-        return encode(__v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
-    }
-    static std::vector<uint8_t> encode(const ::combo::Sample& __v, ::dds::topic::xcdr2::XcdrVersion __repr) {
-        std::vector<uint8_t> __out;
-        (void)__v;
-        const size_t __max_align = ::dds::topic::xcdr2::xcdr_max_align(__repr);
-        (void)__max_align;
-        const auto __dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        const size_t __origin = __out.size();
-        (void)__origin;
-        ::dds::topic::xcdr2::write_le_origin<int32_t>(__out, __origin, __v.seq(), __max_align);
-        ::dds::topic::xcdr2::write_le_origin<double>(__out, __origin, __v.value(), __max_align);
-        ::dds::topic::xcdr2::dheader_end(__out, __dh);
-        return __out;
-    }
-    static std::vector<uint8_t> encode_be(const ::combo::Sample& __v) {
-        std::vector<uint8_t> __out;
-        (void)__v;
-        const auto __dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        const size_t __origin = __out.size();
-        (void)__origin;
-        ::dds::topic::xcdr2::write_be_origin<int32_t>(__out, __origin, __v.seq());
-        ::dds::topic::xcdr2::write_be_origin<double>(__out, __origin, __v.value());
-        ::dds::topic::xcdr2::dheader_end(__out, __dh);
-        return __out;
-    }
-    static ::combo::Sample decode(const uint8_t* __buf, size_t __len, ::dds::topic::xcdr2::XcdrVersion __repr) {
-        size_t __pos = 0;
-        ::combo::Sample __v;
-        const size_t __max_align = ::dds::topic::xcdr2::xcdr_max_align(__repr);
-        (void)__buf; (void)__len; (void)__pos; (void)__max_align;
-        const auto __dh = ::dds::topic::xcdr2::dheader_read(__buf, __pos, __len);
-        const size_t __origin = __pos;
-        const size_t __end = __origin + __dh;
-        (void)__end;
-        __v.seq(::dds::topic::xcdr2::read_le_origin<int32_t>(__buf, __pos, __len, __origin, __max_align));
-        __v.value(::dds::topic::xcdr2::read_le_origin<double>(__buf, __pos, __len, __origin, __max_align));
-        if (__pos < __end) __pos = __end;
-        return __v;
-    }
-    static std::array<uint8_t, 16> key_hash(const ::combo::Sample& __v) {
-        (void)__v;
-        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
-    }
+    static std::vector<uint8_t> encode(const ::combo::Sample& zd_v);
+    static std::vector<uint8_t> encode(const ::combo::Sample& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::combo::Sample& zd_v);
+    static ::combo::Sample decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::combo::Sample& zd_v);
 };
 
 template <>
@@ -175,176 +147,350 @@ struct topic_type_support<::combo::Telemetry> {
     static const char* type_name() { return "combo::Telemetry"; }
     static constexpr bool is_keyed() { return true; }
     static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE; }
-    static std::vector<uint8_t> encode(const ::combo::Telemetry& __v) {
-        return encode(__v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
-    }
-    static std::vector<uint8_t> encode(const ::combo::Telemetry& __v, ::dds::topic::xcdr2::XcdrVersion __repr) {
-        std::vector<uint8_t> __out;
-        (void)__v;
-        const size_t __max_align = ::dds::topic::xcdr2::xcdr_max_align(__repr);
-        (void)__max_align;
-        const auto __dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        const size_t __origin = __out.size();
-        (void)__origin;
-        ::dds::topic::xcdr2::write_le_origin<int32_t>(__out, __origin, __v.unitId(), __max_align);
-        if (__v.region().size() > 32) throw std::length_error("bounded string length exceeds its IDL bound (32)");
-        ::dds::topic::xcdr2::write_string_origin(__out, __origin, __v.region(), __max_align);
-        ::dds::topic::xcdr2::write_le_origin<int32_t>(__out, __origin, static_cast<int32_t>(__v.mode()), __max_align);
-        ::dds::topic::xcdr2::write_le_origin<double>(__out, __origin, __v.batteryCurrent(), __max_align);
-        {
-        const auto __seq_dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        ::dds::topic::xcdr2::write_le_origin<uint32_t>(__out, __origin, static_cast<uint32_t>(__v.history().size()), __max_align);
-        for (const auto& __e : __v.history()) {
-                {
-                    ::dds::topic::xcdr2::pad_to_from_origin(__out, __origin, 4);
-                    auto __nsb0 = ::dds::topic::topic_type_support<::combo::Sample>::encode(__e, __repr);
-                    __out.insert(__out.end(), __nsb0.begin(), __nsb0.end());
-                }
-        }
-        ::dds::topic::xcdr2::dheader_end(__out, __seq_dh);
-        }
-        // xcdr2: member 'reading' not supported (nested/enum/map/fixed; skip)
-        {
-        const auto __map_dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        ::dds::topic::xcdr2::write_le_origin<uint32_t>(__out, __origin, static_cast<uint32_t>(__v.counters().size()), __max_align);
-        for (const auto& __kv : __v.counters()) {
-                ::dds::topic::xcdr2::write_string_origin(__out, __origin, __kv.first, __max_align);
-                ::dds::topic::xcdr2::write_le_origin<int32_t>(__out, __origin, __kv.second, __max_align);
-        }
-        ::dds::topic::xcdr2::dheader_end(__out, __map_dh);
-        }
-        if (__v.calibration().has_value()) {
-            __out.push_back(uint8_t{1});
-            ::dds::topic::xcdr2::write_le_origin<double>(__out, __origin, (*__v.calibration()), __max_align);
-        } else {
-            __out.push_back(uint8_t{0});
-        }
-        for (const auto& __ae : __v.window()) {
-            ::dds::topic::xcdr2::write_le_origin<int32_t>(__out, __origin, __ae, __max_align);
-        }
-        ::dds::topic::xcdr2::dheader_end(__out, __dh);
-        return __out;
-    }
-    static std::vector<uint8_t> encode_be(const ::combo::Telemetry& __v) {
-        std::vector<uint8_t> __out;
-        (void)__v;
-        const auto __dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        const size_t __origin = __out.size();
-        (void)__origin;
-        ::dds::topic::xcdr2::write_be_origin<int32_t>(__out, __origin, __v.unitId());
-        if (__v.region().size() > 32) throw std::length_error("bounded string length exceeds its IDL bound (32)");
-        ::dds::topic::xcdr2::write_string_be(__out, __v.region());
-        ::dds::topic::xcdr2::write_be<int32_t>(__out, static_cast<int32_t>(__v.mode()));
-        ::dds::topic::xcdr2::write_be_origin<double>(__out, __origin, __v.batteryCurrent());
-        {
-        const auto __seq_dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        ::dds::topic::xcdr2::write_be<uint32_t>(__out, static_cast<uint32_t>(__v.history().size()));
-        for (const auto& __e : __v.history()) {
-                {
-                    ::dds::topic::xcdr2::pad_to_from_origin(__out, __origin, 4);
-                    auto __nsb1 = ::dds::topic::topic_type_support<::combo::Sample>::encode_be(__e);
-                    __out.insert(__out.end(), __nsb1.begin(), __nsb1.end());
-                }
-        }
-        ::dds::topic::xcdr2::dheader_end(__out, __seq_dh);
-        }
-        // xcdr2: member 'reading' not supported (nested/enum/map/fixed; skip)
-        {
-        const auto __map_dh = ::dds::topic::xcdr2::dheader_begin(__out);
-        ::dds::topic::xcdr2::write_be<uint32_t>(__out, static_cast<uint32_t>(__v.counters().size()));
-        for (const auto& __kv : __v.counters()) {
-                ::dds::topic::xcdr2::write_string_be(__out, __kv.first);
-                ::dds::topic::xcdr2::write_be_origin<int32_t>(__out, __origin, __kv.second);
-        }
-        ::dds::topic::xcdr2::dheader_end(__out, __map_dh);
-        }
-        if (__v.calibration().has_value()) {
-            __out.push_back(uint8_t{1});
-            ::dds::topic::xcdr2::write_be_origin<double>(__out, __origin, (*__v.calibration()));
-        } else {
-            __out.push_back(uint8_t{0});
-        }
-        for (const auto& __ae : __v.window()) {
-            ::dds::topic::xcdr2::write_be_origin<int32_t>(__out, __origin, __ae);
-        }
-        ::dds::topic::xcdr2::dheader_end(__out, __dh);
-        return __out;
-    }
-    static ::combo::Telemetry decode(const uint8_t* __buf, size_t __len, ::dds::topic::xcdr2::XcdrVersion __repr) {
-        size_t __pos = 0;
-        ::combo::Telemetry __v;
-        const size_t __max_align = ::dds::topic::xcdr2::xcdr_max_align(__repr);
-        (void)__buf; (void)__len; (void)__pos; (void)__max_align;
-        const auto __dh = ::dds::topic::xcdr2::dheader_read(__buf, __pos, __len);
-        const size_t __origin = __pos;
-        const size_t __end = __origin + __dh;
-        (void)__end;
-        __v.unitId(::dds::topic::xcdr2::read_le_origin<int32_t>(__buf, __pos, __len, __origin, __max_align));
-        __v.region(::dds::topic::xcdr2::read_string_origin(__buf, __pos, __len, __origin, __max_align));
-        __v.mode(static_cast<::combo::Mode>(::dds::topic::xcdr2::read_le_origin<int32_t>(__buf, __pos, __len, __origin, __max_align)));
-        __v.batteryCurrent(::dds::topic::xcdr2::read_le_origin<double>(__buf, __pos, __len, __origin, __max_align));
-        {
-            const auto __seq_dh = ::dds::topic::xcdr2::dheader_read(__buf, __pos, __len); (void)__seq_dh;
-            auto __cnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(__buf, __pos, __len, __origin, __max_align);
-            std::vector<::combo::Sample> __seq;
-            __seq.reserve(__cnt);
-            for (uint32_t __i = 0; __i < __cnt; ++__i) {
-                ::dds::topic::xcdr2::skip_pad_from_origin(__pos, __origin, 4);
-                const size_t __nss2 = __pos;
-                size_t __npk2 = __pos;
-                const uint32_t __nl2 = ::dds::topic::xcdr2::dheader_read(__buf, __npk2, __len);
-                ::combo::Sample __se2 = ::dds::topic::topic_type_support<::combo::Sample>::decode(__buf + __nss2, 4u + __nl2, __repr);
-                __pos = __nss2 + 4u + __nl2;
-                __seq.push_back(std::move(__se2));
-            }
-            __v.history(std::move(__seq));
-        }
-        // xcdr2: member 'reading' not supported (skip)
-        {
-            const auto __map_dh = ::dds::topic::xcdr2::dheader_read(__buf, __pos, __len); (void)__map_dh;
-            auto __mcnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(__buf, __pos, __len, __origin, __max_align);
-            std::map<std::string, int32_t> __map3;
-            for (uint32_t __i = 0; __i < __mcnt; ++__i) {
-                std::string __mk3{};
-                int32_t __mv3{};
-                __mk3 =(::dds::topic::xcdr2::read_string_origin(__buf, __pos, __len, __origin, __max_align));
-                __mv3 =(::dds::topic::xcdr2::read_le_origin<int32_t>(__buf, __pos, __len, __origin, __max_align));
-                __map3.emplace(std::move(__mk3), std::move(__mv3));
-            }
-            __v.counters(std::move(__map3));
-        }
-        {
-            uint8_t __present = ::dds::topic::xcdr2::read_u8(__buf, __pos, __len);
-            if (__present) {
-                __v.calibration(::dds::topic::xcdr2::read_le_origin<double>(__buf, __pos, __len, __origin, __max_align));
-            } else {
-                __v.calibration(std::nullopt);
-            }
-        }
-        {
-            auto __arr = __v.window();
-            for (auto& __ae : __arr) { __ae = ::dds::topic::xcdr2::read_le_origin<int32_t>(__buf, __pos, __len, __origin, __max_align); }
-            __v.window(__arr);
-        }
-        if (__pos < __end) __pos = __end;
-        return __v;
-    }
-    static std::array<uint8_t, 16> key_hash(const ::combo::Telemetry& __v) {
-        (void)__v;
-        std::vector<uint8_t> __out;
-        const size_t __origin = 0;
-        (void)__origin;
-        ::dds::topic::xcdr2::write_be_origin<int32_t>(__out, __origin, __v.unitId());
-        if (__v.region().size() > 32) throw std::length_error("bounded string length exceeds its IDL bound (32)");
-        ::dds::topic::xcdr2::write_string_be(__out, __v.region());
-        std::array<uint8_t, 16> __h{};
-        if (__out.size() <= 16) {
-            std::memcpy(__h.data(), __out.data(), __out.size());
-            return __h;
-        }
-        return ::dds::topic::xcdr2_md5::md5(__out);
-    }
+    static std::vector<uint8_t> encode(const ::combo::Telemetry& zd_v);
+    static std::vector<uint8_t> encode(const ::combo::Telemetry& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::combo::Telemetry& zd_v);
+    static ::combo::Telemetry decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::combo::Telemetry& zd_v);
 };
+
+inline std::vector<uint8_t> topic_type_support<::combo::Reading>::encode(const ::combo::Reading& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::combo::Reading>::encode(const ::combo::Reading& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+            ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, static_cast<int32_t>(zd_v._d()), zd_max_align);
+        switch (static_cast<::combo::Mode>(zd_v._d())) {
+        case static_cast<::combo::Mode>(::combo::Mode::MODE_IDLE):
+        {
+            const int32_t& zd_bv = std::get<int32_t>(zd_v.value());
+                ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_bv, zd_max_align);
+            break;
+        }
+        case static_cast<::combo::Mode>(::combo::Mode::MODE_ACTIVE):
+        {
+            const double& zd_bv = std::get<double>(zd_v.value());
+                ::dds::topic::xcdr2::write_le_origin<double>(zd_out, zd_origin, zd_bv, zd_max_align);
+            break;
+        }
+        default: {
+            const std::string& zd_bv = std::get<std::string>(zd_v.value());
+                if (zd_bv.size() > 16) throw std::length_error("bounded string length exceeds its IDL bound (16)");
+                ::dds::topic::xcdr2::write_string_origin(zd_out, zd_origin, zd_bv, zd_max_align);
+            break;
+        }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::combo::Reading>::encode_be(const ::combo::Reading& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+            ::dds::topic::xcdr2::write_be<int32_t>(zd_out, static_cast<int32_t>(zd_v._d()));
+        switch (static_cast<::combo::Mode>(zd_v._d())) {
+        case static_cast<::combo::Mode>(::combo::Mode::MODE_IDLE):
+        {
+            const int32_t& zd_bv = std::get<int32_t>(zd_v.value());
+                ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_bv);
+            break;
+        }
+        case static_cast<::combo::Mode>(::combo::Mode::MODE_ACTIVE):
+        {
+            const double& zd_bv = std::get<double>(zd_v.value());
+                ::dds::topic::xcdr2::write_be_origin<double>(zd_out, zd_origin, zd_bv);
+            break;
+        }
+        default: {
+            const std::string& zd_bv = std::get<std::string>(zd_v.value());
+                if (zd_bv.size() > 16) throw std::length_error("bounded string length exceeds its IDL bound (16)");
+                ::dds::topic::xcdr2::write_string_be(zd_out, zd_bv);
+            break;
+        }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline ::combo::Reading topic_type_support<::combo::Reading>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::combo::Reading zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        (void)zd_end;
+        ::combo::Mode zd_disc{};
+        zd_disc =(static_cast<::combo::Mode>(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align)));
+        zd_v._d(zd_disc);
+        switch (static_cast<::combo::Mode>(zd_v._d())) {
+        case static_cast<::combo::Mode>(::combo::Mode::MODE_IDLE):
+        {
+            int32_t zd_bv{};
+            zd_bv =(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_v.value() = zd_bv;
+            break;
+        }
+        case static_cast<::combo::Mode>(::combo::Mode::MODE_ACTIVE):
+        {
+            double zd_bv{};
+            zd_bv =(::dds::topic::xcdr2::read_le_origin<double>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_v.value() = zd_bv;
+            break;
+        }
+        default: {
+            std::string zd_bv{};
+            zd_bv =(::dds::topic::xcdr2::read_string_origin(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_v.value() = zd_bv;
+            break;
+        }
+        }
+        if (zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::combo::Reading>::key_hash(const ::combo::Reading& zd_v) {
+        (void)zd_v;
+        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    }
+
+inline std::vector<uint8_t> topic_type_support<::combo::Sample>::encode(const ::combo::Sample& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::combo::Sample>::encode(const ::combo::Sample& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.seq(), zd_max_align);
+        ::dds::topic::xcdr2::write_le_origin<double>(zd_out, zd_origin, zd_v.value(), zd_max_align);
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::combo::Sample>::encode_be(const ::combo::Sample& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.seq());
+        ::dds::topic::xcdr2::write_be_origin<double>(zd_out, zd_origin, zd_v.value());
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline ::combo::Sample topic_type_support<::combo::Sample>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::combo::Sample zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        (void)zd_end;
+        zd_v.seq(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        zd_v.value(::dds::topic::xcdr2::read_le_origin<double>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        if (zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::combo::Sample>::key_hash(const ::combo::Sample& zd_v) {
+        (void)zd_v;
+        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    }
+
+inline std::vector<uint8_t> topic_type_support<::combo::Telemetry>::encode(const ::combo::Telemetry& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::combo::Telemetry>::encode(const ::combo::Telemetry& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.unitId(), zd_max_align);
+        if (zd_v.region().size() > 32) throw std::length_error("bounded string length exceeds its IDL bound (32)");
+        ::dds::topic::xcdr2::write_string_origin(zd_out, zd_origin, zd_v.region(), zd_max_align);
+        ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, static_cast<int32_t>(zd_v.mode()), zd_max_align);
+        ::dds::topic::xcdr2::write_le_origin<double>(zd_out, zd_origin, zd_v.batteryCurrent(), zd_max_align);
+        {
+        const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_origin, static_cast<uint32_t>(zd_v.history().size()), zd_max_align);
+        for (const auto& zd_e : zd_v.history()) {
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb0 = ::dds::topic::topic_type_support<::combo::Sample>::encode(zd_e, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nsb0.begin(), zd_nsb0.end());
+                }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
+        }
+        {
+            ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            auto zd_nub1 = ::dds::topic::topic_type_support<::combo::Reading>::encode(zd_v.reading(), zd_repr);
+            zd_out.insert(zd_out.end(), zd_nub1.begin(), zd_nub1.end());
+        }
+        {
+        const auto zd_map_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_origin, static_cast<uint32_t>(zd_v.counters().size()), zd_max_align);
+        for (const auto& zd_kv : zd_v.counters()) {
+                ::dds::topic::xcdr2::write_string_origin(zd_out, zd_origin, zd_kv.first, zd_max_align);
+                ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_kv.second, zd_max_align);
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_map_dh);
+        }
+        if (zd_v.calibration().has_value()) {
+            zd_out.push_back(uint8_t{1});
+            ::dds::topic::xcdr2::write_le_origin<double>(zd_out, zd_origin, (*zd_v.calibration()), zd_max_align);
+        } else {
+            zd_out.push_back(uint8_t{0});
+        }
+        for (const auto& zd_ae : zd_v.window()) {
+            ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_ae, zd_max_align);
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::combo::Telemetry>::encode_be(const ::combo::Telemetry& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.unitId());
+        if (zd_v.region().size() > 32) throw std::length_error("bounded string length exceeds its IDL bound (32)");
+        ::dds::topic::xcdr2::write_string_be(zd_out, zd_v.region());
+        ::dds::topic::xcdr2::write_be<int32_t>(zd_out, static_cast<int32_t>(zd_v.mode()));
+        ::dds::topic::xcdr2::write_be_origin<double>(zd_out, zd_origin, zd_v.batteryCurrent());
+        {
+        const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_be<uint32_t>(zd_out, static_cast<uint32_t>(zd_v.history().size()));
+        for (const auto& zd_e : zd_v.history()) {
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb2 = ::dds::topic::topic_type_support<::combo::Sample>::encode_be(zd_e);
+                    zd_out.insert(zd_out.end(), zd_nsb2.begin(), zd_nsb2.end());
+                }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
+        }
+        {
+            ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            auto zd_nub3 = ::dds::topic::topic_type_support<::combo::Reading>::encode_be(zd_v.reading());
+            zd_out.insert(zd_out.end(), zd_nub3.begin(), zd_nub3.end());
+        }
+        {
+        const auto zd_map_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_be<uint32_t>(zd_out, static_cast<uint32_t>(zd_v.counters().size()));
+        for (const auto& zd_kv : zd_v.counters()) {
+                ::dds::topic::xcdr2::write_string_be(zd_out, zd_kv.first);
+                ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_kv.second);
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_map_dh);
+        }
+        if (zd_v.calibration().has_value()) {
+            zd_out.push_back(uint8_t{1});
+            ::dds::topic::xcdr2::write_be_origin<double>(zd_out, zd_origin, (*zd_v.calibration()));
+        } else {
+            zd_out.push_back(uint8_t{0});
+        }
+        for (const auto& zd_ae : zd_v.window()) {
+            ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_ae);
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline ::combo::Telemetry topic_type_support<::combo::Telemetry>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::combo::Telemetry zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        (void)zd_end;
+        zd_v.unitId(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        zd_v.region(::dds::topic::xcdr2::read_string_origin(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        zd_v.mode(static_cast<::combo::Mode>(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align)));
+        zd_v.batteryCurrent(::dds::topic::xcdr2::read_le_origin<double>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        {
+            const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_seq_dh;
+            auto zd_cnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align);
+            std::vector<::combo::Sample> zd_seq;
+            zd_seq.reserve(zd_cnt);
+            for (uint32_t zd_i = 0; zd_i < zd_cnt; ++zd_i) {
+                ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+                const size_t zd_nss4 = zd_pos;
+                size_t zd_npk4 = zd_pos;
+                const uint32_t zd_nl4 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk4, zd_len);
+                ::combo::Sample zd_se4 = ::dds::topic::topic_type_support<::combo::Sample>::decode(zd_buf + zd_nss4, 4u + zd_nl4, zd_repr);
+                zd_pos = zd_nss4 + 4u + zd_nl4;
+                zd_seq.push_back(std::move(zd_se4));
+            }
+            zd_v.history(std::move(zd_seq));
+        }
+        {
+            ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+            const size_t zd_nss5 = zd_pos;
+            size_t zd_npk5 = zd_pos;
+            const uint32_t zd_nl5 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk5, zd_len);
+            ::combo::Reading zd_nu5 = ::dds::topic::topic_type_support<::combo::Reading>::decode(zd_buf + zd_nss5, 4u + zd_nl5, zd_repr);
+            zd_pos = zd_nss5 + 4u + zd_nl5;
+            zd_v.reading(zd_nu5);
+        }
+        {
+            const auto zd_map_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_map_dh;
+            auto zd_mcnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align);
+            std::map<std::string, int32_t> zd_map6;
+            for (uint32_t zd_i = 0; zd_i < zd_mcnt; ++zd_i) {
+                std::string zd_mk6{};
+                int32_t zd_mv6{};
+                zd_mk6 =(::dds::topic::xcdr2::read_string_origin(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+                zd_mv6 =(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+                zd_map6.emplace(std::move(zd_mk6), std::move(zd_mv6));
+            }
+            zd_v.counters(std::move(zd_map6));
+        }
+        {
+            uint8_t zd_present = ::dds::topic::xcdr2::read_u8(zd_buf, zd_pos, zd_len);
+            if (zd_present) {
+                zd_v.calibration(::dds::topic::xcdr2::read_le_origin<double>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            } else {
+                zd_v.calibration(std::nullopt);
+            }
+        }
+        {
+            auto zd_arr = zd_v.window();
+            for (auto& zd_ae : zd_arr) { zd_ae = ::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align); }
+            zd_v.window(zd_arr);
+        }
+        if (zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::combo::Telemetry>::key_hash(const ::combo::Telemetry& zd_v) {
+        (void)zd_v;
+        std::vector<uint8_t> zd_out;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.unitId());
+        if (zd_v.region().size() > 32) throw std::length_error("bounded string length exceeds its IDL bound (32)");
+        ::dds::topic::xcdr2::write_string_be(zd_out, zd_v.region());
+        std::array<uint8_t, 16> zd_h{};
+        if (zd_out.size() <= 16) {
+            std::memcpy(zd_h.data(), zd_out.data(), zd_out.size());
+            return zd_h;
+        }
+        return ::dds::topic::xcdr2_md5::md5(zd_out);
+    }
 
 } // namespace topic
 } // namespace dds

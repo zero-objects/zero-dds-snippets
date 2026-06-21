@@ -11,7 +11,7 @@ binding (native `libzerodds`), **not** an in-memory encode/decode.
 ## What IDL features are exercised
 
 The topic type is `combo::Telemetry` in [`idl/telemetry_combo.idl`](idl/telemetry_combo.idl),
-derived from the upstream conformance combo
+the **complete, unmodified** upstream conformance combo
 `tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl`. The single keyed
 sample combines, end-to-end over the wire:
 
@@ -19,20 +19,20 @@ sample combines, end-to-end over the wire:
 |-------------------------------|-------------------------------------|----------|
 | `@key` integer                | `@key long unitId`                  | ✅ |
 | `@key` + bounded string       | `@key string<32> region`            | ✅ |
+| **enum-typed member**         | `Mode mode`                         | ✅ |
 | `typedef` (to `double`)       | `CurrentInAmpsType batteryCurrent`  | ✅ |
 | nested struct                 | `struct Sample { long; double; }`   | ✅ |
 | sequence **of struct**        | `sequence<Sample> history`          | ✅ |
+| **union member**              | `Reading reading` (`switch(Mode)`)  | ✅ |
 | `map<string, long>`           | `map<string,long> counters`         | ✅ |
 | `@optional` (present)         | `@optional double calibration`      | ✅ |
-| `@optional` (absent)          | (see note)                          | ✅ |
-| empty sequence / empty map    | (see note)                          | ✅ |
+| **fixed-size array member**   | `long window[4]`                    | ✅ |
 
-The roundtrip asserts deep equality of every field, including `Map` contents and
-the `@optional` member, after the bytes traverse the DCPS stack.
-
-> The `@optional`-absent, empty-sequence and empty-map cases are additionally
-> covered by a second roundtrip during development; the committed example sends
-> the fully-populated sample.
+The roundtrip asserts deep equality of every field — including `Map` contents,
+the `@optional` member, the `enum` member, the discriminated `union` branch and
+all four `window[4]` elements — after the bytes traverse the DCPS stack. The
+enum, union and fixed-array members each get an additional explicit assertion so
+a regression in those codecs is unambiguous.
 
 ## Build & run
 
@@ -73,40 +73,30 @@ ROUNDTRIP OK — combo::Telemetry survived the DCPS wire intact.
 
 ## Known limitations
 
-The example deliberately publishes a **subset** of the upstream combo type.
-Three members of `20_mixed_combo.idl` were removed because the current `idl-ts`
-XCDR2 backend cannot round-trip them — these are **real codegen bugs**, not
-test-harness shortcuts. Each was confirmed by generating the type and inspecting
-(or running) the emitted codec:
+The example now publishes the **complete** upstream combo type — all ten
+features above round-trip over real DCPS. The three `idl-ts` codegen bugs that
+previously forced a pruned subset (union member gating off the struct codec,
+fixed-array member emitted as a scalar, enum member encoded as its string label)
+are **fixed**: the regenerated `gen/telemetry_combo.ts` now writes the union
+discriminator + branch, loops `window[4]`, and routes the enum through
+`ModeOrdinal` / `ModeFromOrdinal`. The roundtrip run proves it.
 
-1. **`union` member gates off the whole struct codec.**
-   The combo has `union Reading switch(Mode) { … } reading;`. `idl-ts` treats
-   any struct containing a union member as non-codecable
-   (`crates/idl-ts/src/lib.rs`, `typespec_xcdr2_codecable`: `Union => false`),
-   so the generated `Telemetry` gets **no `TelemetryTypeSupport` at all** — only
-   a comment: `// Telemetry: no XCDR2 TypeSupport — contains a fixed/any member`.
-   The type cannot be published. (Standalone unions also emit no XCDR2 codec.)
+Two minor, **non-blocking** cosmetic items remain in the generated module — they
+do not affect the DCPS roundtrip and the codec is correct regardless:
 
-2. **Fixed-array member is emitted as a scalar (data loss).**
-   For `long window[4];` the generated codec emits `w.writeInt32(s.window)` and
-   `r.readInt32()` — a single scalar — instead of looping over the 4 elements.
-   The interface correctly types `window: Array<number>`, so the codec both
-   loses data and is type-inconsistent. (Reproduced identically with
-   `08_arrays.idl`: `vec[3]`, `grid[4][4]`, `Point shape[2]` all become scalar
-   reads/writes; the generated file does not even typecheck.)
+1. **`map` member: optional `TypeObject` metadata is skipped.** Generating the
+   type emits a non-fatal warning
+   (`TypeObject emission skipped — UnsupportedTypeSpec("map (inline IDL map)")`).
+   The XCDR2 **wire codec** for the map is fully generated and round-trips; only
+   the auxiliary `TypeObject` (used for remote type discovery / type
+   compatibility, not for same-type loopback) is omitted for inline IDL maps.
 
-3. **`enum` member is encoded as its string label (throws at runtime).**
-   Enums map to TS string-literal unions (`Mode.MODE_ACTIVE === "MODE_ACTIVE"`),
-   but the codec emits `w.writeInt32(s.mode as unknown as number)` on the
-   **string** value, which throws `XcdrError: int32 out of range: MODE_ACTIVE`.
-   The generated `ModeOrdinal` / `ModeFromOrdinal` lookup maps exist but the
-   codec never uses them, so an enum-typed struct member cannot round-trip.
-   (Reproduced with `03_enums.idl`'s `struct UsesEnum`.)
-
-With those three removed, the remaining seven features above all round-trip
-cleanly over real DCPS. The map member also emits a non-fatal codegen warning
-(`TypeObject emission skipped — map (inline IDL map)`); the XCDR2 wire codec for
-maps is generated and works — only the optional `TypeObject` metadata is skipped.
+2. **`isTelemetry` type guard mis-types the array member.** The generated guard
+   checks `typeof o.window !== "number"` (a scalar test) even though `window` is
+   `Array<number>`. The guard is **never invoked** by the `@zerodds/node` take
+   path (the FFI binding decodes via `decodeFrom`, not the guard), so it has no
+   effect on the roundtrip; it would only matter to user code that calls
+   `isTelemetry()` directly on a value carrying an array member.
 
 ## Reference
 

@@ -2,43 +2,49 @@
 //
 // idl-conformance / typescript — real DCPS pub -> sub loopback roundtrip.
 //
-// Builds a fully-populated `combo::Telemetry` sample (the largest subset of the
-// upstream conformance combo that the idl-ts XCDR2 backend can round-trip —
-// typedef + nested struct + sequence-of-struct + bounded string + map +
-// @optional + @key), publishes it over a REAL ZeroDDS DomainParticipant +
-// Publisher/DataWriter, reads it back through a Subscriber/DataReader on the
-// loopback transport, and asserts the recovered sample is deep-equal to what
-// was published. Nothing here is in-memory encode/decode: the bytes traverse
-// the native RTPS stack via the @zerodds/node FFI binding.
+// Builds a fully-populated `combo::Telemetry` sample — the COMPLETE upstream
+// conformance combo: enum member + typedef + nested struct + sequence-of-struct
+// + bounded string + union member + map + @optional + fixed-size array + @key —
+// publishes it over a REAL ZeroDDS DomainParticipant + Publisher/DataWriter,
+// reads it back through a Subscriber/DataReader on the loopback transport, and
+// asserts the recovered sample is deep-equal to what was published. Nothing here
+// is in-memory encode/decode: the bytes traverse the native RTPS stack via the
+// @zerodds/node FFI binding.
 
 import assert from "node:assert/strict";
 
 import { DomainParticipantFactory } from "@zerodds/node";
 import { combo } from "../gen/telemetry_combo.js";
 
-const { TelemetryTypeSupport } = combo;
+const { TelemetryTypeSupport, Mode } = combo;
 type Telemetry = combo.Telemetry;
 
-// The fully-populated sample. Every supported combo feature is non-trivial:
+// The fully-populated sample. Every combo feature is non-trivial:
 //   - @key long unitId / @key string<32> region   (keyed, bounded string)
+//   - enum-typed member  mode = MODE_ACTIVE        (enum member codec)
 //   - typedef double batteryCurrent
 //   - sequence<Sample> history                     (sequence of nested struct)
+//   - union Reading reading                        (MODE_ACTIVE -> activeRate)
 //   - map<string,long> counters
 //   - @optional double calibration                 (present)
+//   - long window[4]                               (fixed-size array member)
 const SENT: Telemetry = {
   unitId: 4711,
   region: "eu-central-1",
+  mode: Mode.MODE_ACTIVE,
   batteryCurrent: 12.75,
   history: [
     { seq: 1, value: 3.14159 },
     { seq: 2, value: 2.71828 },
     { seq: 3, value: -1.5 },
   ],
+  reading: { discriminator: Mode.MODE_ACTIVE, activeRate: 48.5 },
   counters: new Map<string, number>([
     ["packets", 9001],
     ["drops", 2],
   ]),
   calibration: 0.0009765625,
+  window: [10, 20, 30, 40],
 };
 
 // Deep-equal that understands Map (node assert.deepEqual already does, but we
@@ -76,6 +82,25 @@ async function main(): Promise<void> {
     normalise(got),
     normalise(SENT),
     "roundtrip mismatch: recovered sample != published sample",
+  );
+
+  // Spotlight the previously-blocked members so a regression in any one of the
+  // three fixed codecs (enum / union / fixed-array) is unambiguous.
+  assert.equal(got.mode, Mode.MODE_ACTIVE, "enum member did not round-trip");
+  assert.equal(
+    got.reading.discriminator,
+    Mode.MODE_ACTIVE,
+    "union discriminator did not round-trip",
+  );
+  assert.equal(
+    (got.reading as { activeRate: number }).activeRate,
+    48.5,
+    "union active branch value did not round-trip",
+  );
+  assert.deepEqual(
+    got.window,
+    [10, 20, 30, 40],
+    "fixed-size array window[4] did not round-trip",
   );
 
   console.log("PUBLISHED:", JSON.stringify(normalise(SENT)));

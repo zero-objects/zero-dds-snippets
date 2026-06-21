@@ -9,7 +9,7 @@ ZERODDS_ROOT ?= ../../..
 INCDIR       := $(ZERODDS_ROOT)/crates/zerodds-c-api/include
 LIBDIR       := $(ZERODDS_ROOT)/target/release
 IDLC         := $(ZERODDS_ROOT)/target/debug/zerodds-idlc
-FIXTURE      := $(ZERODDS_ROOT)/tools/idlc/tests/conformance/fixtures/10_keys.idl
+FIXTURE      := sensor.idl
 
 CFLAGS  := -std=c11 -Wall -I. -I$(INCDIR)
 LDFLAGS := -L$(LIBDIR) -lzerodds
@@ -26,12 +26,12 @@ endif
 
 all: roundtrip
 
-# Regenerate the typed header from the conformance fixture (committed copy
+# Regenerate the typed header from this example's local fixture (committed copy
 # already present; this target lets you refresh it).
 gen:
 	$(IDLC) generate $(FIXTURE) --c -o . </dev/null
 
-roundtrip: roundtrip.c 10_keys.h
+roundtrip: roundtrip.c sensor.h
 	gcc $(CFLAGS) roundtrip.c $(LDFLAGS) -o roundtrip
 
 run: roundtrip

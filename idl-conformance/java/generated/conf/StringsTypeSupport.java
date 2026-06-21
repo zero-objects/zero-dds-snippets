@@ -42,10 +42,22 @@ public final class StringsTypeSupport implements org.zerodds.cdr.TopicTypeSuppor
         Strings v = new Strings();
         int __dhSize = r.readDHeader();
         int __endPos = r.position() + __dhSize;
-        v.setUnbounded(r.readString());
-        v.setBounded(r.readString());
-        v.setWunbounded(r.readString());
-        v.setWbounded(r.readString());
+        {
+            String __rv = r.readString();
+            v.setUnbounded(__rv);
+        }
+        {
+            String __rv = r.readString();
+            v.setBounded(__rv);
+        }
+        {
+            String __rv = r.readString();
+            v.setWunbounded(__rv);
+        }
+        {
+            String __rv = r.readString();
+            v.setWbounded(__rv);
+        }
         while (r.position() < __endPos) { r.skip(1); }
         return v;
     }
@@ -53,5 +65,27 @@ public final class StringsTypeSupport implements org.zerodds.cdr.TopicTypeSuppor
     @Override
     public byte[] keyHash(Strings sample) {
         return new byte[16];
+    }
+
+    private static void skipByLc(org.zerodds.cdr.Xcdr2Reader r, int lc) {
+        switch (lc) {
+            case 0: r.skip(1); break;
+            case 1: r.skip(2); break;
+            case 2: r.skip(4); break;
+            case 3: r.skip(8); break;
+            default: { int __n = r.readNextInt(); r.skip(__n); break; }
+        }
+    }
+
+    private static byte[] readDelimitedFrame(org.zerodds.cdr.Xcdr2Reader r) {
+        int __startPos = r.position();
+        int __sz = r.readDHeader();
+        int __hdr = r.position() - __startPos;
+        byte[] __body = r.readBytes(__sz);
+        byte[] __frame = new byte[__hdr + __sz];
+        __frame[0] = (byte) (__sz & 0xFF); __frame[1] = (byte) ((__sz >>> 8) & 0xFF);
+        __frame[2] = (byte) ((__sz >>> 16) & 0xFF); __frame[3] = (byte) ((__sz >>> 24) & 0xFF);
+        System.arraycopy(__body, 0, __frame, __hdr, __sz);
+        return __frame;
     }
 }

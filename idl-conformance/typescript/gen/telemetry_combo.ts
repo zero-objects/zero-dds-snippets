@@ -18,6 +18,67 @@ import {
 } from "@zerodds/cdr";
 
 export namespace combo {
+export const Mode = {
+    MODE_IDLE: "MODE_IDLE",
+    MODE_ACTIVE: "MODE_ACTIVE",
+    MODE_FAULT: "MODE_FAULT",
+} as const;
+export type Mode = (typeof Mode)[keyof typeof Mode];
+export const ModeOrdinal: Readonly<Record<Mode, number>> = {
+    MODE_IDLE: 0,
+    MODE_ACTIVE: 1,
+    MODE_FAULT: 2,
+} as const;
+export const ModeFromOrdinal: ReadonlyMap<number, Mode> = new Map([
+    [0, "MODE_IDLE"],
+    [1, "MODE_ACTIVE"],
+    [2, "MODE_FAULT"],
+]);
+
+export function isMode(v: unknown): v is Mode {
+    if (typeof v !== "string") return false;
+    return Object.prototype.hasOwnProperty.call(Mode, v);
+}
+
+export const ModeType: DdsTypeDescriptor<Mode> = {
+    kind: "enum",
+    name: "Mode",
+    extensibility: "appendable",
+    nested: false,
+    bitBound: 32,
+    fields: [
+        {
+            name: "MODE_IDLE",
+            id: 0,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            default: 0,
+        },
+        {
+            name: "MODE_ACTIVE",
+            id: 1,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            default: 1,
+        },
+        {
+            name: "MODE_FAULT",
+            id: 2,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            default: 2,
+        },
+    ],
+    typeGuard: isMode,
+};
+registerType(ModeType);
+
 export type CurrentInAmpsType = number;
 export function isCurrentInAmpsType(v: unknown): v is CurrentInAmpsType {
     if (typeof v !== "number") return false;
@@ -116,6 +177,115 @@ export const SampleTypeSupport: DdsTopicType<Sample> = {
     },
 };
 
+export type Reading =
+    { discriminator: typeof Mode.MODE_IDLE; idleTicks: number }
+    | { discriminator: typeof Mode.MODE_ACTIVE; activeRate: number }
+    | { discriminator: Exclude<Mode, typeof Mode.MODE_IDLE | typeof Mode.MODE_ACTIVE>; faultCode: string }
+;
+
+export const ReadingType: DdsTypeDescriptor<Reading> = {
+    kind: "union",
+    name: "Reading",
+    extensibility: "appendable",
+    nested: false,
+    fields: [
+        {
+            name: "discriminator",
+            id: 0xFFFFFFFF,
+            type: { kind: "ref", name: "Mode" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "idleTicks",
+            id: 0,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            labels: [0],
+        },
+        {
+            name: "activeRate",
+            id: 1,
+            type: { kind: "primitive", name: "double" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            labels: [1],
+        },
+        {
+            name: "faultCode",
+            id: 2,
+            type: { kind: "string", bound: 16, wide: false },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    hasDefault: true,
+    typeGuard: isReading,
+};
+export function isReading(v: unknown): v is Reading {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    return "discriminator" in o;
+}
+
+registerType(ReadingType);
+
+export const ReadingTypeSupport: DdsTopicType<Reading> = {
+    typeName: "Reading",
+    isKeyed: false,
+    extensibility: "appendable",
+    encodeInto(w: Xcdr2Writer, s: Reading): void {
+        const _tok = w.beginAppendable();
+        w.writeInt32(ModeOrdinal[s.discriminator]);
+        if (s.discriminator === Mode.MODE_IDLE) {
+            const _v: number = (s as unknown as { idleTicks: number }).idleTicks;
+            w.writeInt32(_v);
+        } else if (s.discriminator === Mode.MODE_ACTIVE) {
+            const _v: number = (s as unknown as { activeRate: number }).activeRate;
+            w.writeFloat64(_v);
+        } else {
+            const _v: string = (s as unknown as { faultCode: string }).faultCode;
+            w.writeString(_v);
+        }
+        w.endAppendable(_tok);
+    },
+    encode(s: Reading, endian: EndianMode = "le"): Uint8Array {
+        const w = new Xcdr2Writer(endian);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): Reading {
+        const _tok = r.beginAppendable();
+        const _disc: Mode = (ModeFromOrdinal.get(r.readInt32()) as Mode);
+        let _result: Reading;
+        if (_disc === Mode.MODE_IDLE) {
+            const _b: number = r.readInt32();
+            _result = { discriminator: _disc, idleTicks: _b } as unknown as typeof _result;
+        } else if (_disc === Mode.MODE_ACTIVE) {
+            const _b: number = r.readFloat64();
+            _result = { discriminator: _disc, activeRate: _b } as unknown as typeof _result;
+        } else {
+            const _b: string = r.readString();
+            _result = { discriminator: _disc, faultCode: _b } as unknown as typeof _result;
+        }
+        r.endAppendable(_tok);
+        return _result;
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): Reading {
+        const r = new Xcdr2Reader(bytes, offset, length, "le");
+        return this.decodeFrom(r);
+    },
+    keyHash(s: Reading): Uint8Array {
+        void s;
+        return new Uint8Array(16);
+    },
+};
+
 export interface Telemetry {
     /**
      * @dds-key
@@ -125,19 +295,24 @@ export interface Telemetry {
      * @dds-key
      */
     region: string;
+    mode: Mode;
     batteryCurrent: CurrentInAmpsType;
     history: Array<Sample>;
+    reading: Reading;
     counters: ReadonlyMap<string, number>;
     calibration?: number | undefined;
+    window: Array<number>;
 }
 
 export const Telemetry_region_BOUND = 32;
+export const Telemetry_window_LENGTH = 4;
 
 export function isTelemetry(v: unknown): v is Telemetry {
     if (typeof v !== "object" || v === null) return false;
     const o = v as Record<string, unknown>;
     if (typeof o.unitId !== "number") return false;
     if (typeof o.region !== "string") return false;
+    if (typeof o.window !== "number") return false;
     return true;
 }
 
@@ -164,8 +339,16 @@ export const TelemetryType: DdsTypeDescriptor<Telemetry> = {
             mustUnderstand: false,
         },
         {
-            name: "batteryCurrent",
+            name: "mode",
             id: 2,
+            type: { kind: "ref", name: "Mode" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "batteryCurrent",
+            id: 3,
             type: { kind: "ref", name: "CurrentInAmpsType" },
             key: false,
             optional: false,
@@ -173,15 +356,23 @@ export const TelemetryType: DdsTypeDescriptor<Telemetry> = {
         },
         {
             name: "history",
-            id: 3,
+            id: 4,
             type: { kind: "sequence", element: { kind: "ref", name: "Sample" } },
             key: false,
             optional: false,
             mustUnderstand: false,
         },
         {
+            name: "reading",
+            id: 5,
+            type: { kind: "ref", name: "Reading" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
             name: "counters",
-            id: 4,
+            id: 6,
             type: { kind: "map", key: { kind: "string", wide: false }, value: { kind: "primitive", name: "int32" } },
             key: false,
             optional: false,
@@ -189,10 +380,18 @@ export const TelemetryType: DdsTypeDescriptor<Telemetry> = {
         },
         {
             name: "calibration",
-            id: 5,
+            id: 7,
             type: { kind: "primitive", name: "double" },
             key: false,
             optional: true,
+            mustUnderstand: false,
+        },
+        {
+            name: "window",
+            id: 8,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
             mustUnderstand: false,
         },
     ],
@@ -208,6 +407,7 @@ export const TelemetryTypeSupport: DdsTopicType<Telemetry> = {
         const _tok = w.beginAppendable();
         w.writeInt32(s.unitId);
         w.writeString(s.region);
+        w.writeInt32(ModeOrdinal[s.mode]);
         w.writeFloat64(s.batteryCurrent);
         const _seqtok = w.beginAppendable();
         w.writeUint32(s.history.length);
@@ -215,6 +415,7 @@ export const TelemetryTypeSupport: DdsTopicType<Telemetry> = {
             SampleTypeSupport.encodeInto(w, _e);
         }
         w.endAppendable(_seqtok);
+        ReadingTypeSupport.encodeInto(w, s.reading);
         w.writeUint32(s.counters.size);
         for (const [_k, _v] of s.counters) {
             w.writeString(_k);
@@ -225,6 +426,9 @@ export const TelemetryTypeSupport: DdsTopicType<Telemetry> = {
             w.writeFloat64(s.calibration);
         } else {
             w.writeOctet(0);
+        }
+        for (let _a0 = 0; _a0 < 4; _a0++) {
+            w.writeInt32(s.window[_a0]);
         }
         w.endAppendable(_tok);
     },
@@ -237,19 +441,25 @@ export const TelemetryTypeSupport: DdsTopicType<Telemetry> = {
         const _tok = r.beginAppendable();
         const _f_unitId: number = r.readInt32();
         const _f_region: string = r.readString();
+        const _f_mode: Mode = (ModeFromOrdinal.get(r.readInt32()) as Mode);
         const _f_batteryCurrent: CurrentInAmpsType = r.readFloat64();
         const _f_history: Array<Sample> = ((): Array<Sample> => { const _t = r.beginAppendable(); const _n = r.readUint32(); const _o: Array<Sample> = []; for (let _i = 0; _i < _n; _i++) { _o.push(SampleTypeSupport.decodeFrom(r)); } r.endAppendable(_t); return _o; })();
+        const _f_reading: Reading = ReadingTypeSupport.decodeFrom(r);
         const _f_counters: ReadonlyMap<string, number> = ((): ReadonlyMap<string, number> => { const _n = r.readUint32(); const _o = new Map<string, number>(); for (let _i = 0; _i < _n; _i++) { const _k = r.readString(); const _v = r.readInt32(); _o.set(_k, _v); } return _o; })();
         const _present_calibration = r.readOctet();
         const _f_calibration: number | undefined = _present_calibration === 1 ? r.readFloat64() : undefined;
+        const _f_window: Array<number> = ((): Array<number> => { const _o: Array<number> = []; for (let _i = 0; _i < 4; _i++) { _o.push(r.readInt32()); } return _o; })();
         r.endAppendable(_tok);
         return {
             unitId: _f_unitId,
             region: _f_region,
+            mode: _f_mode,
             batteryCurrent: _f_batteryCurrent,
             history: _f_history,
+            reading: _f_reading,
             counters: _f_counters,
             calibration: _f_calibration,
+            window: _f_window,
         };
     },
     decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): Telemetry {

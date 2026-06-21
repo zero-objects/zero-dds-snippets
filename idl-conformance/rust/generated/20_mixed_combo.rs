@@ -168,6 +168,7 @@ pub mod combo {
         pub reading: Reading,
         pub counters: ::std::collections::BTreeMap<String, i32>,
         pub calibration: ::core::option::Option<f64>,
+        pub window: [i32; 4],
     }
 
     impl zerodds_dcps::DdsType for Telemetry {
@@ -187,6 +188,7 @@ pub mod combo {
                 <_ as zerodds_cdr::CdrEncode>::encode(&self.reading, w)?;
                 <_ as zerodds_cdr::CdrEncode>::encode(&self.counters, w)?;
                 <_ as zerodds_cdr::CdrEncode>::encode(&self.calibration, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.window, w)?;
                 Ok(())
             })?;
             out.extend_from_slice(&writer.into_bytes());
@@ -204,6 +206,7 @@ pub mod combo {
                 let reading = <Reading as zerodds_cdr::CdrDecode>::decode(r)?;
                 let counters = <::std::collections::BTreeMap<String, i32> as zerodds_cdr::CdrDecode>::decode(r)?;
                 let calibration = <::core::option::Option<f64> as zerodds_cdr::CdrDecode>::decode(r)?;
+                let window = <[i32; 4] as zerodds_cdr::CdrDecode>::decode(r)?;
                 Ok(Self {
                     unitId,
                     region,
@@ -213,6 +216,7 @@ pub mod combo {
                     reading,
                     counters,
                     calibration,
+                    window,
                 })
             }).map_err(::core::convert::Into::into)
         }
@@ -244,6 +248,7 @@ pub mod combo {
             <_ as zerodds_cdr::CdrEncode>::encode(&self.reading, writer)?;
             <_ as zerodds_cdr::CdrEncode>::encode(&self.counters, writer)?;
             <_ as zerodds_cdr::CdrEncode>::encode(&self.calibration, writer)?;
+            <_ as zerodds_cdr::CdrEncode>::encode(&self.window, writer)?;
             ::core::result::Result::Ok(())
         }
     }
@@ -258,6 +263,7 @@ pub mod combo {
             let reading = <Reading as zerodds_cdr::CdrDecode>::decode(reader)?;
             let counters = <::std::collections::BTreeMap<String, i32> as zerodds_cdr::CdrDecode>::decode(reader)?;
             let calibration = <::core::option::Option<f64> as zerodds_cdr::CdrDecode>::decode(reader)?;
+            let window = <[i32; 4] as zerodds_cdr::CdrDecode>::decode(reader)?;
             ::core::result::Result::Ok(Self {
                 unitId,
                 region,
@@ -267,6 +273,7 @@ pub mod combo {
                 reading,
                 counters,
                 calibration,
+                window,
             })
         }
     }

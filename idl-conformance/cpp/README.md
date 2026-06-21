@@ -25,6 +25,7 @@ One keyed topic type combines:
 | map<string,long>              | `map<string,long> counters` | `counters[ok/err/retry]`   |
 | `@optional`                   | `@optional double calibration` | presence + value        |
 | fixed array                   | `long window[4]`            | all 4 elements             |
+| union (enum discriminator)    | `union Reading switch (Mode)` | `reading._d()` + active arm `activeRate` |
 | `@appendable` extensibility   | `struct Telemetry`          | DHEADER framing            |
 
 Each of these is asserted equal after the DCPS roundtrip; the program prints a
@@ -70,22 +71,7 @@ ROUNDTRIP OK: all wire-supported combo features survived DCPS.
 
 ## Known limitations
 
-1. **Union member dropped on the wire.** `combo::Telemetry` has a union member
-   `Reading reading` (`union Reading switch (Mode)`). The current cpp codegen
-   generates the `Reading` class but **silently skips it in encode and decode**,
-   emitting:
-
-   ```cpp
-   // xcdr2: member 'reading' not supported (nested/enum/map/fixed; skip)
-   ```
-
-   The skip is symmetric, so the rest of the sample still round-trips, but the
-   union value itself does **not** survive the wire. The example populates
-   `reading` but excludes it from the equality assertions and prints a note.
-   This is a real codegen gap (cpp-codegen layer): union members are not
-   serialized.
-
-2. **Byte-oriented write path drops the XCDR representation tag.** When you
+1. **Byte-oriented write path drops the XCDR representation tag.** When you
    publish via the byte-oriented C-API (`zerodds_writer_write`) and read back
    with `zerodds_reader_take`, the `out_repr` out-param comes back `0` (XCDR1)
    even though the payload was encoded as XCDR2 — the wire bytes are

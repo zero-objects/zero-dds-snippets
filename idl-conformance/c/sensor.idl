@@ -1,0 +1,33 @@
+// IDL-conformance C example — a flat-but-rich keyed struct that exercises the
+// C "Foundation profile" features the --c backend now supports after the
+// real-DCPS codegen fixes (enum + typedef-to-primitive + nested struct +
+// fixed array + @optional + @key + module nesting). NO map/union/sequence/
+// wstring/fixed/typedef-to-aggregate here — those are still out of C scope.
+module conf {
+
+  // enum member (encoded as int32)
+  enum Status { OFFLINE, NOMINAL, DEGRADED, FAULT };
+
+  // typedef-to-primitive + alias chain (NGVA units-style aliases)
+  typedef double  Celsius;
+  typedef Celsius TemperatureType;   // alias chain → resolves to double
+
+  // nested struct member
+  struct GeoPoint {
+    double lat;
+    double lon;
+  };
+
+  // The DCPS topic type: flat-but-rich, keyed.
+  struct SensorReading {
+    @key long           sensor_id;     // long (int32) key
+    @key string<16>     site;          // bounded-string key
+    Status              status;        // enum member
+    TemperatureType     temperature;   // typedef-to-double (alias chain)
+    GeoPoint            location;      // nested struct member
+    long                samples[4];    // fixed array member (long[4])
+    @optional double    calibration;   // @optional primitive
+    @optional string    note;          // @optional bounded? plain string
+  };
+
+};

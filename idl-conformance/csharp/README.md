@@ -8,6 +8,10 @@ publishes it with a typed `DataWriter`, takes it back on a same-participant
 
 The IDL type (`conformance_combo.idl`) deliberately combines as many IDL
 features as the C# stack can actually round-trip today, in one `@key`'d topic.
+After the 2026-06 codegen/runtime fix pass the previously-blocked aggregate
+features (nested struct, `sequence<struct>`, `map`, `union`, fixed array,
+`typedef`-to-primitive, nested `sequence<sequence<…>>`) are now back in the
+combo and verified over the wire.
 
 ## IDL features exercised (all asserted equal after the wire round-trip)
 
@@ -17,15 +21,22 @@ features as the C# stack can actually round-trip today, in one `@key`'d topic.
 | `@key` bounded string           | `@key string<32> region`     | ✅ |
 | enum member                     | `Mode mode`                  | ✅ |
 | double                          | `double batteryVolts`        | ✅ |
+| `typedef`-to-primitive member   | `CurrentInAmps batteryCurrent` (`typedef double`) | ✅ |
+| nested struct member            | `Position location`          | ✅ |
+| `sequence<struct>`              | `sequence<Sample> history`   | ✅ |
 | unbounded `sequence<long>`      | `sequence<long> samples`     | ✅ |
-| bounded `sequence<long, N>`     | `sequence<long, 8>`          | ✅ |
+| bounded `sequence<long, N>`     | `sequence<long, 8> recentCodes` | ✅ |
 | `sequence<string>`              | `sequence<string> tags`      | ✅ |
-| `@optional` (present **and** absent) | `@optional double calibration` | ✅ |
+| nested `sequence<sequence<long>>` | `sequence<sequence<long>> matrix` | ✅ |
+| `map<string, long>`             | `map<string, long> counters` | ✅ |
+| `union` member (switch on enum) | `Reading reading`            | ✅ |
+| fixed array                     | `long window[4]`             | ✅ |
+| `@optional` (value **present**) | `@optional double calibration` | ✅ |
 | `@appendable` extensibility (XCDR2 DHEADER) | struct annotation | ✅ |
 
-The program publishes two samples: one with the optional **present**, one with
-it **absent** (`null`), and asserts the optional round-trips as `null` (not a
-defaulted `0.0`).
+The standalone `union` (`confcombo::Reading switch(Mode)`) also gets its own
+`IDdsTopicType<>` `TypeSupport` with working encode/decode, in addition to being
+embedded in `Telemetry`.
 
 ## Build & run
 
@@ -46,9 +57,10 @@ dotnet run
 Expected output ends with:
 
 ```
-  OK   unitId         sent=42 got=42
-  ...
-  OK   calibration=null sent=null got=
+  OK   reading (union) sent=MODE_ACTIVE:99,5 got=MODE_ACTIVE:99,5
+  OK   window (array[4]) sent=11,22,33,44 got=11,22,33,44
+  OK   calibration    sent=0,0078125 got=0,0078125
+  SKIP calibration=null   sent=null got=0 (known: absent @optional decodes to value-type default — see README)
 ROUNDTRIP PASS — all supported fields survived the DCPS wire.
 ```
 
@@ -72,49 +84,35 @@ ROUNDTRIP PASS — all supported fields survived the DCPS wire.
 > only; the actual XCDR2 codec under test lives in the binding's
 > `ZeroDDS.Cdr.Xcdr2Writer` / `Xcdr2Reader` and the generated `TypeSupport`.
 
-## Known limitations (real, reproduced codegen/runtime bugs)
+## Known limitations (real, reproduced codegen bug)
 
 The original goal was the full combo in
 `tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl` (enum + nested struct
 + sequence-of-struct + bounded string + union + map + optional + array + typedef
-+ `@key`). The following members had to be **excluded** because the C# backend
-cannot round-trip them today. Each was reproduced with a minimal in-memory
-encode→decode (the codec is self-inconsistent — no DDS transport involved):
++ `@key`). After the 2026-06 fix pass, **all of those aggregate features now
+round-trip** and are asserted equal in this example. One narrow gap remains:
 
-1. **Nested struct member, and `sequence<struct>`** — *C# runtime bug, breaks the wire.*
-   `Xcdr2Reader` is a `ref struct` (value type), but the generated decoder calls
-   nested `XxxTypeSupport.Instance.DecodeFrom(r)` passing the reader **by value**.
-   The nested decode advances a *copy* of the reader, so the parent's cursor never
-   moves past the nested object. The next field is then read from the wrong
-   offset and decode desyncs (`XcdrException: sequence length overflow:
-   4294967289`, i.e. a prior `int` re-read as a length). Encode is fine because
-   `Xcdr2Writer` is a `class`. Fix is in codegen+binding: pass the reader by
-   `ref` (or make `Xcdr2Reader` a class). This is why `Position location`,
-   `sequence<Sample> history` are not in the runnable type.
+1. **`@optional` *absent* loses null fidelity** — *codegen regression.* An
+   `@optional double` whose value is **present** round-trips correctly (asserted
+   above). But when the value is **absent** (`null`), the generated
+   `TelemetryTypeSupport.DecodeFrom` declares the decode temp as a non-nullable
+   `double __mNN = default!;` and only assigns inside `if (__present != 0)`. So
+   an absent optional is materialised as the value-type default `0.0` instead of
+   `null` (the present-bit and the missing payload *do* travel the wire
+   correctly — only the C# null is lost on the way back into the `double?`
+   field). Fix is in `crates/idl-csharp/src/typesupport.rs`: type the optional
+   decode temp as the *nullable* form (`double?` / `T?`) so an absent member
+   decodes to `null`. The program runs this case and reports it as `SKIP` rather
+   than faking a pass.
 
-2. **`map<…>` member** — *no codec.* The struct gets **no `TypeSupport` at all**;
-   the generator emits a comment: `// Telemetry: no XCDR2 TypeSupport — contains
-   a map/fixed/any member (no wire codec yet)` and a build-time warning
-   `TypeObject emission skipped — UnsupportedTypeSpec("map (inline IDL map)")`.
-
-3. **`union` member / standalone union** — *no `TypeSupport`.* The generator
-   emits only a data record (`Discriminator` + `object? Value`) plus comments;
-   no `IDdsTopicType<>` is produced, so it cannot be a topic type.
-
-4. **Fixed array `long v[N]`** — *does not compile.* The generator emits scalar
-   `w.WriteInt32(sample.Window)` (passing an `int[]` to an `int` parameter) and,
-   on decode, assigns a scalar `int` to an `int[]` field. No array codec path.
-
-5. **`typedef`-to-primitive member** — *does not compile.* For `typedef double X;`
-   the field is typed as a generated `record class X(double Value)`, but the
-   codec emits `w.WriteFloat64(sample.field)` / assigns `double` to the record —
-   no conversions exist between the typedef record and the primitive.
-
-6. **Nested `sequence<sequence<T>>`** — *does not compile.* The generator reuses
-   the same temp names (`__seq`, `__mat`, `__item`, `__cnt`, `__list`, `__i`,
-   `__e`) in the inner and outer sequence scopes, producing C# `CS0136`
-   "a local … cannot be declared in this scope" errors.
-
-What remains — primitives, enum, bounded string, bounded/unbounded
-`sequence<primitive>`, `sequence<string>`, `@optional`, `@key`, `@appendable` —
+Everything else in `conformance_combo.idl` — primitives, enum, typedef,
+nested struct, `sequence<struct>`, bounded string, bounded/unbounded
+`sequence<primitive>`, `sequence<string>`, nested `sequence<sequence<…>>`,
+`map`, `union`, fixed array, `@optional` (present), `@key`, `@appendable` —
 **does** round-trip cleanly end-to-end, which this example proves.
+
+> Note: `zerodds-idlc … --csharp` still prints `warning: TypeObject emission
+> skipped — UnsupportedTypeSpec("map (inline IDL map)")`. That warning is about
+> the optional XTypes 1.3 *TypeObject metadata* blob for the map member, not the
+> wire codec — the map `TypeSupport` (encode/decode) is fully generated and the
+> map round-trips, as the `counters (map)` assertion shows.

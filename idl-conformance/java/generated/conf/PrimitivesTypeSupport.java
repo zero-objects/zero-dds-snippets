@@ -56,26 +56,86 @@ public final class PrimitivesTypeSupport implements org.zerodds.cdr.TopicTypeSup
         Primitives v = new Primitives();
         int __dhSize = r.readDHeader();
         int __endPos = r.position() + __dhSize;
-        v.setB(r.readBoolean());
-        v.setO(r.readOctet());
-        v.setC(r.readChar());
-        v.setWc(r.readWChar());
-        v.setI16(r.readInt16());
-        v.setU16(r.readUInt16());
-        v.setI32(r.readInt32());
-        v.setU32(r.readUInt32());
-        v.setI64(r.readInt64());
-        v.setU64(r.readUInt64());
-        v.setF32(r.readFloat32());
-        v.setF64(r.readFloat64());
-        v.setS8(r.readOctet());
-        v.setUn8((short) r.readUInt8());
-        v.setS16(r.readInt16());
-        v.setUn16(r.readUInt16());
-        v.setS32(r.readInt32());
-        v.setUn32(r.readUInt32());
-        v.setS64(r.readInt64());
-        v.setUn64(r.readUInt64());
+        {
+            boolean __rv = r.readBoolean();
+            v.setB(__rv);
+        }
+        {
+            byte __rv = r.readOctet();
+            v.setO(__rv);
+        }
+        {
+            char __rv = r.readChar();
+            v.setC(__rv);
+        }
+        {
+            char __rv = r.readWChar();
+            v.setWc(__rv);
+        }
+        {
+            short __rv = r.readInt16();
+            v.setI16(__rv);
+        }
+        {
+            int __rv = r.readUInt16();
+            v.setU16(__rv);
+        }
+        {
+            int __rv = r.readInt32();
+            v.setI32(__rv);
+        }
+        {
+            long __rv = r.readUInt32();
+            v.setU32(__rv);
+        }
+        {
+            long __rv = r.readInt64();
+            v.setI64(__rv);
+        }
+        {
+            long __rv = r.readUInt64();
+            v.setU64(__rv);
+        }
+        {
+            float __rv = r.readFloat32();
+            v.setF32(__rv);
+        }
+        {
+            double __rv = r.readFloat64();
+            v.setF64(__rv);
+        }
+        {
+            byte __rv = r.readOctet();
+            v.setS8(__rv);
+        }
+        {
+            short __rv = (short) r.readUInt8();
+            v.setUn8(__rv);
+        }
+        {
+            short __rv = r.readInt16();
+            v.setS16(__rv);
+        }
+        {
+            int __rv = r.readUInt16();
+            v.setUn16(__rv);
+        }
+        {
+            int __rv = r.readInt32();
+            v.setS32(__rv);
+        }
+        {
+            long __rv = r.readUInt32();
+            v.setUn32(__rv);
+        }
+        {
+            long __rv = r.readInt64();
+            v.setS64(__rv);
+        }
+        {
+            long __rv = r.readUInt64();
+            v.setUn64(__rv);
+        }
         while (r.position() < __endPos) { r.skip(1); }
         return v;
     }
@@ -83,5 +143,27 @@ public final class PrimitivesTypeSupport implements org.zerodds.cdr.TopicTypeSup
     @Override
     public byte[] keyHash(Primitives sample) {
         return new byte[16];
+    }
+
+    private static void skipByLc(org.zerodds.cdr.Xcdr2Reader r, int lc) {
+        switch (lc) {
+            case 0: r.skip(1); break;
+            case 1: r.skip(2); break;
+            case 2: r.skip(4); break;
+            case 3: r.skip(8); break;
+            default: { int __n = r.readNextInt(); r.skip(__n); break; }
+        }
+    }
+
+    private static byte[] readDelimitedFrame(org.zerodds.cdr.Xcdr2Reader r) {
+        int __startPos = r.position();
+        int __sz = r.readDHeader();
+        int __hdr = r.position() - __startPos;
+        byte[] __body = r.readBytes(__sz);
+        byte[] __frame = new byte[__hdr + __sz];
+        __frame[0] = (byte) (__sz & 0xFF); __frame[1] = (byte) ((__sz >>> 8) & 0xFF);
+        __frame[2] = (byte) ((__sz >>> 16) & 0xFF); __frame[3] = (byte) ((__sz >>> 24) & 0xFF);
+        System.arraycopy(__body, 0, __frame, __hdr, __sz);
+        return __frame;
     }
 }

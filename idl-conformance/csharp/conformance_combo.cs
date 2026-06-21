@@ -16,6 +16,226 @@ namespace confcombo
         MODE_FAULT,
     }
 
+    // typedef double CurrentInAmps;
+    public sealed record class CurrentInAmps(double Value);
+
+    public partial record class Position : ITopicType<Position>
+    {
+        public double X { get; init; } = default!;
+        public double Y { get; init; } = default!;
+        public double Z { get; init; } = default!;
+    }
+
+    public sealed class PositionTypeSupport : IDdsTopicType<Position>
+    {
+        public static readonly PositionTypeSupport Instance = new();
+
+        public string TypeName => "confcombo::Position";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
+
+        public byte[] Encode(Position sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(Position sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, Position sample)
+        {
+            using (var __scope = w.BeginAppendable())
+            {
+                w.WriteFloat64(sample.X);
+                w.WriteFloat64(sample.Y);
+                w.WriteFloat64(sample.Z);
+            }
+        }
+
+        public Position Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public Position DecodeFrom(ref Xcdr2Reader r)
+        {
+            var __scope = r.BeginDHeader();
+            double __m0 = default!;
+            __m0 = r.ReadFloat64();
+            double __m1 = default!;
+            __m1 = r.ReadFloat64();
+            double __m2 = default!;
+            __m2 = r.ReadFloat64();
+            r.EndDHeader(__scope);
+            return new Position
+            {
+                X = __m0!,
+                Y = __m1!,
+                Z = __m2!,
+            };
+        }
+
+        public byte[] KeyHash(Position sample)
+        {
+            return new byte[16];
+        }
+    }
+
+    public partial record class Sample : ITopicType<Sample>
+    {
+        public int Seq { get; init; } = default!;
+        public double Value { get; init; } = default!;
+    }
+
+    public sealed class SampleTypeSupport : IDdsTopicType<Sample>
+    {
+        public static readonly SampleTypeSupport Instance = new();
+
+        public string TypeName => "confcombo::Sample";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
+
+        public byte[] Encode(Sample sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(Sample sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, Sample sample)
+        {
+            using (var __scope = w.BeginAppendable())
+            {
+                w.WriteInt32(sample.Seq);
+                w.WriteFloat64(sample.Value);
+            }
+        }
+
+        public Sample Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public Sample DecodeFrom(ref Xcdr2Reader r)
+        {
+            var __scope = r.BeginDHeader();
+            int __m0 = default!;
+            __m0 = r.ReadInt32();
+            double __m1 = default!;
+            __m1 = r.ReadFloat64();
+            r.EndDHeader(__scope);
+            return new Sample
+            {
+                Seq = __m0!,
+                Value = __m1!,
+            };
+        }
+
+        public byte[] KeyHash(Sample sample)
+        {
+            return new byte[16];
+        }
+    }
+
+    public partial record class Reading : ITopicType<Reading>
+    {
+        public Mode Discriminator { get; init; } = default!;
+        public object? Value { get; init; } = default;
+
+        // case MODE_IDLE -> idleTicks
+        // case MODE_ACTIVE -> activeRate
+        // case default -> faultCode
+    }
+
+    public sealed class ReadingTypeSupport : IDdsTopicType<Reading>
+    {
+        public static readonly ReadingTypeSupport Instance = new();
+
+        public string TypeName => "confcombo::Reading";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
+
+        public byte[] Encode(Reading sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(Reading sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, Reading sample)
+        {
+            using (var __scope = w.BeginAppendable())
+            {
+                w.WriteInt32((int)sample.Discriminator);
+                switch (sample.Discriminator)
+                {
+                    case Mode.MODE_IDLE:
+                        w.WriteInt32(((int)sample.Value!));
+                        break;
+                    case Mode.MODE_ACTIVE:
+                        w.WriteFloat64(((double)sample.Value!));
+                        break;
+                    default:
+                        if ((((string)sample.Value!)) != null && System.Text.Encoding.UTF8.GetByteCount(((string)sample.Value!)) > 16) throw new System.ArgumentException("bounded string length exceeds its IDL bound (16)");
+                        w.WriteString(((string)sample.Value!));
+                        break;
+                }
+            }
+        }
+
+        public Reading Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public Reading DecodeFrom(ref Xcdr2Reader r)
+        {
+            var __scope = r.BeginDHeader();
+            Mode __disc = (Mode)(r.ReadInt32());
+            object? __val = null;
+            switch (__disc)
+            {
+                case Mode.MODE_IDLE:
+                    {
+                        int __uv0;
+                        __uv0 = r.ReadInt32();
+                        __val = __uv0;
+                    }
+                    break;
+                case Mode.MODE_ACTIVE:
+                    {
+                        double __uv1;
+                        __uv1 = r.ReadFloat64();
+                        __val = __uv1;
+                    }
+                    break;
+                default:
+                    {
+                        string __uv2;
+                        __uv2 = r.ReadString();
+                        __val = __uv2;
+                    }
+                    break;
+            }
+            r.EndDHeader(__scope);
+            return new Reading { Discriminator = __disc, Value = __val };
+        }
+
+        public byte[] KeyHash(Reading sample)
+        {
+            return new byte[16];
+        }
+    }
+
+
     [Extensibility(ExtensibilityKind.Appendable)]
     public partial record class Telemetry : ITopicType<Telemetry>
     {
@@ -25,9 +245,16 @@ namespace confcombo
         public string Region { get; init; } = default!;
         public Mode Mode { get; init; } = default!;
         public double BatteryVolts { get; init; } = default!;
+        public CurrentInAmps BatteryCurrent { get; init; } = default!;
+        public Position Location { get; init; } = default!;
+        public ISequence<Sample> History { get; init; } = default!;
         public ISequence<int> Samples { get; init; } = default!;
         public IBoundedSequence<int> RecentCodes { get; init; } = default!;
         public ISequence<string> Tags { get; init; } = default!;
+        public ISequence<ISequence<int>> Matrix { get; init; } = default!;
+        public IDictionary<string, int> Counters { get; init; } = default!;
+        public Reading Reading { get; init; } = default!;
+        public int[] Window { get; init; } = default!;
         [Optional]
         public double? Calibration { get; init; } = default!;
     }
@@ -58,36 +285,87 @@ namespace confcombo
                 w.WriteString(sample.Region);
                 w.WriteInt32((int)sample.Mode);
                 w.WriteFloat64(sample.BatteryVolts);
+                w.WriteFloat64((sample.BatteryCurrent).Value);
+                PositionTypeSupport.Instance.EncodeInto(w, sample.Location);
                 {
-                    var __seq = (sample.Samples) as System.Collections.Generic.IEnumerable<int>;
-                    var __mat = __seq is null ? new System.Collections.Generic.List<int>() : new System.Collections.Generic.List<int>(__seq);
-                    w.WriteSequenceLength(__mat.Count);
-                    foreach (var __item in __mat)
+                    var __seq0 = (sample.History) as System.Collections.Generic.IEnumerable<Sample>;
+                    var __mat0 = __seq0 is null ? new System.Collections.Generic.List<Sample>() : new System.Collections.Generic.List<Sample>(__seq0);
+                    using (var __seqdh0 = w.BeginAppendable())
                     {
-                        w.WriteInt32(__item);
-                    }
-                }
-                {
-                    var __seq = (sample.RecentCodes) as System.Collections.Generic.IEnumerable<int>;
-                    var __mat = __seq is null ? new System.Collections.Generic.List<int>() : new System.Collections.Generic.List<int>(__seq);
-                    if (__mat.Count > 8) throw new System.ArgumentException("bounded sequence length exceeds its IDL bound (8)");
-                    w.WriteSequenceLength(__mat.Count);
-                    foreach (var __item in __mat)
-                    {
-                        w.WriteInt32(__item);
-                    }
-                }
-                {
-                    var __seq = (sample.Tags) as System.Collections.Generic.IEnumerable<string>;
-                    var __mat = __seq is null ? new System.Collections.Generic.List<string>() : new System.Collections.Generic.List<string>(__seq);
-                    using (var __seqdh = w.BeginAppendable())
-                    {
-                        w.WriteSequenceLength(__mat.Count);
-                        foreach (var __item in __mat)
+                        w.WriteSequenceLength(__mat0.Count);
+                        foreach (var __item0 in __mat0)
                         {
-                            w.WriteString(__item);
+                            SampleTypeSupport.Instance.EncodeInto(w, __item0);
                         }
                     }
+                }
+                {
+                    var __seq0 = (sample.Samples) as System.Collections.Generic.IEnumerable<int>;
+                    var __mat0 = __seq0 is null ? new System.Collections.Generic.List<int>() : new System.Collections.Generic.List<int>(__seq0);
+                    w.WriteSequenceLength(__mat0.Count);
+                    foreach (var __item0 in __mat0)
+                    {
+                        w.WriteInt32(__item0);
+                    }
+                }
+                {
+                    var __seq0 = (sample.RecentCodes) as System.Collections.Generic.IEnumerable<int>;
+                    var __mat0 = __seq0 is null ? new System.Collections.Generic.List<int>() : new System.Collections.Generic.List<int>(__seq0);
+                    if (__mat0.Count > 8) throw new System.ArgumentException("bounded sequence length exceeds its IDL bound (8)");
+                    w.WriteSequenceLength(__mat0.Count);
+                    foreach (var __item0 in __mat0)
+                    {
+                        w.WriteInt32(__item0);
+                    }
+                }
+                {
+                    var __seq0 = (sample.Tags) as System.Collections.Generic.IEnumerable<string>;
+                    var __mat0 = __seq0 is null ? new System.Collections.Generic.List<string>() : new System.Collections.Generic.List<string>(__seq0);
+                    using (var __seqdh0 = w.BeginAppendable())
+                    {
+                        w.WriteSequenceLength(__mat0.Count);
+                        foreach (var __item0 in __mat0)
+                        {
+                            w.WriteString(__item0);
+                        }
+                    }
+                }
+                {
+                    var __seq0 = (sample.Matrix) as System.Collections.Generic.IEnumerable<Omg.Types.ISequence<int>>;
+                    var __mat0 = __seq0 is null ? new System.Collections.Generic.List<Omg.Types.ISequence<int>>() : new System.Collections.Generic.List<Omg.Types.ISequence<int>>(__seq0);
+                    using (var __seqdh0 = w.BeginAppendable())
+                    {
+                        w.WriteSequenceLength(__mat0.Count);
+                        foreach (var __item0 in __mat0)
+                        {
+                            {
+                                var __seq1 = (__item0) as System.Collections.Generic.IEnumerable<int>;
+                                var __mat1 = __seq1 is null ? new System.Collections.Generic.List<int>() : new System.Collections.Generic.List<int>(__seq1);
+                                w.WriteSequenceLength(__mat1.Count);
+                                foreach (var __item1 in __mat1)
+                                {
+                                    w.WriteInt32(__item1);
+                                }
+                            }
+                        }
+                    }
+                }
+                {
+                    var __map0 = (sample.Counters) ?? new System.Collections.Generic.Dictionary<string, int>();
+                    using (var __mapdh0 = w.BeginAppendable())
+                    {
+                        w.WriteSequenceLength(__map0.Count);
+                        foreach (var __kv0 in __map0)
+                        {
+                            w.WriteString(__kv0.Key);
+                            w.WriteInt32(__kv0.Value);
+                        }
+                    }
+                }
+                ReadingTypeSupport.Instance.EncodeInto(w, sample.Reading);
+                for (int __a0 = 0; __a0 < 4; __a0++)
+                {
+                    w.WriteInt32(sample.Window[__a0]);
                 }
                 if (sample.Calibration is null) { w.WriteOctet(0); }
                 else
@@ -101,64 +379,130 @@ namespace confcombo
         public Telemetry Decode(ReadOnlySpan<byte> bytes)
         {
             var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
-            return DecodeFrom(r);
+            return DecodeFrom(ref r);
         }
 
-        public Telemetry DecodeFrom(Xcdr2Reader r)
+        public Telemetry DecodeFrom(ref Xcdr2Reader r)
         {
             var __scope = r.BeginDHeader();
-            int __m0 = default;
+            int __m0 = default!;
             __m0 = r.ReadInt32();
-            string __m1 = default;
+            string __m1 = default!;
             __m1 = r.ReadString();
-            Mode __m2 = default;
+            Mode __m2 = default!;
             __m2 = (Mode)r.ReadInt32();
-            double __m3 = default;
+            double __m3 = default!;
             __m3 = r.ReadFloat64();
-            Omg.Types.ISequence<int> __m4 = default;
+            CurrentInAmps __m4 = default!;
+            __m4 = new CurrentInAmps(r.ReadFloat64());
+            Position __m5 = default!;
+            __m5 = PositionTypeSupport.Instance.DecodeFrom(ref r);
+            Omg.Types.ISequence<Sample> __m6 = default!;
             {
-                int __cnt = r.ReadSequenceLength();
-                var __list = new Omg.Types.SequenceList<int>();
-                for (int __i = 0; __i < __cnt; __i++)
+                var __seqdh0 = r.BeginDHeader();
+                int __cnt0 = r.ReadSequenceLength();
+                var __list0 = new Omg.Types.SequenceList<Sample>();
+                for (int __i0 = 0; __i0 < __cnt0; __i0++)
                 {
-                    int __e;
-                    __e = r.ReadInt32();
-                    __list.Add(__e);
+                    Sample __e0;
+                    __e0 = SampleTypeSupport.Instance.DecodeFrom(ref r);
+                    __list0.Add(__e0);
                 }
-                __m4 = __list;
+                r.EndDHeader(__seqdh0);
+                __m6 = __list0;
             }
-            Omg.Types.ISequence<int> __m5 = default;
+            Omg.Types.ISequence<int> __m7 = default!;
             {
-                int __cnt = r.ReadSequenceLength();
-                var __list = new Omg.Types.SequenceList<int>();
-                for (int __i = 0; __i < __cnt; __i++)
+                int __cnt0 = r.ReadSequenceLength();
+                var __list0 = new Omg.Types.SequenceList<int>();
+                for (int __i0 = 0; __i0 < __cnt0; __i0++)
                 {
-                    int __e;
-                    __e = r.ReadInt32();
-                    __list.Add(__e);
+                    int __e0;
+                    __e0 = r.ReadInt32();
+                    __list0.Add(__e0);
                 }
-                __m5 = __list;
+                __m7 = __list0;
             }
-            Omg.Types.ISequence<string> __m6 = default;
+            Omg.Types.ISequence<int> __m8 = default!;
             {
-                var __seqdh = r.BeginDHeader();
-                int __cnt = r.ReadSequenceLength();
-                var __list = new Omg.Types.SequenceList<string>();
-                for (int __i = 0; __i < __cnt; __i++)
+                int __cnt0 = r.ReadSequenceLength();
+                var __list0 = new Omg.Types.SequenceList<int>();
+                for (int __i0 = 0; __i0 < __cnt0; __i0++)
                 {
-                    string __e;
-                    __e = r.ReadString();
-                    __list.Add(__e);
+                    int __e0;
+                    __e0 = r.ReadInt32();
+                    __list0.Add(__e0);
                 }
-                r.EndDHeader(__seqdh);
-                __m6 = __list;
+                __m8 = __list0;
             }
-            double? __m7 = default;
+            Omg.Types.ISequence<string> __m9 = default!;
+            {
+                var __seqdh0 = r.BeginDHeader();
+                int __cnt0 = r.ReadSequenceLength();
+                var __list0 = new Omg.Types.SequenceList<string>();
+                for (int __i0 = 0; __i0 < __cnt0; __i0++)
+                {
+                    string __e0;
+                    __e0 = r.ReadString();
+                    __list0.Add(__e0);
+                }
+                r.EndDHeader(__seqdh0);
+                __m9 = __list0;
+            }
+            Omg.Types.ISequence<Omg.Types.ISequence<int>> __m10 = default!;
+            {
+                var __seqdh0 = r.BeginDHeader();
+                int __cnt0 = r.ReadSequenceLength();
+                var __list0 = new Omg.Types.SequenceList<Omg.Types.ISequence<int>>();
+                for (int __i0 = 0; __i0 < __cnt0; __i0++)
+                {
+                    Omg.Types.ISequence<int> __e0;
+                    {
+                        int __cnt1 = r.ReadSequenceLength();
+                        var __list1 = new Omg.Types.SequenceList<int>();
+                        for (int __i1 = 0; __i1 < __cnt1; __i1++)
+                        {
+                            int __e1;
+                            __e1 = r.ReadInt32();
+                            __list1.Add(__e1);
+                        }
+                        __e0 = __list1;
+                    }
+                    __list0.Add(__e0);
+                }
+                r.EndDHeader(__seqdh0);
+                __m10 = __list0;
+            }
+            System.Collections.Generic.IDictionary<string, int> __m11 = default!;
+            {
+                var __mapdh0 = r.BeginDHeader();
+                int __mcnt0 = r.ReadSequenceLength();
+                var __dict0 = new System.Collections.Generic.Dictionary<string, int>();
+                for (int __mi0 = 0; __mi0 < __mcnt0; __mi0++)
+                {
+                    string __mk0;
+                    __mk0 = r.ReadString();
+                    int __mv0;
+                    __mv0 = r.ReadInt32();
+                    __dict0[__mk0] = __mv0;
+                }
+                r.EndDHeader(__mapdh0);
+                __m11 = __dict0;
+            }
+            Reading __m12 = default!;
+            __m12 = ReadingTypeSupport.Instance.DecodeFrom(ref r);
+            int[] __m13 = default!;
+            __m13 = new int[4];
+            for (int __da0 = 0; __da0 < 4; __da0++)
+            {
+                __m13[__da0] = r.ReadInt32();
+            }
+            double __m14 = default!;
             {
                 byte __present = r.ReadOctet();
                 if (__present != 0)
                 {
-                    __m7 = r.ReadFloat64();
+                    __m14 = r.ReadFloat64();
                 }
             }
             r.EndDHeader(__scope);
@@ -168,10 +512,17 @@ namespace confcombo
                 Region = __m1!,
                 Mode = __m2!,
                 BatteryVolts = __m3!,
-                Samples = __m4!,
-                RecentCodes = __m5!,
-                Tags = __m6!,
-                Calibration = __m7!,
+                BatteryCurrent = __m4!,
+                Location = __m5!,
+                History = __m6!,
+                Samples = __m7!,
+                RecentCodes = __m8!,
+                Tags = __m9!,
+                Matrix = __m10!,
+                Counters = __m11!,
+                Reading = __m12!,
+                Window = __m13!,
+                Calibration = __m14!,
             };
         }
 
@@ -189,30 +540,3 @@ namespace confcombo
     }
 
 } // namespace confcombo
-
-// XTypes 1.3 Minimal TypeObjects (XCDR2-LE serialised)
-public static class TypeObjects
-{
-    /// <summary>Minimal TypeObject for confcombo::Mode.</summary>
-    public static readonly byte[] confcombo_Mode = {
-        0x40, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xdb, 0x78, 0xd3, 0x17, 0x00, 0x00,
-        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x15, 0xd1, 0xdf, 0x00, 0x00,
-        0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb2, 0xc5, 0xb2, 0x9f,
-    };
-    /// <summary>Minimal TypeObject for confcombo::Telemetry.</summary>
-    public static readonly byte[] confcombo_Telemetry = {
-        0x50, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
-        0x01, 0x00, 0x00, 0x00, 0x20, 0x00, 0x04, 0x3a, 0xe0, 0xf2, 0xbc, 0x00,
-        0x02, 0x00, 0x00, 0x00, 0x20, 0x00, 0x70, 0x20, 0x96, 0x0d, 0xb2, 0xed,
-        0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf1, 0x31, 0xcc, 0xe6, 0x28, 0xbb,
-        0xdf, 0x5a, 0xc9, 0x28, 0x23, 0xc7, 0x8a, 0x34, 0x7c, 0x15, 0xd6, 0x17,
-        0x12, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x93,
-        0x2e, 0xd1, 0x17, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00,
-        0x00, 0x00, 0x00, 0x04, 0x6e, 0xf9, 0x16, 0x1b, 0x06, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x08, 0x04, 0x3d, 0xef, 0xf6, 0xb6,
-        0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x70,
-        0x00, 0xd5, 0x7a, 0xc4, 0x52, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,
-        0x08, 0x00, 0x0a, 0x0b, 0xf7, 0x19, 0xdf,
-    };
-}

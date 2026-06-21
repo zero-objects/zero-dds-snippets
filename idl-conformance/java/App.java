@@ -1,9 +1,9 @@
 // IDL-conformance runnable example — ZeroDDS Java (OMG DDS Java-PSM) binding.
 //
-// Publishes one fully-populated sample of each working conformance type over a
-// REAL DCPS DomainParticipant + Publisher/Subscriber loopback (not just an
-// in-memory encode/decode), then takes it back and asserts every field survived
-// the XCDR2 wire. The TypeSupport classes used here are emitted verbatim by
+// Publishes one fully-populated sample of each conformance type over a REAL
+// DCPS DomainParticipant + Publisher/Subscriber loopback (not just an in-memory
+// encode/decode), then takes it back and asserts every field survived the XCDR2
+// wire. The TypeSupport classes used here are emitted verbatim by
 // `zerodds-idlc ... --java` from the conformance fixtures (see README).
 //
 // Features exercised end-to-end:
@@ -13,10 +13,10 @@
 //   * 02_strings    — bounded + unbounded string and wstring.
 //   * 11_optional   — @optional members (present AND absent), @appendable
 //                     extensibility (DHEADER framing).
-//
-// Blocked combo features (enum, nested struct, sequence-of-struct, union, map,
-// array, typedef, @key) are documented in README.md "Known limitations" with the
-// precise codegen/runtime symptom — they are deliberately NOT faked here.
+//   * 20_mixed_combo — the COMBINED keyed Telemetry type: enum, typedef,
+//                     nested struct, sequence-of-struct, union, map<string,long>,
+//                     @optional, fixed array, bounded @key string — all in one
+//                     @appendable struct, over the real wire.
 
 import org.omg.dds.domain.DomainParticipant;
 import org.omg.dds.domain.DomainParticipantFactory;
@@ -34,7 +34,17 @@ import conf.PrimitivesTypeSupport;
 import conf.Strings;
 import conf.StringsTypeSupport;
 
+import combo.Mode;
+import combo.Reading;
+import combo.Telemetry;
+import combo.TelemetryTypeSupport;
+// NB: combo.Sample collides with org.omg.dds.sub.Sample (imported above);
+// it is referenced fully-qualified as combo.Sample throughout this file.
+
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public final class App {
@@ -57,6 +67,7 @@ public final class App {
         roundTripPrimitives(participant, publisher, subscriber);
         roundTripStrings(participant, publisher, subscriber);
         roundTripOptionals(participant, publisher, subscriber);
+        roundTripTelemetry(participant, publisher, subscriber);
 
         System.out.println();
         if (failures == 0) {
@@ -195,5 +206,94 @@ public final class App {
             check("absent @optional long maybe", r.getMaybe().isEmpty());
             check("absent @optional string note", r.getNote().isEmpty());
         }
+    }
+
+    // ---- 20_mixed_combo : the full combined keyed Telemetry type ------------
+    // enum + typedef + nested struct + sequence<struct> + union + map +
+    // @optional + fixed array + bounded @key string, all in one @appendable
+    // struct over the real DCPS wire.
+
+    private static void roundTripTelemetry(
+            DomainParticipant p, Publisher pub, Subscriber sub) {
+        System.out.println("[20_mixed_combo] full Telemetry (enum+typedef+nested-seq+union+map+optional+array+key)");
+        Topic<Telemetry> topic = p.createTopic("ConformanceTelemetry", Telemetry.class);
+        DataReader<Telemetry> dr = sub.createDataReader(topic, TelemetryTypeSupport.INSTANCE);
+        DataWriter<Telemetry> dw = pub.createDataWriter(topic, TelemetryTypeSupport.INSTANCE);
+
+        Telemetry x = new Telemetry();
+        x.setUnitId(7);                                          // @key long
+        x.setRegion("eu-central");                               // @key string<32>
+        x.setMode(Mode.MODE_ACTIVE);                             // enum member
+        x.setBatteryCurrent(new combo.CurrentInAmpsType(12.5));  // typedef double
+
+        // sequence<Sample> — nested struct in a sequence.
+        combo.Sample s0 = new combo.Sample();
+        s0.setSeq(0);
+        s0.setValue(1.5);
+        combo.Sample s1 = new combo.Sample();
+        s1.setSeq(1);
+        s1.setValue(-2.25);
+        x.setHistory(List.of(s0, s1));
+
+        // union Reading switch(Mode) — pick the MODE_ACTIVE arm (double).
+        x.setReading(new Reading.ActiveRate(98.6));
+
+        // map<string,long> — insertion-ordered.
+        Map<String, Integer> counters = new LinkedHashMap<>();
+        counters.put("packets", 1000);
+        counters.put("errors", 3);
+        x.setCounters(counters);
+
+        // @optional double — present.
+        x.setCalibration(Optional.of(0.0078125));
+
+        // long window[4] — fixed array.
+        x.setWindow(new int[] {10, 20, 30, 40});
+
+        dw.write(x);
+        List<Sample<Telemetry>> got = dr.take();
+        check("delivered exactly one sample", got.size() == 1);
+        if (got.isEmpty()) {
+            return;
+        }
+        Telemetry r = got.get(0).getData();
+
+        check("@key long unitId", r.getUnitId() == x.getUnitId());
+        check("@key string<32> region", x.getRegion().equals(r.getRegion()));
+        check("enum mode", r.getMode() == Mode.MODE_ACTIVE);
+        check("typedef double batteryCurrent",
+                r.getBatteryCurrent().value() == x.getBatteryCurrent().value());
+
+        // sequence<Sample> nested struct.
+        check("sequence<Sample> size", r.getHistory() != null && r.getHistory().size() == 2);
+        if (r.getHistory() != null && r.getHistory().size() == 2) {
+            combo.Sample r0 = r.getHistory().get(0);
+            combo.Sample r1 = r.getHistory().get(1);
+            check("history[0].seq", r0.getSeq() == 0);
+            check("history[0].value", r0.getValue() == 1.5);
+            check("history[1].seq", r1.getSeq() == 1);
+            check("history[1].value", r1.getValue() == -2.25);
+        }
+
+        // union Reading.
+        check("union reading is ActiveRate", r.getReading() instanceof Reading.ActiveRate);
+        if (r.getReading() instanceof Reading.ActiveRate ar) {
+            check("union activeRate value", ar.activeRate() == 98.6);
+        }
+
+        // map<string,long>.
+        check("map size", r.getCounters() != null && r.getCounters().size() == 2);
+        if (r.getCounters() != null) {
+            check("map[packets]=1000", Integer.valueOf(1000).equals(r.getCounters().get("packets")));
+            check("map[errors]=3", Integer.valueOf(3).equals(r.getCounters().get("errors")));
+        }
+
+        // @optional present.
+        check("@optional calibration present", r.getCalibration().isPresent());
+        check("@optional calibration value",
+                r.getCalibration().equals(Optional.of(0.0078125)));
+
+        // fixed array long window[4].
+        check("array window[4]", Arrays.equals(r.getWindow(), new int[] {10, 20, 30, 40}));
     }
 }

@@ -14,12 +14,17 @@ ZeroDDS IDL compiler from the conformance fixtures in
 
 | Fixture          | Type         | Features proven over the DCPS loopback                                              |
 |------------------|--------------|------------------------------------------------------------------------------------|
-| `01_primitives`  | `Primitives` | **all 20 IDL primitive types**: `boolean`, `octet`, `char`, `wchar`, `short`/`unsigned short`, `long`/`unsigned long`, `long long`/`unsigned long long`, `float`, `double`, `int8`/`uint8`, `int16`/`uint16`, `int32`/`uint32`, `int64`/`uint64` |
-| `02_strings`     | `Strings`    | bounded + unbounded `string`, bounded + unbounded `wstring` (non-ASCII: `é ☃ ❤`)   |
-| `11_optional`    | `Optionals`  | `@optional` members **present AND absent**; `@appendable` extensibility (DHEADER framing) |
+| `01_primitives`   | `Primitives` | **all 20 IDL primitive types**: `boolean`, `octet`, `char`, `wchar`, `short`/`unsigned short`, `long`/`unsigned long`, `long long`/`unsigned long long`, `float`, `double`, `int8`/`uint8`, `int16`/`uint16`, `int32`/`uint32`, `int64`/`uint64` |
+| `02_strings`      | `Strings`    | bounded + unbounded `string`, bounded + unbounded `wstring` (non-ASCII: `é ☃ ❤`)   |
+| `11_optional`     | `Optionals`  | `@optional` members **present AND absent**; `@appendable` extensibility (DHEADER framing) |
+| `20_mixed_combo`  | `Telemetry`  | the **combined keyed type** — `enum` member, `typedef double`, **nested struct in `sequence<Sample>`**, `union switch(enum)` member, **`map<string,long>`**, `@optional double`, **fixed array `long window[4]`**, two `@key` members (`long` + `string<32>`), all inside one `@appendable` struct |
 
 Each type is published via its generated `<Name>TypeSupport.INSTANCE` (a real
-XCDR2 codec, not reflection) and read back via `DataReader.take()`.
+XCDR2 codec, not reflection) and read back via `DataReader.take()`. The
+`20_mixed_combo` `Telemetry` row exercises **every previously-blocked aggregate
+member codec in a single sample** (enum, typedef, nested struct, sequence-of-
+struct, union, map, optional, fixed array), proving they all survive the wire
+together.
 
 ## Build & run
 
@@ -69,75 +74,63 @@ the consumer project. `runtime-support/` is an unmodified copy of
 ```sh
 IDLC=$REPO/target/debug/zerodds-idlc
 F=$REPO/tools/idlc/tests/conformance/fixtures
-$IDLC generate $F/01_primitives.idl --java -o generated </dev/null
-$IDLC generate $F/02_strings.idl    --java -o generated </dev/null
-$IDLC generate $F/11_optional.idl   --java -o generated </dev/null
-rm -f generated/TypeObjects.java   # see limitation (7) below
+$IDLC generate $F/01_primitives.idl  --java -o generated </dev/null
+$IDLC generate $F/02_strings.idl     --java -o generated </dev/null
+$IDLC generate $F/11_optional.idl    --java -o generated </dev/null
+$IDLC generate $F/20_mixed_combo.idl --java -o generated </dev/null
 ```
+
+`20_mixed_combo` prints `warning: TypeObject emission skipped —
+UnsupportedTypeSpec("map (inline IDL map)")`: only the optional TypeObject
+*metadata* is skipped for the map-containing `Telemetry`; the wire
+`TelemetryTypeSupport` (map encode/decode included) **is** emitted and
+round-trips. See "Known limitations" below.
 
 (`</dev/null` is required — the CLI reads stdin and otherwise hangs.)
 
+## Resolved (previously blocked, now round-tripping)
+
+The headline goal — the combined `20_mixed_combo.idl` `Telemetry` type — now
+generates, compiles, and round-trips end-to-end. The earlier "Bug J-cluster"
+codegen defects are fixed in the IDL compiler, and every aggregate member that
+used to be excluded is now asserted live in `App.roundTripTelemetry`:
+
+- **`sequence<struct>` / `sequence<string>`** — no longer a hard codegen abort;
+  `sequence<Sample>` of nested structs round-trips with proper length-delimited
+  framing (the old greedy `readBytes(remaining())` is gone — nested elements are
+  decoded from per-element delimited frames).
+- **Nested struct member** — `combo.Sample` inside the sequence decodes via its
+  own DHeader frame; no more `underflow: need 4, have 0`.
+- **`enum` member** — `Mode` encodes/decodes as its `int` ordinal in-line.
+- **`typedef` member** — `CurrentInAmpsType` (typedef `double`) round-trips.
+- **`union switch(enum)` member** — `Reading` emits a real `ReadingTypeSupport`
+  and round-trips (discriminator + selected arm).
+- **`map<string,long>` member** — `Telemetry`'s `counters` emits a working
+  encode/decode (count-prefixed key/value pairs) and survives the wire.
+- **fixed array member** — `long window[4]` round-trips element-for-element.
+- **`@key` members** — `long unitId` + `string<32> region` (the `keyHash` path
+  compiles and the keyed topic publishes).
+- **`TypeObjects.java`** — the `byte[]` literals now use proper `(byte)` casts;
+  the file compiles and is kept (no longer deleted in the regenerate step).
+
 ## Known limitations
 
-The headline goal was the combined `20_mixed_combo.idl` type (enum + nested
-struct + sequence-of-struct + bounded string + union + map + optional + array +
-typedef + `@key`). It does **not** round-trip end-to-end on the current Java
-stack. The blocking features are excluded here rather than faked. Each was
-verified with a real `zerodds-idlc … --java` run and, where it compiled, a real
-loopback attempt:
+1. **TypeObject *metadata* is skipped for map-containing types (cosmetic).**
+   `20_mixed_combo.idl` still prints
+   `warning: TypeObject emission skipped — UnsupportedTypeSpec("map (inline IDL map)")`.
+   The IDL compiler does not yet emit a `TypeObjects.java` registration entry for
+   the map-bearing `Telemetry` type. This is **TypeObject/TypeIdentifier
+   discovery metadata only** — the wire `TelemetryTypeSupport` (including the
+   `map<string,long>` codec) is fully emitted and round-trips here, so the
+   loopback is unaffected. It would matter only for remote XTypes type-discovery
+   of a map member against a peer that has no matching local type.
 
-1. **`sequence<struct>` / `sequence<string>` — hard codegen failure.**
-   `zerodds-idlc generate 07_sequences.idl --java` aborts with
-   `java codegen failed: unsupported IDL construct 'typesupport-encode
-   element-type'`. No sources are produced at all. (This is the tracked "Bug J".)
-
-2. **Nested struct member — decode underflow (no round-trip).**
-   For `05_nested_structs.idl` the codegen *compiles*, but the generated decode
-   does `MiddleTypeSupport.INSTANCE.decode(r.readBytes(r.remaining()))` for each
-   nested member: the first nested member greedily consumes **all** remaining
-   bytes (the encoder concatenates nested `encode()` outputs with no length
-   prefix), so a second nested member throws
-   `XcdrException: underflow: need 4, have 0`. Any struct embedding ≥1 other
-   aggregate is affected.
-
-3. **Enum-in-struct — does not compile.**
-   `03_enums.idl`'s `UsesEnumTypeSupport` calls `ColorTypeSupport.INSTANCE.encode(…)`
-   / `SparseTypeSupport.INSTANCE…`, but **no `ColorTypeSupport`/`SparseTypeSupport`
-   class is emitted** (only the bare `Color`/`Sparse` enums). javac fails with
-   `package ColorTypeSupport does not exist`.
-
-4. **`typedef` member — does not compile (and would hit limitation 2).**
-   `06_typedefs.idl`'s `UsesTypedefsTypeSupport` references
-   `CurrentInAmpsTypeTypeSupport`, `LongSeqTypeSupport`, `Matrix3TypeSupport`,
-   etc., none of which are emitted; it also uses the greedy `readBytes(remaining())`
-   pattern from limitation 2.
-
-5. **`union` — no TypeSupport emitted.**
-   `09_unions.idl` emits the sealed-interface union types (`IntUnion`,
-   `EnumUnion`) but **no `*TypeSupport`** class, so there is no wire codec to
-   publish them with.
-
-6. **`map<…>` — no TypeSupport emitted.**
-   `13_maps.idl` (and `20_mixed_combo.idl`) emit a warning
-   `TypeObject emission skipped — UnsupportedTypeSpec("map (inline IDL map)")`
-   and produce **no** TypeSupport for the map-containing struct.
-
-7. **Array-containing struct — no TypeSupport emitted.**
-   `08_arrays.idl` emits `Arrays.java` (the POJO) but no `ArraysTypeSupport`
-   (only the element `PointTypeSupport`).
-
-8. **`TypeObjects.java` — does not compile (excluded).**
-   Every `--java` run also drops a `TypeObjects.java` whose `byte[]` literals
-   contain values like `0x9d`, which javac rejects as
-   `incompatible types: possible lossy conversion from int to byte`. It is
-   metadata only (TypeObject/TypeIdentifier registration), unused by the
-   roundtrip, and is deleted in the regenerate step above.
-
-Net effect: the Java binding round-trips structs of **primitives, strings/wstrings
-(bounded + unbounded), and `@optional` of primitives/strings under `@appendable`**.
-Member types that resolve to a *named aggregate* (nested struct, enum, typedef,
-union, map, array-struct, sequence-of-struct) are blocked by real codegen/runtime
-bugs and are reported, not stubbed.
+Net effect: the Java binding now round-trips structs of **primitives,
+strings/wstrings (bounded + unbounded), `@optional`**, *and* the full combined
+`Telemetry` aggregate — **enum, typedef, nested struct, sequence-of-struct,
+union, map, fixed array, and `@key`** — all over the real `@appendable` DCPS
+wire. The only remaining gap is the optional TypeObject metadata emission for
+map members (above), which does not affect the in-runtime loopback.
 
 ## Reference
 
