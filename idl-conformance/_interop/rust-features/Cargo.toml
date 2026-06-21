@@ -1,0 +1,22 @@
+[package]
+name = "idl-interop-rust-features"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../../../crates.
+[workspace]
+
+[[bin]]
+name = "features_interop"
+path = "src/main.rs"
+
+[dependencies]
+# The generated encode/decode bodies call ::zerodds_cdr::{BufferWriter, ...}.
+zerodds-cdr = { path = "../../../../crates/cdr" }
+# Generated DdsType impls reference zerodds_dcps::{DdsType, Extensibility, ...}.
+zerodds-dcps = { path = "../../../../crates/dcps" }
+# ... and zerodds_types::TypeIdentifier.
+zerodds-types = { path = "../../../../crates/types" }
+# ... and zerodds_sql_filter::Value (field_value()).
+zerodds-sql-filter = { path = "../../../../crates/sql-filter" }

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RollForward>LatestMajor</RollForward>
+    <AssemblyName>interop-csharp-features</AssemblyName>
+    <NoWarn>CS0168;CS8019;CS8632;CS0219</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../../crates/cs/csharp/ZeroDDS.Cdr/ZeroDDS.Cdr.csproj" />
+  </ItemGroup>
+</Project>
