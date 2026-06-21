@@ -1,0 +1,38 @@
+// Derived from tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl.
+// IDENTICAL to the upstream combo type, EXCEPT the trailing fixed-array
+// member `long window[4]` is removed, because the Rust backend currently
+// mis-generates the *decode* path for array members (it decodes the element
+// type instead of the array type, e.g. `<i32>` instead of `<[i32;4]>`),
+// which does not even compile. See the example README "Known limitations"
+// and the reported blocker. Every other feature is kept verbatim so this
+// example still exercises: enum + typedef + nested struct +
+// sequence-of-struct + bounded string + union + map + optional + @key +
+// @appendable.
+module combo {
+  enum Mode { MODE_IDLE, MODE_ACTIVE, MODE_FAULT };
+
+  typedef double CurrentInAmpsType;
+
+  struct Sample {
+    long  seq;
+    double value;
+  };
+
+  union Reading switch (Mode) {
+    case MODE_IDLE:   long      idleTicks;
+    case MODE_ACTIVE: double    activeRate;
+    default:          string<16> faultCode;
+  };
+
+  @appendable
+  struct Telemetry {
+    @key long              unitId;
+    @key string<32>        region;
+    Mode                   mode;
+    CurrentInAmpsType      batteryCurrent;
+    sequence<Sample>       history;
+    Reading                reading;
+    map<string, long>      counters;
+    @optional double       calibration;
+  };
+};

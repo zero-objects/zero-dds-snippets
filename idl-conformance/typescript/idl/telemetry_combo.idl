@@ -1,0 +1,38 @@
+// Combined conformance type for the ZeroDDS TypeScript (idl-ts) binding.
+//
+// Derived from the upstream conformance combo
+// (tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl), pruned to the
+// largest subset whose generated XCDR2 TypeSupport actually round-trips over a
+// real DCPS wire. Three members are removed because of real idl-ts codegen
+// bugs (documented in this example's README "Known limitations"):
+//
+//   * `Reading reading;` (union)  — idl-ts gates a struct's whole TypeSupport
+//     off when any member is a union, so Telemetry would get NO codec.
+//   * `long window[4];` (array)   — idl-ts emits a scalar read/write for array
+//     members (data loss); the 4 elements are not looped.
+//   * `Mode mode;` (enum member)  — the generated codec does
+//     `writeInt32(s.mode as unknown as number)` on the STRING enum value (enums
+//     map to string unions), which throws / cannot round-trip; the emitted
+//     `ModeOrdinal` map is never used by the codec.
+//
+// What remains still exercises, over ONE keyed topic and one DCPS roundtrip:
+//   typedef + nested struct + sequence-of-struct + bounded string<32> +
+//   map<string,long> + @optional + @key.
+module combo {
+  typedef double CurrentInAmpsType;
+
+  struct Sample {
+    long   seq;
+    double value;
+  };
+
+  @appendable
+  struct Telemetry {
+    @key long              unitId;
+    @key string<32>        region;
+    CurrentInAmpsType      batteryCurrent;
+    sequence<Sample>       history;
+    map<string, long>      counters;
+    @optional double       calibration;
+  };
+};

@@ -1,0 +1,6 @@
+# compiled example binaries (rebuild via each example's build script)
+c/roundtrip
+cpp/combo_roundtrip
+**/*.o
+**/bin/
+**/obj/

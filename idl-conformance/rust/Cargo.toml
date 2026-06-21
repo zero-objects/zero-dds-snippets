@@ -1,0 +1,23 @@
+[package]
+name = "idl-conformance-rust"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../../crates.
+[workspace]
+
+[[bin]]
+name = "combo_roundtrip"
+path = "src/main.rs"
+
+[dependencies]
+# DCPS entities (DomainParticipantFactory / Topic / DataWriter / DataReader)
+# plus the DdsType trait the generated code implements.
+zerodds-dcps = { path = "../../../crates/dcps" }
+# The generated encode/decode bodies call ::zerodds_cdr::{BufferWriter, ...}.
+zerodds-cdr = { path = "../../../crates/cdr" }
+# Generated DdsType impls reference zerodds_types::TypeIdentifier ...
+zerodds-types = { path = "../../../crates/types" }
+# ... and zerodds_sql_filter::Value (field_value()).
+zerodds-sql-filter = { path = "../../../crates/sql-filter" }

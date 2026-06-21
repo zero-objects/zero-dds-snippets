@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RollForward>LatestMajor</RollForward>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>idl-conformance-csharp</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../crates/cs/csharp/ZeroDDS/ZeroDDS.csproj" />
+  </ItemGroup>
+
+  <!-- Generated type(s) + shim + program compile; the .idl source must not. -->
+  <ItemGroup>
+    <None Include="conformance_combo.idl" />
+  </ItemGroup>
+
+  <!-- macOS SIP strips DYLD_LIBRARY_PATH from the dotnet host, so the native
+       libzerodds.dylib (already built by the workspace) is copied next to the
+       managed assembly where the P/Invoke loader will find it. -->
+  <ItemGroup>
+    <None Include="../../../target/debug/libzerodds.dylib"
+          Condition="Exists('../../../target/debug/libzerodds.dylib')">
+      <Link>libzerodds.dylib</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="../../../target/debug/libzerodds.so"
+          Condition="Exists('../../../target/debug/libzerodds.so')">
+      <Link>libzerodds.so</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="../../../target/debug/zerodds.dll"
+          Condition="Exists('../../../target/debug/zerodds.dll')">
+      <Link>zerodds.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

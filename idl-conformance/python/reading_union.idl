@@ -1,0 +1,8 @@
+// Standalone union topic (union-as-struct-member is a runtime blocker;
+// a top-level union topic round-trips via the runtime idl_union API).
+enum Mode { MODE_IDLE, MODE_ACTIVE, MODE_FAULT };
+union Reading switch (Mode) {
+  case MODE_IDLE:   long      idleTicks;
+  case MODE_ACTIVE: double    activeRate;
+  default:          string    faultCode;
+};

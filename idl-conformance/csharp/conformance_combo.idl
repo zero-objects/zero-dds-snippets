@@ -1,0 +1,42 @@
+// Combined-feature conformance type for the ZeroDDS C# (XCDR2) binding.
+//
+// This is the LARGEST feature combination that the C# stack actually
+// ROUND-TRIPS end-to-end over a real DCPS loopback. Several IDL features had to
+// be excluded because the C# code generator / runtime cannot round-trip them
+// today (each is a real, reproduced bug — see README "Known limitations" and
+// the blocker list for exact symptoms):
+//
+//   * map<>                          — backend emits no wire codec (struct gets no TypeSupport)
+//   * union                          — backend emits no TypeSupport at all
+//   * fixed array (long v[N])        — backend emits scalar WriteInt32(array) (does not compile)
+//   * typedef-to-primitive member    — backend emits WriteFloat64(record) (does not compile)
+//   * nested sequence<sequence<T>>   — backend reuses __seq/__mat/__cnt temp names (CS0136)
+//   * nested struct member           — reader is a `ref struct` passed BY VALUE to the
+//                                      nested DecodeFrom, so the cursor never advances
+//                                      (decode desyncs: "sequence length overflow")
+//   * sequence<struct>               — same by-value reader bug (per-element DecodeFrom)
+//
+// What survives and is asserted equal after the DCPS round-trip:
+//   * enum member
+//   * bounded string<32>
+//   * bounded   sequence<long, N>
+//   * unbounded sequence<long>
+//   * sequence<string>
+//   * @optional double  (exercised both present and absent)
+//   * two @key members (long + bounded string)
+module confcombo {
+
+  enum Mode { MODE_IDLE, MODE_ACTIVE, MODE_FAULT };
+
+  @appendable
+  struct Telemetry {
+    @key long              unitId;
+    @key string<32>        region;
+    Mode                   mode;
+    double                 batteryVolts;
+    sequence<long>         samples;
+    sequence<long, 8>      recentCodes;
+    sequence<string>       tags;
+    @optional double       calibration;
+  };
+};
