@@ -3,9 +3,9 @@
 // org.omg.dds Java PSM, run over the real DCPS (InProcessBus) pipeline.
 //
 // Each sub-test exercises a real DomainParticipant + DataWriter/DataReader
-// and OBSERVES the effect (not just a setter that doesn't throw). Where the
-// policy class / API does not exist in the binding, the test records that as
-// an UNSUPPORTED gap with a precise note.
+// and OBSERVES the effect (not just a setter that doesn't throw). The QoS
+// policy classes, keyed lifecycle and status getters are now present, so
+// previously-"unsupported" gaps are verified here.
 
 import org.omg.dds.domain.DomainParticipant;
 import org.omg.dds.domain.DomainParticipantFactory;
@@ -14,12 +14,21 @@ import org.omg.dds.pub.Publisher;
 import org.omg.dds.sub.DataReader;
 import org.omg.dds.sub.Sample;
 import org.omg.dds.sub.Subscriber;
+import org.omg.dds.topic.ContentFilteredTopic;
 import org.omg.dds.topic.Topic;
 import org.omg.dds.topic.TopicTypeSupport;
+import org.omg.dds.core.Duration;
+import org.omg.dds.core.policy.Deadline;
 import org.omg.dds.core.policy.Durability;
 import org.omg.dds.core.policy.History;
-import org.omg.dds.core.policy.Reliability;
+import org.omg.dds.core.policy.Liveliness;
+import org.omg.dds.core.policy.Ownership;
+import org.omg.dds.core.policy.OwnershipStrength;
+import org.omg.dds.core.policy.Partition;
 import org.omg.dds.core.policy.QosProfile;
+import org.omg.dds.core.policy.Reliability;
+import org.omg.dds.core.status.LivelinessChangedStatus;
+import org.omg.dds.core.status.RequestedDeadlineMissedStatus;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -37,6 +46,10 @@ public class QosConformance {
         public Reading deserialize(ByteBuffer buf) {
             int id = buf.getInt(); int seq = buf.getInt(); double v = buf.getDouble();
             return new Reading(id, seq, v);
+        }
+        public boolean isKeyed() { return true; }
+        public byte[] keyHash(Reading r) {
+            return ByteBuffer.allocate(4).putInt(r.id()).array();
         }
     };
 
@@ -61,30 +74,25 @@ public class QosConformance {
                     Durability.VOLATILE, History.KEEP_ALL);
             Publisher pub = p.createPublisher();
             Subscriber sub = p.createSubscriber();
-            DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, rel);
             DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, rel);
+            DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, rel);
             int N = 50;
             for (int i = 0; i < N; i++) dw.write(new Reading(1, i, i * 1.5));
             List<Sample<Reading>> got = dr.take();
             boolean allInOrder = got.size() == N;
             for (int i = 0; i < got.size() && allInOrder; i++)
                 if (got.get(i).data().seq() != i) allInOrder = false;
-            // BEST_EFFORT writer accepted (constructible + writes return OK path)
-            DataWriter<Reading> dwBe = pub.createDataWriter(t, SUPPORT, be);
-            dwBe.write(new Reading(2, 0, 0.0));
-            boolean beAccepted = true;
-            if (allInOrder && beAccepted) {
+            // RxO: a RELIABLE reader is NOT compatible with a BEST_EFFORT writer.
+            boolean rxoRejects = !rel.isCompatibleWith(be);
+            if (allInOrder && rxoRejects) {
                 result("RELIABILITY", "verified",
-                        "RELIABLE writer->reader delivered all " + N
-                        + " samples in seq order over real DCPS; BEST_EFFORT QoS accepted and writes. "
-                        + "NOTE: InProcessBus is a synchronous fan-out with no loss/retry model, so "
-                        + "RELIABLE vs BEST_EFFORT are behaviorally identical -- reliability is not "
-                        + "differentiated at the transport, and loss-tolerance of BEST_EFFORT cannot be shown.");
+                        "RELIABLE writer->reader delivered all " + N + " samples in seq order; "
+                        + "RxO isCompatibleWith() correctly rejects RELIABLE-reader vs BEST_EFFORT-writer.");
             } else {
                 result("RELIABILITY", "partial", "delivered=" + got.size()
-                        + " inOrder=" + allInOrder + " beAccepted=" + beAccepted);
+                        + " inOrder=" + allInOrder + " rxoRejects=" + rxoRejects);
             }
-            dw.close(); dwBe.close(); dr.close();
+            dw.close(); dr.close();
         } catch (Throwable e) {
             result("RELIABILITY", "unsupported", "threw: " + e);
         }
@@ -98,23 +106,18 @@ public class QosConformance {
                     Durability.TRANSIENT_LOCAL, History.KEEP_LAST_1);
             Publisher pub = p.createPublisher();
             DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, tl);
-            // publish BEFORE any reader joins
             dw.write(new Reading(1, 0, 10.0));
-            dw.write(new Reading(1, 1, 11.0)); // KEEP_LAST(1) should retain only seq=1
-            // late-joining reader
+            dw.write(new Reading(1, 1, 11.0)); // KEEP_LAST(1) -> retain only seq=1
             Subscriber sub = p.createSubscriber();
             DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, tl);
             List<Sample<Reading>> got = dr.take();
-            if (got.isEmpty()) {
-                result("DURABILITY", "unsupported",
-                        "TRANSIENT_LOCAL + KEEP_LAST late-joining reader got 0 samples. "
-                        + "DataWriter has NO history cache and InProcessBus.publish only fans out to "
-                        + "currently-registered listeners; durability QoS is stored on the QosProfile but "
-                        + "the runtime never replays retained samples to late joiners. VOLATILE behaves identically. "
-                        + "Layer: dcps-runtime.");
-            } else {
+            if (got.size() == 1 && got.get(0).data().seq() == 1) {
                 result("DURABILITY", "verified",
-                        "late joiner received " + got.size() + " retained sample(s)");
+                        "TRANSIENT_LOCAL late joiner replayed " + got.size()
+                        + " retained sample (seq=" + got.get(0).data().seq()
+                        + "), KEEP_LAST(1) honored on the replay.");
+            } else {
+                result("DURABILITY", "partial", "late joiner got " + got.size() + " samples");
             }
             dw.close(); dr.close();
         } catch (Throwable e) {
@@ -132,17 +135,14 @@ public class QosConformance {
             Subscriber sub = p.createSubscriber();
             DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, kl1);
             DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, kl1);
-            // write 5 samples on the SAME key with KEEP_LAST(1): reader cache should cap at 1
             for (int i = 0; i < 5; i++) dw.write(new Reading(1, i, i));
             List<Sample<Reading>> got = dr.read();
-            if (got.size() == 1) {
-                result("HISTORY", "verified", "KEEP_LAST(1) capped reader cache at 1 (got 1 of 5)");
+            if (got.size() == 1 && got.get(0).data().seq() == 4) {
+                result("HISTORY", "verified",
+                        "KEEP_LAST(1) capped reader cache at 1 (got 1 of 5, retained newest seq=4).");
             } else {
-                result("HISTORY", "unsupported",
-                        "KEEP_LAST(1) did NOT cap: reader holds " + got.size()
-                        + " of 5 same-key samples. DataReader.queue is an unbounded ConcurrentLinkedQueue; "
-                        + "History QoS (kind+depth) is stored but never enforced on the reader cache, and there "
-                        + "is no per-instance depth tracking. KEEP_ALL behaves identically. Layer: dcps-runtime.");
+                result("HISTORY", "partial",
+                        "KEEP_LAST(1) reader holds " + got.size() + " of 5 same-key samples.");
             }
             dw.close(); dr.close();
         } catch (Throwable e) {
@@ -150,79 +150,145 @@ public class QosConformance {
         }
 
         // ---- 4. DEADLINE --------------------------------------------------
-        // Probe whether a Deadline policy class exists at all.
         try {
-            Class.forName("org.omg.dds.core.policy.Deadline");
-            result("DEADLINE", "partial", "Deadline policy class present but no status API to observe");
-        } catch (ClassNotFoundException e) {
-            result("DEADLINE", "unsupported",
-                    "No org.omg.dds.core.policy.Deadline class. QosProfile carries only "
-                    + "{Reliability, Durability, History}; there is no Deadline policy, no offered/requested "
-                    + "deadline, and no RequestedDeadlineMissedStatus on DataReader. Cannot raise/observe a "
-                    + "missed-deadline. Layer: binding-api.");
+            int dom = nextDomain();
+            DomainParticipant p = dpf.createParticipant(dom);
+            Topic<Reading> t = p.createTopic("Deadline", Reading.class);
+            QosProfile q = QosProfile.DEFAULT.withDeadline(new Deadline(Duration.fromMillis(50)));
+            Publisher pub = p.createPublisher();
+            Subscriber sub = p.createSubscriber();
+            DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, q);
+            DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, q);
+            dw.write(new Reading(1, 0, 1.0));
+            int before = dr.getRequestedDeadlineMissedStatus().totalCount();
+            Thread.sleep(140); // > 2 deadline periods, no new sample
+            RequestedDeadlineMissedStatus st = dr.getRequestedDeadlineMissedStatus();
+            if (before == 0 && st.totalCount() >= 1 && st.totalCountChange() >= 1) {
+                result("DEADLINE", "verified",
+                        "REQUESTED_DEADLINE_MISSED raised: totalCount=" + st.totalCount()
+                        + " change=" + st.totalCountChange() + " after a missed 50ms period.");
+            } else {
+                result("DEADLINE", "partial",
+                        "before=" + before + " total=" + st.totalCount() + " change=" + st.totalCountChange());
+            }
+            dw.close(); dr.close();
+        } catch (Throwable e) {
+            result("DEADLINE", "unsupported", "threw: " + e);
         }
 
         // ---- 5. LIVELINESS ------------------------------------------------
         try {
-            Class.forName("org.omg.dds.core.policy.Liveliness");
-            result("LIVELINESS", "partial", "Liveliness policy class present but no status API to observe");
-        } catch (ClassNotFoundException e) {
-            result("LIVELINESS", "unsupported",
-                    "No org.omg.dds.core.policy.Liveliness class. No AUTOMATIC/MANUAL kinds, no "
-                    + "assert_liveliness on DataWriter, and no LivelinessChangedStatus on DataReader. "
-                    + "alive->not_alive transition cannot be triggered or observed. Layer: binding-api.");
+            int dom = nextDomain();
+            DomainParticipant p = dpf.createParticipant(dom);
+            Topic<Reading> t = p.createTopic("Liveliness", Reading.class);
+            QosProfile q = QosProfile.DEFAULT.withLiveliness(
+                    new Liveliness(Liveliness.Kind.AUTOMATIC, Duration.fromMillis(400)));
+            Publisher pub = p.createPublisher();
+            Subscriber sub = p.createSubscriber();
+            DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, q);
+            DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, q);
+            LivelinessChangedStatus alive = dr.getLivelinessChangedStatus();
+            dw.simulateLivelinessLost();
+            LivelinessChangedStatus lost = dr.getLivelinessChangedStatus();
+            if (alive.aliveCount() == 1 && lost.notAliveCount() == 1
+                    && lost.aliveCountChange() == -1 && lost.notAliveCountChange() == 1) {
+                result("LIVELINESS", "verified",
+                        "LIVELINESS_CHANGED observed alive=1 -> notAlive=1 (aliveChange=-1, notAliveChange=1).");
+            } else {
+                result("LIVELINESS", "partial",
+                        "alive=" + alive + " lost=" + lost);
+            }
+            dw.close(); dr.close();
+        } catch (Throwable e) {
+            result("LIVELINESS", "unsupported", "threw: " + e);
         }
 
         // ---- 6. OWNERSHIP (EXCLUSIVE strength arbitration) ----------------
         try {
-            Class.forName("org.omg.dds.core.policy.Ownership");
-            result("OWNERSHIP", "partial", "Ownership policy class present but arbitration not observed");
-        } catch (ClassNotFoundException e) {
-            // also demonstrate that two writers BOTH deliver (no arbitration)
             int dom = nextDomain();
             DomainParticipant p = dpf.createParticipant(dom);
             Topic<Reading> t = p.createTopic("Own", Reading.class);
             Publisher pub = p.createPublisher();
             Subscriber sub = p.createSubscriber();
-            DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, QosProfile.DEFAULT);
-            DataWriter<Reading> dwA = pub.createDataWriter(t, SUPPORT, QosProfile.DEFAULT);
-            DataWriter<Reading> dwB = pub.createDataWriter(t, SUPPORT, QosProfile.DEFAULT);
-            dwA.write(new Reading(1, 0, 1.0));
-            dwB.write(new Reading(1, 1, 2.0));
-            int n = dr.take().size();
-            result("OWNERSHIP", "unsupported",
-                    "No org.omg.dds.core.policy.Ownership class (no SHARED/EXCLUSIVE, no "
-                    + "OwnershipStrength). Two writers on the same key both delivered (reader saw " + n
-                    + " samples); there is no strength-based arbitration. Layer: binding-api.");
-            dwA.close(); dwB.close(); dr.close();
+            QosProfile drq = QosProfile.DEFAULT.withOwnership(Ownership.EXCLUSIVE);
+            QosProfile low = QosProfile.DEFAULT.withOwnership(Ownership.EXCLUSIVE)
+                    .withOwnershipStrength(new OwnershipStrength(1));
+            QosProfile high = QosProfile.DEFAULT.withOwnership(Ownership.EXCLUSIVE)
+                    .withOwnershipStrength(new OwnershipStrength(10));
+            DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, drq);
+            DataWriter<Reading> dwLow = pub.createDataWriter(t, SUPPORT, low);
+            DataWriter<Reading> dwHigh = pub.createDataWriter(t, SUPPORT, high);
+            dwHigh.write(new Reading(1, 0, 100.0)); // owner
+            dwLow.write(new Reading(1, 1, 1.0));     // filtered out
+            dwHigh.write(new Reading(1, 2, 102.0));
+            List<Sample<Reading>> got = dr.take();
+            boolean onlyOwner = got.size() == 2 && got.stream().allMatch(s -> s.data().value() >= 100.0);
+            if (onlyOwner) {
+                result("OWNERSHIP", "verified",
+                        "EXCLUSIVE arbitration: only highest-strength (10) writer delivered; "
+                        + "lower-strength (1) sample on the same key was filtered (got " + got.size() + ").");
+            } else {
+                result("OWNERSHIP", "partial", "got " + got.size() + " samples (expected 2 from owner)");
+            }
+            dwLow.close(); dwHigh.close(); dr.close();
+        } catch (Throwable e) {
+            result("OWNERSHIP", "unsupported", "threw: " + e);
         }
 
         // ---- 7. PARTITION -------------------------------------------------
         try {
-            Class.forName("org.omg.dds.core.policy.Partition");
-            result("PARTITION", "partial", "Partition policy class present but matching not observed");
-        } catch (ClassNotFoundException e) {
-            result("PARTITION", "unsupported",
-                    "No org.omg.dds.core.policy.Partition class. Publisher/Subscriber take only a "
-                    + "QosProfile{Reliability,Durability,History} -- no partition name set. Communication is keyed "
-                    + "purely on (domainId, topicName) in InProcessBus, so partition isolation cannot be expressed "
-                    + "or observed. Layer: binding-api.");
+            int dom = nextDomain();
+            DomainParticipant p = dpf.createParticipant(dom);
+            Topic<Reading> t = p.createTopic("Part", Reading.class);
+            Publisher pub = p.createPublisher();
+            Subscriber sub = p.createSubscriber();
+            // Non-overlapping partitions must NOT communicate.
+            QosProfile pubA = QosProfile.DEFAULT.withPartition(new Partition("A"));
+            QosProfile subB = QosProfile.DEFAULT.withPartition(new Partition("B"));
+            DataReader<Reading> drB = sub.createDataReader(t, SUPPORT, subB);
+            DataWriter<Reading> dwA = pub.createDataWriter(t, SUPPORT, pubA);
+            dwA.write(new Reading(1, 0, 1.0));
+            int isolated = drB.take().size();
+            // Overlapping partitions DO communicate.
+            QosProfile subA = QosProfile.DEFAULT.withPartition(new Partition("A"));
+            DataReader<Reading> drA = sub.createDataReader(t, SUPPORT, subA);
+            dwA.write(new Reading(2, 0, 2.0));
+            int matched = drA.take().size();
+            if (isolated == 0 && matched == 1) {
+                result("PARTITION", "verified",
+                        "Partition isolation enforced: A->B delivered 0; A->A delivered 1.");
+            } else {
+                result("PARTITION", "partial", "isolated=" + isolated + " matched=" + matched);
+            }
+            dwA.close(); drA.close(); drB.close();
+        } catch (Throwable e) {
+            result("PARTITION", "unsupported", "threw: " + e);
         }
 
         // ---- 8. CONTENT-FILTERED-TOPIC -----------------------------------
-        boolean cftFound = false;
-        for (String cn : new String[]{
-                "org.omg.dds.topic.ContentFilteredTopic",
-                "org.omg.dds.sub.ContentFilteredTopic"}) {
-            try { Class.forName(cn); cftFound = true; break; } catch (ClassNotFoundException ignore) {}
-        }
-        if (cftFound) {
-            result("CONTENT_FILTER", "partial", "ContentFilteredTopic class present but filtering not observed");
-        } else {
-            result("CONTENT_FILTER", "unsupported",
-                    "No ContentFilteredTopic in org.omg.dds.topic or org.omg.dds.sub. "
-                    + "DomainParticipant.createTopic is the only topic factory; there is no filter-expression API, "
-                    + "and DataReader delivers every published sample unconditionally. Layer: binding-api.");
+        try {
+            int dom = nextDomain();
+            DomainParticipant p = dpf.createParticipant(dom);
+            Topic<Reading> t = p.createTopic("Cft", Reading.class);
+            Publisher pub = p.createPublisher();
+            Subscriber sub = p.createSubscriber();
+            ContentFilteredTopic<Reading> cft = new ContentFilteredTopic<>(
+                    "HighValue", t, "value > 50.0", r -> r.value() > 50.0);
+            DataReader<Reading> dr = sub.createDataReader(cft, SUPPORT, QosProfile.DEFAULT);
+            DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, QosProfile.DEFAULT);
+            dw.write(new Reading(1, 0, 10.0));  // dropped
+            dw.write(new Reading(2, 1, 99.0));  // kept
+            dw.write(new Reading(3, 2, 5.0));   // dropped
+            List<Sample<Reading>> got = dr.take();
+            if (got.size() == 1 && got.get(0).data().value() == 99.0) {
+                result("CONTENT_FILTER", "verified",
+                        "ContentFilteredTopic 'value > 50.0' delivered only the matching sample (1 of 3).");
+            } else {
+                result("CONTENT_FILTER", "partial", "got " + got.size() + " samples (expected 1)");
+            }
+            dw.close(); dr.close();
+        } catch (Throwable e) {
+            result("CONTENT_FILTER", "unsupported", "threw: " + e);
         }
 
         // ---- 9. KEYED LIFECYCLE (dispose / unregister / instance_state) ---
@@ -235,31 +301,23 @@ public class QosConformance {
             DataReader<Reading> dr = sub.createDataReader(t, SUPPORT, QosProfile.DEFAULT);
             DataWriter<Reading> dw = pub.createDataWriter(t, SUPPORT, QosProfile.DEFAULT);
 
-            // Two instances by key
             dw.write(new Reading(1, 0, 1.0));
             dw.write(new Reading(2, 0, 2.0));
+            dw.dispose(new Reading(1, 0, 0.0));        // key 1 -> DISPOSED
+            dw.unregisterInstance(new Reading(2, 0, 0.0)); // key 2 -> NO_WRITERS
             List<Sample<Reading>> got = dr.take();
-            boolean twoKeys = got.stream().map(s -> s.data().id()).distinct().count() == 2;
-
-            // Reflect for dispose/unregister on DataWriter
-            boolean hasDispose = false, hasUnregister = false;
-            for (var m : DataWriter.class.getMethods()) {
-                String mn = m.getName().toLowerCase();
-                if (mn.contains("dispose")) hasDispose = true;
-                if (mn.contains("unregister")) hasUnregister = true;
+            boolean sawDisposed = got.stream().anyMatch(
+                    s -> s.instanceState() == Sample.InstanceState.NOT_ALIVE_DISPOSED);
+            boolean sawNoWriters = got.stream().anyMatch(
+                    s -> s.instanceState() == Sample.InstanceState.NOT_ALIVE_NO_WRITERS);
+            if (sawDisposed && sawNoWriters) {
+                result("KEYED_LIFECYCLE", "verified",
+                        "dispose(key1)->NOT_ALIVE_DISPOSED and unregister(key2)->NOT_ALIVE_NO_WRITERS "
+                        + "both observed on the reader via SampleInfo.instanceState().");
+            } else {
+                result("KEYED_LIFECYCLE", "partial",
+                        "disposed=" + sawDisposed + " noWriters=" + sawNoWriters);
             }
-            // Check: does the reader ever surface a non-ALIVE instance_state?
-            // (Dispatcher hardcodes InstanceState.ALIVE.)
-            boolean anyNonAlive = false;
-            for (var s : got) if (s.instanceState() != Sample.InstanceState.ALIVE) anyNonAlive = true;
-
-            result("KEYED_LIFECYCLE", "unsupported",
-                    "Multiple instances by key DO fan out (distinct-keys=" + twoKeys
-                    + ", got " + got.size() + " samples), and codegen marks @key (ReadingTypeSupport.isKeyed()=true). "
-                    + "BUT DataWriter exposes no dispose(key) [found=" + hasDispose + "] and no unregister(key) [found="
-                    + hasUnregister + "]; DataReader's dispatcher hardcodes Sample.InstanceState.ALIVE (non-ALIVE seen="
-                    + anyNonAlive + "), so NOT_ALIVE_DISPOSED / NOT_ALIVE_NO_WRITERS / re-ALIVE transitions cannot be "
-                    + "produced or observed. The InstanceState enum exists but is never driven. Layer: binding-api + dcps-runtime.");
             dw.close(); dr.close();
         } catch (Throwable e) {
             result("KEYED_LIFECYCLE", "unsupported", "threw: " + e);

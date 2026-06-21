@@ -296,19 +296,11 @@ static void test_deadline() {
     w.write(qos::Reading(21, 0, 0.0));
     // Now miss the 100ms deadline by sleeping ~600ms with no further writes.
     std::this_thread::sleep_for(600ms);
-    // The C++ DataReader does NOT surface requested_deadline_missed_status, so
-    // we read it through the C-API on the native handle.
-    zerodds_ZeroDdsRequestedDeadlineMissedStatus s{};
-    int rc = zerodds_dr_get_requested_deadline_missed_status(r.native_handle(), &s);
-    std::cout << "  requested_deadline_missed rc=" << rc
-              << " total_count=" << s.total_count
+    // Idiomatic C++ binding now surfaces the reader-side deadline status.
+    auto s = r.requested_deadline_missed_status();
+    std::cout << "  requested_deadline_missed total_count=" << s.total_count
               << " total_count_change=" << s.total_count_change << "\n";
-    gap("DataReader::requested_deadline_missed_status absent in C++ binding (used C-API)");
-    if (rc == 0) {
-        expect("DEADLINE: missed deadline increments requested_deadline_missed", s.total_count > 0);
-    } else {
-        std::cout << "    [GAP]  requested_deadline_missed_status C-API returned rc=" << rc << "\n";
-    }
+    expect("DEADLINE: missed deadline increments requested_deadline_missed", s.total_count > 0);
 }
 
 // ------------------------------------------------------------------------
@@ -421,66 +413,45 @@ static void test_ownership() {
 // ------------------------------------------------------------------------
 static void test_partition() {
     std::cout << "\n== 7. PARTITION ==\n";
-    // First: does the C++ QoS bridge carry partition names at all?
-    std::cout << "  Checking C++ PublisherQos partition bridge...\n";
-    gap("qos_bridge.hpp hardcodes partition.names=nullptr (PublisherQos/SubscriberQos/DW/DR)"
-        " -- partition NOT wired through the C++ binding");
-
-    // Behavioral test via the C-API directly (which DOES carry the partition
-    // field). Full DCPS path with explicit PublisherQos/SubscriberQos partition.
-    const zerodds_ZeroDdsDomainParticipantFactory* f = zerodds_dpf_get_instance();
+    // Idiomatic C++ binding: PARTITION carried through PublisherQos/SubscriberQos
+    // (qos_bridge.hpp now wires partition.names from the policy's string vector).
     auto trial = [&](const char* pubName, const char* subName) -> int {
         // TWO participants -> real RTPS path where partition is matched at SEDP.
-        zerodds_ZeroDdsDomainParticipant* pubDp = zerodds_dpf_create_participant(f, 0, nullptr);
-        zerodds_ZeroDdsDomainParticipant* subDp = zerodds_dpf_create_participant(f, 0, nullptr);
-        zerodds_ZeroDdsTopic* tp = zerodds_dp_create_topic(pubDp, "QosPartition", "qos::Reading", nullptr);
-        zerodds_ZeroDdsTopic* ts2 = zerodds_dp_create_topic(subDp, "QosPartition", "qos::Reading", nullptr);
+        dds::domain::DomainParticipant pubDp(0);
+        dds::domain::DomainParticipant subDp(0);
+        dds::topic::Topic<qos::Reading> tp(pubDp, "QosPartition");
+        dds::topic::Topic<qos::Reading> ts2(subDp, "QosPartition");
 
-        const char* pubParts[1] = { pubName };
-        zerodds_ZeroDdsPublisherQos pq{};
-        pq.partition.names = pubName ? pubParts : nullptr;
-        pq.partition.names_len = pubName ? 1 : 0;
-        pq.entity_factory.autoenable_created_entities = true;
-        zerodds_ZeroDdsPublisher* pub = zerodds_dp_create_publisher(pubDp, &pq);
+        dds::core::PublisherQos pq;
+        if (pubName) pq.partition.name({ std::string(pubName) });
+        dds::pub::Publisher pub(pubDp, pq);
 
-        const char* subParts[1] = { subName };
-        zerodds_ZeroDdsSubscriberQos sq{};
-        sq.partition.names = subName ? subParts : nullptr;
-        sq.partition.names_len = subName ? 1 : 0;
-        sq.entity_factory.autoenable_created_entities = true;
-        zerodds_ZeroDdsSubscriber* sub = zerodds_dp_create_subscriber(subDp, &sq);
+        dds::core::SubscriberQos sq;
+        if (subName) sq.partition.name({ std::string(subName) });
+        dds::sub::Subscriber sub(subDp, sq);
 
-        zerodds_ZeroDdsDataWriterQos wq{};
-        wq.reliability.kind = 2; wq.reliability.max_blocking_time.sec = 1;
-        wq.history.kind = 0; wq.history.depth = 10;
-        zerodds_ZeroDdsDataWriter* dw = zerodds_pub_create_datawriter(pub, tp, &wq);
+        dds::core::DataWriterQos wq;
+        wq.reliability = P::Reliability::Reliable_();
+        wq.history = P::History::KeepLast(10);
+        dds::pub::DataWriter<qos::Reading> dw(pub, tp, wq);
 
-        zerodds_ZeroDdsDataReaderQos rq{};
-        rq.reliability.kind = 2; rq.reliability.max_blocking_time.sec = 1;
-        rq.history.kind = 0; rq.history.depth = 10;
-        zerodds_ZeroDdsDataReader* dr = zerodds_sub_create_datareader(sub, ts2, &rq);
+        dds::core::DataReaderQos rq;
+        rq.reliability = P::Reliability::Reliable_();
+        rq.history = P::History::KeepLast(10);
+        dds::sub::DataReader<qos::Reading> dr(sub, ts2, rq);
 
-        int matched = zerodds_dw_wait_for_matched(dw, 1, 1500);
-        // write a sample
-        std::vector<uint8_t> wire = TS::encode(qos::Reading(51, 1, 5.0));
-        zerodds_dw_write(dw, wire.data(), wire.size(), 0);
+        // Give SEDP time to (not) match across partitions; don't wait_for_matched
+        // because the mismatch trial must never match.
+        std::this_thread::sleep_for(400ms);
+        dw.write(qos::Reading(51, 1, 5.0));
 
         int got = 0, waited = 0;
         while (waited < 1200) {
-            zerodds_ZeroDdsSampleArray arr{};
-            int rc = zerodds_dr_take(dr, &arr, 0, 0, 0, 0);
-            if (rc == 0) {
-                for (size_t i = 0; i < arr.count; ++i) if (arr.infos[i].valid_data) ++got;
-                zerodds_dr_return_loan(dr, &arr);
-            }
+            auto loaned = dr.take();
+            for (auto& s : loaned) if (s.info().valid_data) ++got;
             std::this_thread::sleep_for(10ms); waited += 10;
             if (got > 0) break;
         }
-        (void)matched;
-        zerodds_dp_delete_contained_entities(pubDp);
-        zerodds_dp_delete_contained_entities(subDp);
-        zerodds_dpf_delete_participant(f, pubDp);
-        zerodds_dpf_delete_participant(f, subDp);
         return got;
     };
 
@@ -497,78 +468,53 @@ static void test_partition() {
 // ------------------------------------------------------------------------
 static void test_cft() {
     std::cout << "\n== 8. CONTENT-FILTERED TOPIC ==\n";
-    gap("C++ ContentFilteredTopic binds DataReader to the RELATED topic, not the"
-        " CFT handle (header comment: 'reader bind via cft_handle_ is follow-up')"
-        " -- testing filter behavior via the C-API cft reader path");
-
-    const zerodds_ZeroDdsDomainParticipantFactory* f = zerodds_dpf_get_instance();
+    // Idiomatic C++ binding: ContentFilteredTopic + CFT-aware DataReader
+    // constructor (binds via native_cft_handle()).
     // Writer on its own participant; reader+CFT on a second participant -> real
     // RTPS path (avoids the intra-runtime shortcut, which has no CFT eval).
-    zerodds_ZeroDdsDomainParticipant* pubDp = zerodds_dpf_create_participant(f, 0, nullptr);
-    zerodds_ZeroDdsDomainParticipant* dp = zerodds_dpf_create_participant(f, 0, nullptr);
-    zerodds_ZeroDdsTopic* tpw = zerodds_dp_create_topic(pubDp, "QosCft", "qos::Reading", nullptr);
-    zerodds_ZeroDdsTopic* t = zerodds_dp_create_topic(dp, "QosCft", "qos::Reading", nullptr);
+    dds::domain::DomainParticipant pubDp(0);
+    dds::domain::DomainParticipant subDp(0);
+    dds::topic::Topic<qos::Reading> tpw(pubDp, "QosCft");
+    dds::topic::Topic<qos::Reading> t(subDp, "QosCft");
 
     // Filter: seq > 4
-    const char* expr = "seq > 4";
-    zerodds_ZeroDdsContentFilteredTopic* cft =
-        zerodds_dp_create_contentfilteredtopic(dp, "QosCftFiltered", t, expr, nullptr, 0);
-    bool cft_ok = (cft != nullptr);
-    expect("CFT create_contentfilteredtopic succeeds", cft_ok);
+    std::vector<std::string> params; // literal expression, no positional params
+    dds::topic::ContentFilteredTopic<qos::Reading> cft(
+        subDp, "QosCftFiltered", t, "seq > 4", params);
+    expect("CFT create_contentfilteredtopic succeeds", cft.native_cft_handle() != nullptr);
 
-    zerodds_ZeroDdsPublisher* pub = zerodds_dp_create_publisher(pubDp, nullptr);
-    zerodds_ZeroDdsSubscriber* sub = zerodds_dp_create_subscriber(dp, nullptr);
+    dds::pub::Publisher pub(pubDp);
+    dds::sub::Subscriber sub(subDp);
 
-    zerodds_ZeroDdsDataWriterQos wq{};
-    wq.reliability.kind = 2; wq.reliability.max_blocking_time.sec = 1;
-    wq.history.kind = 0; wq.history.depth = 20;
-    zerodds_ZeroDdsDataWriter* dw = zerodds_pub_create_datawriter(pub, tpw, &wq);
+    dds::core::DataWriterQos wq;
+    wq.reliability = P::Reliability::Reliable_();
+    wq.history = P::History::KeepLast(20);
+    dds::pub::DataWriter<qos::Reading> dw(pub, tpw, wq);
 
-    zerodds_ZeroDdsDataReaderQos rq{};
-    rq.reliability.kind = 2; rq.reliability.max_blocking_time.sec = 1;
-    rq.history.kind = 0; rq.history.depth = 20;
-    zerodds_ZeroDdsDataReader* dr = nullptr;
-    if (cft_ok) dr = zerodds_sub_create_datareader_with_cft(sub, cft, &rq);
-    bool dr_ok = (dr != nullptr);
-    expect("CFT create_datareader_with_cft succeeds", dr_ok);
+    dds::core::DataReaderQos rq;
+    rq.reliability = P::Reliability::Reliable_();
+    rq.history = P::History::KeepLast(20);
+    dds::sub::DataReader<qos::Reading> dr(sub, cft, rq); // CFT-aware ctor
+    expect("CFT create_datareader_with_cft succeeds", dr.native_handle() != nullptr);
 
-    if (dr_ok) {
-        zerodds_dw_wait_for_matched(dw, 1, 1500);
-        // write seq 0..9
-        for (int i = 0; i < 10; ++i) {
-            std::vector<uint8_t> wire = TS::encode(qos::Reading(61, i, i * 1.0));
-            zerodds_dw_write(dw, wire.data(), wire.size(), 0);
-        }
-        std::vector<int> seqs; int waited = 0;
-        while (waited < 1500) {
-            zerodds_ZeroDdsSampleArray arr{};
-            int rc = zerodds_dr_take(dr, &arr, 0, 0, 0, 0);
-            if (rc == 0) {
-                for (size_t i = 0; i < arr.count; ++i) {
-                    if (arr.infos[i].valid_data) {
-                        qos::Reading rd = TS::decode(arr.buffers[i], arr.lengths[i],
-                                                     dds::topic::xcdr2::XcdrVersion::Xcdr2);
-                        seqs.push_back(rd.seq());
-                    }
-                }
-                zerodds_dr_return_loan(dr, &arr);
-            }
-            std::this_thread::sleep_for(10ms); waited += 10;
-            if (seqs.size() >= 5) break;
-        }
-        std::cout << "  filter 'seq > 4' received seqs: ";
-        for (int s : seqs) std::cout << s << " ";
-        std::cout << "(wrote 0..9)\n";
-        bool all_match = !seqs.empty();
-        for (int s : seqs) if (s <= 4) all_match = false;
-        expect("CFT: reader only receives samples matching 'seq > 4'", all_match);
-        expect("CFT: matching samples (seq 5..9) are delivered", seqs.size() >= 1);
+    dw.wait_for_matched(1, Duration(5, 0));
+    // write seq 0..9
+    for (int i = 0; i < 10; ++i) dw.write(qos::Reading(61, i, i * 1.0));
+
+    std::vector<int> seqs; int waited = 0;
+    while (waited < 1500) {
+        auto loaned = dr.take();
+        for (auto& s : loaned) if (s.info().valid_data) seqs.push_back(s.data().seq());
+        std::this_thread::sleep_for(10ms); waited += 10;
+        if (seqs.size() >= 5) break;
     }
-    zerodds_dp_delete_contained_entities(pubDp);
-    zerodds_dp_delete_contained_entities(dp);
-    if (cft) zerodds_dp_delete_contentfilteredtopic(dp, cft);
-    zerodds_dpf_delete_participant(f, pubDp);
-    zerodds_dpf_delete_participant(f, dp);
+    std::cout << "  filter 'seq > 4' received seqs: ";
+    for (int s : seqs) std::cout << s << " ";
+    std::cout << "(wrote 0..9)\n";
+    bool all_match = !seqs.empty();
+    for (int s : seqs) if (s <= 4) all_match = false;
+    expect("CFT: reader only receives samples matching 'seq > 4'", all_match);
+    expect("CFT: matching samples (seq 5..9) are delivered", seqs.size() >= 1);
 }
 
 // ------------------------------------------------------------------------
@@ -576,8 +522,9 @@ static void test_cft() {
 // ------------------------------------------------------------------------
 static void test_keyed_lifecycle() {
     std::cout << "\n== 9. KEYED LIFECYCLE ==\n";
-    gap("C++ DataWriter exposes only write() -- no dispose()/unregister_instance()"
-        "/register_instance() in the binding; using C-API dw_dispose/unregister + key_hash()");
+    // Idiomatic C++ binding: DataWriter<T> now exposes dispose_instance(),
+    // unregister_instance(), register_instance(), lookup_instance(); the typed
+    // DataReader<T>::take() carries instance_state in Sample::info().
 
     // Two participants -> lifecycle markers (DISPOSE/UNREGISTER) travel the real
     // RTPS path; the intra-runtime shortcut only dispatches Alive samples.
@@ -599,8 +546,6 @@ static void test_keyed_lifecycle() {
     w.wait_for_matched(1, Duration(5, 0));
     r.wait_for_matched(1, Duration(5, 0));
 
-    auto* dwh = w.native_handle();
-
     // Two instances by key: id=100, id=200.
     w.write(qos::Reading(100, 0, 1.0));
     w.write(qos::Reading(200, 0, 2.0));
@@ -609,19 +554,10 @@ static void test_keyed_lifecycle() {
         std::vector<std::pair<int,uint32_t>> out; // (id_if_valid_else_-1, instance_state)
         int waited = 0;
         while (waited < ms) {
-            zerodds_ZeroDdsSampleArray arr{};
-            int rc = zerodds_dr_take(r.native_handle(), &arr, 0, 0, 0, 0);
-            if (rc == 0) {
-                for (size_t i = 0; i < arr.count; ++i) {
-                    int id = -1;
-                    if (arr.infos[i].valid_data) {
-                        qos::Reading rd = TS::decode(arr.buffers[i], arr.lengths[i],
-                                                     dds::topic::xcdr2::XcdrVersion::Xcdr2);
-                        id = rd.id();
-                    }
-                    out.emplace_back(id, arr.infos[i].instance_state);
-                }
-                zerodds_dr_return_loan(r.native_handle(), &arr);
+            auto loaned = r.take();
+            for (auto& s : loaned) {
+                int id = s.info().valid_data ? s.data().id() : -1;
+                out.emplace_back(id, s.info().instance_state);
             }
             std::this_thread::sleep_for(10ms); waited += 10;
         }
@@ -629,44 +565,38 @@ static void test_keyed_lifecycle() {
     };
 
     auto s0 = collect(400);
-    bool sawAlive = false, twoInstances = false;
+    bool sawAlive = false;
     int aliveIds = 0;
     for (auto& e : s0) if (e.second & IS_ALIVE) { sawAlive = true; ++aliveIds; }
-    twoInstances = aliveIds >= 2;
     std::cout << "  initial: " << s0.size() << " sample(s), alive markers=" << aliveIds << "\n";
     expect("KEYED: distinct instances by key are ALIVE", sawAlive);
 
-    // DISPOSE key=100 via C-API (key_hash from generated TS).
-    std::array<uint8_t,16> kh100 = TS::key_hash(qos::Reading(100, 0, 0.0));
-    int rcD = zerodds_dw_dispose(dwh, kh100.data(), 0);
-    std::cout << "  dw_dispose(key=100) rc=" << rcD << "\n";
-    auto sd = collect(500);
-    bool sawDisposed = false;
-    for (auto& e : sd) if (e.second & IS_DISPOSED) sawDisposed = true;
-    std::cout << "  after dispose: " << sd.size() << " lifecycle/sample(s); disposed-marker seen="
-              << sawDisposed << "\n";
-    if (rcD == 0)
-        expect("KEYED: dispose(key) -> reader sees NOT_ALIVE_DISPOSED", sawDisposed);
-    else
-        std::cout << "    [GAP]  dw_dispose returned rc=" << rcD << "\n";
+    // Poll the reader until a given instance_state bit is observed (or timeout).
+    // Accumulating across the whole drain avoids racing a single fixed window
+    // against when the lifecycle DATA submessage arrives.
+    auto poll_for_state = [&](uint32_t bit, int ms) -> bool {
+        int waited = 0;
+        while (waited < ms) {
+            auto loaned = r.take();
+            for (auto& s : loaned) if (s.info().instance_state & bit) return true;
+            std::this_thread::sleep_for(10ms); waited += 10;
+        }
+        return false;
+    };
 
-    // UNREGISTER key=200 via C-API. We use lookup_instance to get a handle from
-    // the key, then unregister_instance by handle.
-    std::array<uint8_t,16> kh200 = TS::key_hash(qos::Reading(200, 0, 0.0));
-    uint64_t h200 = 0;
-    int rcL = zerodds_dw_lookup_instance(dwh, kh200.data(), 16, &h200);
-    int rcUn = zerodds_dw_unregister_instance(dwh, h200);
-    std::cout << "  dw_lookup_instance rc=" << rcL << " handle=" << h200
-              << " ; dw_unregister_instance rc=" << rcUn << "\n";
-    auto su = collect(500);
-    bool sawNoWriters = false;
-    for (auto& e : su) if (e.second & IS_NO_WRITERS) sawNoWriters = true;
-    std::cout << "  after unregister: " << su.size() << " lifecycle/sample(s); no-writers-marker seen="
-              << sawNoWriters << "\n";
-    if (rcUn == 0)
-        expect("KEYED: unregister(key) -> reader sees NOT_ALIVE_NO_WRITERS", sawNoWriters);
-    else
-        std::cout << "    [GAP]  dw_unregister_instance returned rc=" << rcUn << "\n";
+    // DISPOSE key=100 via the idiomatic binding.
+    w.dispose_instance(qos::Reading(100, 0, 0.0));
+    std::cout << "  dispose_instance(key=100)\n";
+    bool sawDisposed = poll_for_state(IS_DISPOSED, 1000);
+    std::cout << "  after dispose: disposed-marker seen=" << sawDisposed << "\n";
+    expect("KEYED: dispose(key) -> reader sees NOT_ALIVE_DISPOSED", sawDisposed);
+
+    // UNREGISTER key=200 via the idiomatic binding (resolves handle from key).
+    w.unregister_instance(qos::Reading(200, 0, 0.0));
+    std::cout << "  unregister_instance(key=200)\n";
+    bool sawNoWriters = poll_for_state(IS_NO_WRITERS, 1000);
+    std::cout << "  after unregister: no-writers-marker seen=" << sawNoWriters << "\n";
+    expect("KEYED: unregister(key) -> reader sees NOT_ALIVE_NO_WRITERS", sawNoWriters);
 
     // NEW sample on a disposed key -> ALIVE again.
     w.write(qos::Reading(100, 99, 9.0));

@@ -30,20 +30,35 @@ of `zerodds.h`** (see "Header bug" below). The crate's
 
 ## Results (observed)
 
+After the **C++ binding-surface fixes** (`crates/cpp`): the harness now drives
+every QoS/lifecycle operation through the **idiomatic DDS-PSM-Cxx API** — no more
+`native_handle()` drops for dispose/unregister, the deadline getter, CFT binding,
+or partition. The remaining `[FAIL]`s are NOT binding-surface gaps; they are the
+cross-cutting **dcps-runtime / C-FFI** enforcement cluster (separate task), which
+the currently built `libzerodds` does not yet enforce on the C-FFI take/match path.
+
 | # | QoS / lifecycle           | Status        | Observation |
 |---|---------------------------|---------------|-------------|
 | 1 | RELIABILITY               | verified      | RELIABLE delivered 200/200 in order; BEST_EFFORT accepted + delivers |
 | 2 | DURABILITY                | verified      | TRANSIENT_LOCAL late joiner got retained samples; VOLATILE got nothing |
-| 3 | HISTORY                   | partial       | KEEP_ALL retains all; **KEEP_LAST(k) does NOT cap** TRANSIENT_LOCAL retention (got all 6, expected ≤2) |
-| 4 | DEADLINE                  | verified*     | requested_deadline_missed total_count increments (read via C-API; C++ binding lacks the getter) |
-| 5 | LIVELINESS                | partial       | not_alive transition fires; **alive_count stays 0** and AUTOMATIC liveliness expires while the writer is live |
-| 6 | OWNERSHIP (EXCLUSIVE)     | unsupported   | both writers delivered — **C-API take path applies no exclusive-ownership arbitration** (the typed Rust path does) |
-| 7 | PARTITION                 | unsupported   | mismatched partitions STILL communicate — partition never reaches the endpoint config |
-| 8 | CONTENT-FILTERED TOPIC    | unsupported   | filter `seq>4` passed ALL 0..9 — C-API CFT filter is a pass-through stub |
-| 9 | KEYED LIFECYCLE           | verified*     | dispose→NOT_ALIVE_DISPOSED, unregister→NOT_ALIVE_NO_WRITERS, re-write→ALIVE (all via C-API; C++ DataWriter has no dispose/unregister) |
+| 3 | HISTORY                   | runtime-gap   | KEEP_ALL retains all; KEEP_LAST(k) not capped (dcps/C-FFI history depth, not binding) |
+| 4 | DEADLINE                  | **verified**  | `DataReader<T>::requested_deadline_missed_status()` (idiomatic) → total_count increments |
+| 5 | LIVELINESS                | runtime-gap   | not_alive transition fires via `liveliness_changed_status()`; alive_count stays 0 (dcps AUTOMATIC renew) |
+| 6 | OWNERSHIP (EXCLUSIVE)     | runtime-gap   | both writers delivered — C-FFI `zerodds_dr_take` applies no exclusive arbitration |
+| 7 | PARTITION                 | **binding ok**| matching partitions communicate (binding wires partition); mismatch still delivers (dcps match gate) |
+| 8 | CONTENT-FILTERED TOPIC    | **binding ok**| CFT created + reader bound via `DataReader<T>(sub, cft, qos)`; filter passes all (C-FFI CftFilter::evaluate stub) |
+| 9 | KEYED LIFECYCLE           | **verified**  | `dispose_instance`/`unregister_instance` (idiomatic) → DISPOSED / NO_WRITERS; re-write → ALIVE; instance_state read from `Sample::info()` |
 
-`*` = behavior verified, but only by dropping to the C-API on `native_handle()`
-because the spec-compliant C++ binding does not surface the operation.
+**Binding surface now complete (this task):** `DataWriter<T>::dispose_instance`,
+`unregister_instance`, `register_instance`, `lookup_instance`;
+`DataReader<T>::requested_deadline_missed_status` (+ `liveliness_changed_status`);
+`ContentFilteredTopic<T>::native_cft_handle` + CFT-aware `DataReader<T>` ctor;
+PARTITION wired through `qos_bridge.hpp`; typed `take()` decode-arity fixed via a
+SFINAE adapter (3-arg `decode(buf,len,repr)` preferred, 2-arg fallback).
+
+`runtime-gap` / "still delivers" rows are the dcps-runtime / C-FFI enforcement
+cluster (history depth, AUTOMATIC liveliness renew, exclusive-ownership on the
+C-FFI take path, partition match gate, CFT evaluate) — outside `crates/cpp`.
 
 ## Methodology note — intra-runtime shortcut
 

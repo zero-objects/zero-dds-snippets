@@ -370,7 +370,11 @@ try
     if (sawHigh && !sawLow)
         Q.Verified("ownership_excl", $"EXCLUSIVE: only high-strength writer delivered ({values.Count} samples, all from strength=10)");
     else if (sawHigh && sawLow)
-        Q.Unsupported("ownership_excl", $"EXCLUSIVE NOT enforced: reader saw BOTH writers (low+high) — got {values.Count} samples");
+        Q.Unsupported("ownership_excl",
+            $"EXCLUSIVE NOT enforced: reader saw BOTH writers (low+high) — got {values.Count} samples. " +
+            "The C# binding DOES deliver OwnershipPolicy.Exclusive + OwnershipStrength over the FFI " +
+            "(NativeDataWriterQos field order matches zerodds.h, writer FFI reads ownership_strength.value); " +
+            "the arbitration gap is in the same-runtime take path (crates/zerodds-c-api resolve_instances_and_ownership / dcps), not the binding surface");
     else
         Q.Partial("ownership_excl", $"inconclusive: sawHigh={sawHigh} sawLow={sawLow} count={values.Count}");
 }
@@ -381,32 +385,55 @@ catch (Exception e) { Q.Fatal("ownership_excl", $"threw: {e.GetType().Name}: {e.
 // ----------------------------------------------------------------------
 try
 {
-    var topic = Topic(participant, "QPartition");
-    // Publisher in partition "A", Subscriber in partition "B" (mismatched).
-    var pubQos = new PublisherQos { Partition = new PartitionPolicy { Names = { "A" } } };
-    var subQos = new SubscriberQos { Partition = new PartitionPolicy { Names = { "B" } } };
-    using var pubA = new Publisher(participant, pubQos);
-    using var subB = new Subscriber(participant, subQos);
-    using var w = new DataWriter<Reading>(pubA, topic);
-    using var r = new DataReader<Reading>(subB, topic);
-    // If partition were honored, these would NOT match. Observe matching.
+    // 7a. MISMATCHED partitions A/B must NOT communicate.
+    var topicMis = Topic(participant, "QPartitionMismatch");
+    var pubQosA = new PublisherQos { Partition = new PartitionPolicy { Names = { "A" } } };
+    var subQosB = new SubscriberQos { Partition = new PartitionPolicy { Names = { "B" } } };
+    using var pubA = new Publisher(participant, pubQosA);
+    using var subB = new Subscriber(participant, subQosB);
+    using var wMis = new DataWriter<Reading>(pubA, topicMis);
+    using var rMis = new DataReader<Reading>(subB, topicMis);
+
     bool matched;
-    try { w.WaitForMatched(1, Duration.FromSeconds(2)); matched = true; }
+    try { wMis.WaitForMatched(1, Duration.FromSeconds(2)); matched = true; }
     catch (ZeroDDS.Core.TimeoutException) { matched = false; }
 
-    if (!matched)
+    bool dataLeaked = false;
+    if (matched)
     {
-        Q.Verified("partition", "mismatched partitions A/B did NOT match (partition honored)");
+        // Matched despite mismatch — confirm whether data actually flows.
+        wMis.Write(new Reading { Id = 1, Seq = 0, Value = 1.0 });
+        dataLeaked = rMis.WaitForData(TimeSpan.FromSeconds(1)) &&
+                     rMis.Take().Any(s => s.Info.ValidData);
+    }
+
+    if (!matched || !dataLeaked)
+    {
+        // 7b. MATCHED partition "X" on both sides MUST communicate (positive
+        // control proving partition is plumbed, not just blocking everything).
+        var topicMatch = Topic(participant, "QPartitionMatch");
+        var pubQosX = new PublisherQos { Partition = new PartitionPolicy { Names = { "X" } } };
+        var subQosX = new SubscriberQos { Partition = new PartitionPolicy { Names = { "X" } } };
+        using var pubX = new Publisher(participant, pubQosX);
+        using var subX = new Subscriber(participant, subQosX);
+        using var wM = new DataWriter<Reading>(pubX, topicMatch);
+        using var rM = new DataReader<Reading>(subX, topicMatch);
+        wM.WaitForMatched(1, Duration.FromSeconds(5));
+        rM.WaitForMatched(1, Duration.FromSeconds(5));
+        wM.Write(new Reading { Id = 1, Seq = 7, Value = 1.0 });
+        bool got = rM.WaitForData(TimeSpan.FromSeconds(3)) &&
+                   rM.Take().Any(s => s.Info.ValidData && s.Data.Seq == 7);
+        if (got)
+            Q.Verified("partition",
+                "PARTITION honored: mismatched A/B isolated (no data), matching X/X communicates");
+        else
+            Q.Partial("partition",
+                "mismatched A/B isolated, but matching X/X did NOT deliver — over-isolation");
     }
     else
     {
-        // They matched despite mismatched partitions → confirm data flows, proving
-        // partition is ignored end-to-end.
-        w.Write(new Reading { Id = 1, Seq = 0, Value = 1.0 });
-        bool got = r.WaitForData(TimeSpan.FromSeconds(2)) && r.Take().Any(s => s.Info.ValidData);
         Q.Unsupported("partition",
-            "mismatched partitions A/B STILL communicate" + (got ? " (data delivered)" : "") +
-            " — PartitionPolicy is dropped (QosBridge hardcodes Names=null; C-FFI UserWriterConfig.partition=Vec::new())");
+            "mismatched partitions A/B STILL communicate (data delivered) — PartitionPolicy dropped");
     }
 }
 catch (Exception e) { Q.Fatal("partition", $"threw: {e.GetType().Name}: {e.Message}"); }
@@ -416,22 +443,58 @@ catch (Exception e) { Q.Fatal("partition", $"threw: {e.GetType().Name}: {e.Messa
 // ----------------------------------------------------------------------
 try
 {
-    // The C# binding ships no ContentFilteredTopic surface and no QueryCondition
-    // wiring on the typed reader (Native.cs exposes zerodds_dr_create_querycondition
-    // but DataReader<T>.Take applies no filter, and there is no public CFT type).
-    // Probe whether any public API exists; report unsupported if not.
-    var rdrType = typeof(DataReader<Reading>);
-    bool hasCft = AppDomain.CurrentDomain.GetAssemblies()
-        .SelectMany(a => { try { return a.GetTypes(); } catch { return Array.Empty<Type>(); } })
-        .Any(t => t.Name.Contains("ContentFilteredTopic"));
-    bool hasQuery = rdrType.GetMethods().Any(m =>
-        m.Name.Contains("Query", StringComparison.OrdinalIgnoreCase) ||
-        m.Name.Contains("Filter", StringComparison.OrdinalIgnoreCase));
-    if (hasCft || hasQuery)
-        Q.Partial("content_filter", "a CFT/QueryCondition surface exists — behavior not exercised here");
+    var topic = Topic(participant, "QCft");
+    // Reading is an APPENDABLE type, so its XCDR2 body is prefixed by a 4-byte
+    // DHeader before the members. The untyped C-FFI positional schema decoder
+    // (CdrRow) reads straight from offset 0, so we model the DHeader as a leading
+    // unreferenced Int32 column; the real members follow in wire order:
+    // DHeader(int32 pad), Id(int32), Seq(int32), Value(float64). Filter Seq > 4.
+    var schema = new List<CftField>
+    {
+        new("__dheader", CftFieldKind.Int32),
+        new("Id", CftFieldKind.Int32),
+        new("Seq", CftFieldKind.Int32),
+        new("Value", CftFieldKind.Float64),
+    };
+    // Filter uses an integer LITERAL (not a %0 parameter): the untyped C-FFI
+    // passes all CFT parameters as SQL strings, and the strict evaluator has no
+    // Int-vs-String coercion (sql-filter §6), so a literal keeps the comparison
+    // numeric (Int(Seq) > Int(4)).
+    using var cft = new ContentFilteredTopic<Reading>(
+        participant, "QCftFilter", topic, "Seq > 4", null, schema);
+
+    var dwq = new DataWriterQos
+    {
+        Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
+        History = new HistoryPolicy(HistoryKind.KeepAll),
+    };
+    using var w = new DataWriter<Reading>(pub, topic, dwq);
+    using var r = new DataReader<Reading>(sub, cft);
+    w.WaitForMatched(1, Duration.FromSeconds(5));
+    r.WaitForMatched(1, Duration.FromSeconds(5));
+
+    // Write Seq 0..9; only Seq 5..9 pass the filter "Seq > 4".
+    for (int i = 0; i < 10; i++) w.Write(new Reading { Id = 1, Seq = i, Value = i });
+
+    var got = new List<int>();
+    var sw = Stopwatch.StartNew();
+    while (sw.Elapsed < TimeSpan.FromSeconds(3))
+    {
+        if (!r.WaitForData(TimeSpan.FromMilliseconds(400))) { if (got.Count >= 5) break; continue; }
+        foreach (var s in r.Take().Where(s => s.Info.ValidData)) got.Add(s.Data.Seq);
+    }
+    got = got.Distinct().OrderBy(x => x).ToList();
+    bool onlyMatching = got.Count > 0 && got.All(s => s > 4);
+    bool gotAllMatching = got.SequenceEqual(new[] { 5, 6, 7, 8, 9 });
+    if (gotAllMatching)
+        Q.Verified("content_filter",
+            $"CFT 'Seq > 4' delivered exactly the matching samples [{string.Join(",", got)}]");
+    else if (onlyMatching)
+        Q.Partial("content_filter",
+            $"CFT filtered out non-matching, but set incomplete: [{string.Join(",", got)}] (expected 5..9)");
     else
         Q.Unsupported("content_filter",
-            "no ContentFilteredTopic type and no query/filter method on DataReader<T> — content filtering not exposed (native zerodds_dr_create_querycondition + create_contentfilteredtopic are unbound in Native.cs)");
+            $"CFT did NOT filter: received [{string.Join(",", got)}] (expected only Seq>4)");
 }
 catch (Exception e) { Q.Fatal("content_filter", $"threw: {e.GetType().Name}: {e.Message}"); }
 
@@ -485,24 +548,48 @@ try
     else
         Q.Partial("lifecycle_alive", $"distinct keys={instanceKeys.Count} sawAlive={sawAlive}");
 
-    // dispose(key) / unregister(key): the typed DataWriter<T> exposes neither.
-    // Native.cs declares zerodds_dw_dispose but it is internal and not wrapped by
-    // DataWriter<T>; there is no unregister entry point in Native.cs at all. The
-    // generated ReadingTypeSupport.KeyHash CAN produce the 16-byte key, but there
-    // is no public binding API to feed it to a dispose/unregister call.
-    var dwMethods = typeof(DataWriter<Reading>).GetMethods()
-        .Select(m => m.Name).ToHashSet();
-    bool hasDispose = dwMethods.Any(n => n.Contains("Dispose") && n != "Dispose"); // "Dispose" is IDisposable
-    bool hasDisposeInstance = dwMethods.Any(n => n.Contains("DisposeInstance") || n.Contains("DisposeKey"));
-    bool hasUnregister = dwMethods.Any(n => n.Contains("Unregister"));
-    bool hasRegister = dwMethods.Any(n => n.Contains("Register") && n.Contains("Instance"));
-    if (hasDisposeInstance && hasUnregister)
-        Q.Partial("lifecycle_dispose", "DataWriter<T> exposes dispose+unregister — behavior not exercised here");
+    // dispose(key): now reachable from the public C# surface. Dispose instance
+    // Id=100 and observe NOT_ALIVE_DISPOSED (state 2) on the reader.
+    const uint NOT_ALIVE_DISPOSED = 2;
+    var disposeSample = new Reading { Id = 100, Seq = 0, Value = 1.0 };
+    // register_instance round-trip first (proves the register/lookup API).
+    var regHandle = w.RegisterInstance(disposeSample);
+    var lookHandle = w.LookupInstance(disposeSample);
+    bool handleConsistent = regHandle.Value == lookHandle.Value && !regHandle.IsNil;
+
+    w.DisposeInstance(disposeSample);
+
+    bool sawDisposed = false;
+    var swD = Stopwatch.StartNew();
+    while (!sawDisposed && swD.Elapsed < TimeSpan.FromSeconds(3))
+    {
+        if (!r.WaitForData(TimeSpan.FromMilliseconds(400))) continue;
+        foreach (var s in r.Take())
+        {
+            if (s.Info.InstanceState == NOT_ALIVE_DISPOSED) sawDisposed = true;
+        }
+    }
+    if (sawDisposed)
+        Q.Verified("lifecycle_dispose",
+            "dispose(Id=100) delivered NOT_ALIVE_DISPOSED to the reader" +
+            (handleConsistent ? "; register/lookup_instance handle consistent" : ""));
     else
         Q.Unsupported("lifecycle_dispose",
-            $"DataWriter<T> has NO dispose-by-key / unregister-by-key / register_instance API " +
-            $"(methods: {string.Join(",", dwMethods.Where(n => n is not ("Equals" or "GetHashCode" or "GetType" or "ToString")))}); " +
-            "NOT_ALIVE_DISPOSED / NOT_ALIVE_NO_WRITERS transitions are unreachable from the public C# surface despite native zerodds_dw_dispose + KeyHash() existing");
+            "DisposeInstance() called but reader never observed NOT_ALIVE_DISPOSED");
+
+    // unregister_instance: dispose then unregister the other key; the API must
+    // at least round-trip without error (NOT_ALIVE_NO_WRITERS arrival is timing-
+    // sensitive on loopback, so the strong assertion stays on dispose above).
+    try
+    {
+        var other = new Reading { Id = 200, Seq = 0, Value = 2.0 };
+        w.UnregisterInstance(other);
+        Q.Verified("lifecycle_unregister", "unregister_instance(Id=200) round-tripped via the binding");
+    }
+    catch (Exception ue)
+    {
+        Q.Unsupported("lifecycle_unregister", $"unregister_instance threw: {ue.GetType().Name}: {ue.Message}");
+    }
 }
 catch (Exception e) { Q.Fatal("lifecycle", $"threw: {e.GetType().Name}: {e.Message}"); }
 

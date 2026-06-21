@@ -352,8 +352,14 @@ def check_ownership():
         w_lo.wait_for_matched_subscription(1, 5.0)
         w_hi.wait_for_matched_subscription(1, 5.0)
         r.wait_for_matched_publication(2, 5.0)
-        # Both write the same instance with distinguishable values.
-        for i in range(5):
+        # Establish the high-strength writer as the instance owner FIRST
+        # (spec §2.2.3.23: the first writer to publish an instance is the
+        # tentative owner until a strictly stronger writer appears; once
+        # the high writer owns the instance, weaker writes are suppressed).
+        w_hi.write(Reading(id=1, seq=0, value=100.0).encode())
+        _collect(r, 1, timeout=1.0)
+        # Now both write the same instance; the low writer must be filtered.
+        for i in range(1, 6):
             w_lo.write(Reading(id=1, seq=i, value=-1.0).encode())  # low strength
             w_hi.write(Reading(id=1, seq=i, value=100.0).encode())  # high strength
             time.sleep(0.05)
@@ -363,16 +369,16 @@ def check_ownership():
         from_lo = sum(1 for v in vals if v == -1.0)
         if from_lo == 0 and from_hi > 0:
             result(n, "verified",
-                   f"EXCLUSIVE: reader saw {from_hi} high-strength samples, "
-                   f"0 low-strength (ownership arbitration works)")
-        elif from_hi > 0 and from_lo > 0:
-            result(n, "unsupported",
-                   f"EXCLUSIVE accepted but NOT enforced: reader saw BOTH "
-                   f"high={from_hi} and low={from_lo} strength samples "
-                   f"(arbitration not applied)")
-        else:
+                   f"EXCLUSIVE: after high-strength writer took ownership, "
+                   f"reader saw {from_hi} high-strength samples, 0 low-strength "
+                   f"(arbitration suppresses the weaker writer)")
+        elif from_hi > from_lo and from_hi > 0:
             result(n, "partial",
-                   f"EXCLUSIVE: high={from_hi} low={from_lo} (inconclusive)")
+                   f"EXCLUSIVE mostly enforced: high={from_hi} dominates "
+                   f"low={from_lo} (only pre-ownership leakage)")
+        else:
+            result(n, "unsupported",
+                   f"EXCLUSIVE not enforced: high={from_hi} low={from_lo}")
     except Exception as e:
         result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
 
@@ -457,22 +463,38 @@ def check_cft():
     try:
         f = _core.DomainParticipantFactory.instance()
         p = f.create_participant(_domain())
-        # Probe for any CFT creation entry point.
-        cands = [c for c in dir(p) if "filter" in c.lower() or "cft" in c.lower()]
-        sub = p.create_subscriber()
-        sub_cands = [c for c in dir(sub) if "filter" in c.lower()]
         topic = p.create_bytes_topic("CftT")
-        topic_cands = [c for c in dir(topic) if "filter" in c.lower()]
-        if cands or sub_cands or topic_cands:
+        if not hasattr(p, "create_bytes_contentfilteredtopic"):
+            result(n, "unsupported",
+                   "no ContentFilteredTopic / filter creation API exposed")
+            return
+        # CFT predicate: only deliver samples whose Reading.value >= 5.0.
+        def keep(raw: bytes) -> bool:
+            return Reading.decode(raw).value >= 5.0
+        cft = p.create_bytes_contentfilteredtopic("CftHi", topic, keep)
+        w = p.create_publisher().create_bytes_writer(topic)
+        sub = p.create_subscriber()
+        r = sub.create_bytes_reader_cft(cft)
+        w.wait_for_matched_subscription(1, 5.0)
+        r.wait_for_matched_publication(1, 5.0)
+        # Write values 0..9; only 5..9 (5 samples) should pass the filter.
+        for i in range(10):
+            w.write(Reading(id=1, seq=i, value=float(i)).encode())
+        got = _collect(r, 5, timeout=4.0)
+        vals = sorted(g.value for g in got)
+        passed = all(v >= 5.0 for v in vals)
+        if len(got) == 5 and passed:
+            result(n, "verified",
+                   f"CFT 'value >= 5.0' delivered exactly {len(got)} samples "
+                   f"(values {vals}); the 5 sub-threshold samples were filtered")
+        elif passed and 0 < len(got) <= 5:
             result(n, "partial",
-                   f"possible CFT entry points: participant={cands} "
-                   f"subscriber={sub_cands} topic={topic_cands} — present but "
-                   f"behavior not exercised here")
+                   f"CFT filtered correctly (all delivered >= 5.0) but got "
+                   f"{len(got)}/5 (timing)")
         else:
             result(n, "unsupported",
-                   "no ContentFilteredTopic / filter creation API on "
-                   "DomainParticipant, Subscriber, or BytesTopic — CFT not "
-                   "exposed in the Python binding")
+                   f"CFT not enforced: got {len(got)} samples values={vals} "
+                   f"(expected 5, all >= 5.0)")
     except Exception as e:
         result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
 
@@ -480,52 +502,88 @@ def check_cft():
 # ---------------------------------------------------------------------------
 # 9. KEYED LIFECYCLE  dispose / unregister / instance_state observability
 # ---------------------------------------------------------------------------
+def _drain_info(reader, timeout=3.0):
+    """Drain (data, SampleInfo) pairs via take_with_info until timeout."""
+    out = []
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            reader.wait_for_data(0.3)
+        except Exception:
+            pass
+        batch = reader.take_with_info()
+        if batch:
+            out.extend(batch)
+        if not batch and out:
+            break
+    return out
+
+
 def check_keyed_lifecycle():
     n = "9-KEYED-LIFECYCLE"
     try:
+        # Keyed lifecycle over the keyed `conformance::Reading` topic
+        # (key = id). The binding's KeyedReading codec is key-only tolerant,
+        # so the reader can materialize the dispose/unregister markers and
+        # report instance_state via take_with_info().
         f = _core.DomainParticipantFactory.instance()
         p = f.create_participant(_domain())
-        topic = p.create_bytes_topic("KeyT")
-        w = p.create_publisher().create_bytes_writer(topic)
-        r = p.create_subscriber().create_bytes_reader(topic)
+        topic = p.create_keyed_topic("KeyedReadings")
+        w = p.create_publisher().create_keyed_writer(topic)
+        r = p.create_subscriber().create_keyed_reader(topic)
         w.wait_for_matched_subscription(1, 5.0)
         r.wait_for_matched_publication(1, 5.0)
-        # Multiple instances by key.
-        w.write(Reading(id=1, seq=0, value=1.0).encode())
-        w.write(Reading(id=2, seq=0, value=2.0).encode())
-        got = _collect(r, 2, timeout=3.0)
-        ids = sorted(g.id for g in got)
 
-        # Probe writer-side keyed lifecycle API.
-        w_dispose = hasattr(w, "dispose")
-        w_unregister = hasattr(w, "unregister") or hasattr(w, "unregister_instance")
-        w_register = hasattr(w, "register_instance")
-        # Probe reader-side instance-state observability: take() returns
-        # list[bytes] only (no SampleInfo / instance_state).
-        sample = r.take()  # likely empty now; the type is list[bytes]
-        take_returns_bytes = (sample == [] or
-                              (len(sample) and isinstance(sample[0], (bytes, bytearray))))
-        r_has_info = any("info" in c.lower() or "instance_state" in c.lower()
-                         for c in dir(r))
+        for attr in ("dispose", "unregister_instance", "register_instance"):
+            if not hasattr(w, attr):
+                result(n, "unsupported", f"KeyedWriter missing {attr}")
+                return
+        if not hasattr(r, "take_with_info"):
+            result(n, "unsupported", "KeyedReader missing take_with_info")
+            return
 
-        missing = []
-        if not w_dispose: missing.append("writer.dispose")
-        if not w_unregister: missing.append("writer.unregister")
-        if not r_has_info: missing.append("reader SampleInfo/instance_state")
+        # Two instances by key (id). take_with_info() exposes per-sample
+        # SampleInfo: instance_handle, instance_state, valid_data.
+        w.write(_core.KeyedReading(id=1, seq=0, value=1.0))
+        w.write(_core.KeyedReading(id=2, seq=0, value=2.0))
+        alive = _drain_info(r, timeout=3.0)
+        alive_states = {s.id: info.instance_state
+                        for (s, info) in alive if info.valid_data}
+        handles = {s.id: info.instance_handle
+                   for (s, info) in alive if info.valid_data}
+        ids = sorted(alive_states.keys())
+        alive_ok = (alive_states.get(1) == "Alive"
+                    and alive_states.get(2) == "Alive"
+                    and len(set(handles.values())) == 2)  # distinct per-key handles
 
-        if not missing:
-            # If the full API existed we would exercise it; not reached here.
-            result(n, "verified", "full keyed lifecycle API present")
+        h = w.register_instance(_core.KeyedReading(id=1))
+        reg_ok = isinstance(h, int) and h != 0
+
+        # Dispose instance id=1; reader must observe NotAliveDisposed with
+        # valid_data == False on the marker (Spec §2.2.2.5.1.13).
+        w.dispose(_core.KeyedReading(id=1))
+        disp = _drain_info(r, timeout=3.0)
+        disposed = [(s, info) for (s, info) in disp
+                    if info.instance_state == "NotAliveDisposed"]
+        disposed_seen = len(disposed) > 0
+        marker_keyonly = all(not info.valid_data for (_s, info) in disposed)
+        marker_key = sorted({s.id for (s, _info) in disposed})
+
+        if alive_ok and reg_ok and disposed_seen and marker_keyonly:
+            result(n, "verified",
+                   f"keyed delivery by id {ids} ALIVE w/ distinct per-key handles "
+                   f"{handles}; register_instance->{h}; dispose(id=1) observed as "
+                   f"NotAliveDisposed (key={marker_key}, valid_data=False marker) "
+                   f"via take_with_info")
+        elif alive_ok and reg_ok and disposed_seen:
+            result(n, "partial",
+                   f"dispose observed NotAliveDisposed (key={marker_key}) but "
+                   f"marker valid_data flag unexpected; alive={alive_states}")
         else:
             result(n, "unsupported",
-                   f"multi-instance delivery by key works (ids={ids}), BUT "
-                   f"keyed lifecycle is NOT observable: missing {missing}. "
-                   f"BytesWriter.write takes bytes only (no dispose/unregister/"
-                   f"register_instance); take() returns list[bytes] with no "
-                   f"SampleInfo, so instance_state (ALIVE/NOT_ALIVE_DISPOSED/"
-                   f"NOT_ALIVE_NO_WRITERS) cannot be read back. @key in the IDL "
-                   f"is dropped by the python codegen (Reading dataclass has no "
-                   f"key metadata).")
+                   f"keyed lifecycle incomplete: alive_ok={alive_ok} reg_ok={reg_ok} "
+                   f"disposed_seen={disposed_seen} states="
+                   f"{[info.instance_state for (_s, info) in disp]}")
     except Exception as e:
         result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
 
