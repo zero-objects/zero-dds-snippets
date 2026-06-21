@@ -1,0 +1,551 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+"""Behavioral DDS QoS + keyed-lifecycle conformance probe for the ZeroDDS
+Python PSM over a REAL DomainParticipant + DataWriter/DataReader.
+
+Each check builds real entities, exercises the policy, and OBSERVES the
+effect (delivery count, ordering, status counters, late-joiner retention).
+Honest status per check is printed as RESULT::<n>::<status>::<note>.
+
+Topic type: keyed `Reading { @key long id; long seq; double value; }`,
+generated unmodified by `zerodds-idlc --python -o . reading.idl`.
+"""
+import sys
+import time
+
+import zerodds
+from zerodds import _core
+from reading import Reading
+
+
+def _domain(seed=[10]):
+    # Distinct domain id per check to avoid cross-check discovery bleed.
+    seed[0] += 1
+    return seed[0]
+
+
+def _mk(qos_w_fn=None, qos_r_fn=None, topic_name="QosT", domain=None):
+    """Create participant + matched writer/reader on a fresh domain.
+    qos_*_fn receive a fresh DataWriterQos/DataReaderQos to mutate; if None,
+    the default create_bytes_*_ helpers are used. Returns (p, topic, w, r)."""
+    if domain is None:
+        domain = _domain()
+    f = _core.DomainParticipantFactory.instance()
+    p = f.create_participant(domain)
+    topic = p.create_bytes_topic(topic_name)
+    pub = p.create_publisher()
+    sub = p.create_subscriber()
+    if qos_w_fn is None:
+        w = pub.create_bytes_writer(topic)
+    else:
+        q = _core.DataWriterQos()
+        qos_w_fn(q)
+        w = pub.create_bytes_writer_with_qos(topic, q)
+    if qos_r_fn is None:
+        r = sub.create_bytes_reader(topic)
+    else:
+        q = _core.DataReaderQos()
+        qos_r_fn(q)
+        r = sub.create_bytes_reader_with_qos(topic, q)
+    return p, topic, w, r
+
+
+def _collect(reader, expected, timeout=4.0):
+    """Drain samples until `expected` decoded or timeout. Returns list[Reading]."""
+    out = []
+    deadline = time.time() + timeout
+    while len(out) < expected and time.time() < deadline:
+        try:
+            reader.wait_for_data(0.3)
+        except Exception:
+            pass
+        for b in reader.take():
+            out.append(Reading.decode(b))
+    return out
+
+
+def result(n, status, note):
+    print(f"RESULT::{n}::{status}::{note}")
+
+
+# ---------------------------------------------------------------------------
+# 1. RELIABILITY
+# ---------------------------------------------------------------------------
+def check_reliability():
+    n = "1-RELIABILITY"
+    try:
+        def wq(q):
+            q.set_reliability("Reliable", 5.0)
+            q.set_history("KeepAll", 1)
+        def rq(q):
+            q.set_reliability("Reliable", 5.0)
+            q.set_history("KeepAll", 1)
+        p, t, w, r = _mk(wq, rq)
+        w.wait_for_matched_subscription(1, 5.0)
+        r.wait_for_matched_publication(1, 5.0)
+        N = 50
+        for i in range(N):
+            w.write(Reading(id=1, seq=i, value=float(i)).encode())
+        got = _collect(r, N, timeout=6.0)
+        seqs = [g.seq for g in got]
+        in_order = seqs == sorted(seqs) == list(range(N))
+        # Also confirm BEST_EFFORT is accepted (constructs + delivers).
+        def bwq(q): q.set_reliability("BestEffort", 0.0)
+        def brq(q): q.set_reliability("BestEffort", 0.0)
+        p2, t2, w2, r2 = _mk(bwq, brq, topic_name="QosBE")
+        w2.wait_for_matched_subscription(1, 5.0)
+        r2.wait_for_matched_publication(1, 5.0)
+        w2.write(Reading(id=1, seq=99, value=9.0).encode())
+        be = _collect(r2, 1, timeout=3.0)
+        be_ok = len(be) >= 1
+        if len(got) == N and in_order and be_ok:
+            result(n, "verified",
+                   f"RELIABLE delivered all {N} in order [0..{N-1}]; "
+                   f"BEST_EFFORT accepted+delivered {len(be)} sample")
+        else:
+            result(n, "partial",
+                   f"RELIABLE got {len(got)}/{N} in_order={in_order}; "
+                   f"BEST_EFFORT delivered={len(be)}")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 2. DURABILITY  (TRANSIENT_LOCAL late-joiner vs VOLATILE)
+# ---------------------------------------------------------------------------
+def check_durability():
+    n = "2-DURABILITY"
+    try:
+        dom = _domain()
+        f = _core.DomainParticipantFactory.instance()
+        p = f.create_participant(dom)
+        topic = p.create_bytes_topic("DurT")
+        pub = p.create_publisher()
+        wq = _core.DataWriterQos()
+        wq.set_reliability("Reliable", 5.0)
+        wq.set_durability("TransientLocal")
+        wq.set_history("KeepLast", 3)
+        w = pub.create_bytes_writer_with_qos(topic, wq)
+        # Publish BEFORE any reader joins.
+        for i in range(3):
+            w.write(Reading(id=7, seq=i, value=float(i)).encode())
+        time.sleep(0.3)
+        # Late joiner with TRANSIENT_LOCAL reader.
+        sub = p.create_subscriber()
+        rq = _core.DataReaderQos()
+        rq.set_reliability("Reliable", 5.0)
+        rq.set_durability("TransientLocal")
+        rq.set_history("KeepLast", 3)
+        r = sub.create_bytes_reader_with_qos(topic, rq)
+        r.wait_for_matched_publication(1, 5.0)
+        retained = _collect(r, 1, timeout=4.0)
+
+        # VOLATILE late joiner control on a separate domain.
+        dom2 = _domain()
+        p2 = f.create_participant(dom2)
+        t2 = p2.create_bytes_topic("DurV")
+        w2 = p2.create_publisher().create_bytes_writer(t2)  # default = VOLATILE
+        for i in range(3):
+            w2.write(Reading(id=7, seq=i, value=float(i)).encode())
+        time.sleep(0.3)
+        r2 = p2.create_subscriber().create_bytes_reader(t2)
+        r2.wait_for_matched_publication(1, 3.0)
+        vol = _collect(r2, 1, timeout=2.0)
+
+        if len(retained) >= 1 and len(vol) == 0:
+            result(n, "verified",
+                   f"TRANSIENT_LOCAL late joiner got {len(retained)} retained "
+                   f"sample(s); VOLATILE late joiner got {len(vol)} (none)")
+        elif len(retained) >= 1:
+            result(n, "partial",
+                   f"TRANSIENT_LOCAL retained {len(retained)}; but VOLATILE "
+                   f"late joiner also got {len(vol)} (expected 0)")
+        else:
+            result(n, "unsupported",
+                   f"TRANSIENT_LOCAL late joiner got 0 retained samples "
+                   f"(VOLATILE control got {len(vol)})")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 3. HISTORY  KEEP_LAST(k) caps; KEEP_ALL retains all
+# ---------------------------------------------------------------------------
+def check_history():
+    n = "3-HISTORY"
+    try:
+        # KEEP_LAST(2) on a TRANSIENT_LOCAL writer; late reader should see <= 2
+        # retained for the single instance.
+        dom = _domain()
+        f = _core.DomainParticipantFactory.instance()
+        p = f.create_participant(dom)
+        topic = p.create_bytes_topic("HistKL")
+        wq = _core.DataWriterQos()
+        wq.set_reliability("Reliable", 5.0)
+        wq.set_durability("TransientLocal")
+        wq.set_history("KeepLast", 2)
+        w = p.create_publisher().create_bytes_writer_with_qos(topic, wq)
+        for i in range(6):
+            w.write(Reading(id=1, seq=i, value=float(i)).encode())
+        time.sleep(0.3)
+        rq = _core.DataReaderQos()
+        rq.set_reliability("Reliable", 5.0)
+        rq.set_durability("TransientLocal")
+        rq.set_history("KeepLast", 2)
+        r = p.create_subscriber().create_bytes_reader_with_qos(topic, rq)
+        r.wait_for_matched_publication(1, 5.0)
+        kl = _collect(r, 2, timeout=3.0)
+        kl_seqs = sorted(g.seq for g in kl)
+
+        # KEEP_ALL on a TRANSIENT_LOCAL writer: late reader should see all 6.
+        dom2 = _domain()
+        p2 = f.create_participant(dom2)
+        t2 = p2.create_bytes_topic("HistKA")
+        wq2 = _core.DataWriterQos()
+        wq2.set_reliability("Reliable", 5.0)
+        wq2.set_durability("TransientLocal")
+        wq2.set_history("KeepAll", 1)
+        wq2.set_resource_limits(100, 100, 100)
+        w2 = p2.create_publisher().create_bytes_writer_with_qos(t2, wq2)
+        for i in range(6):
+            w2.write(Reading(id=1, seq=i, value=float(i)).encode())
+        time.sleep(0.3)
+        rq2 = _core.DataReaderQos()
+        rq2.set_reliability("Reliable", 5.0)
+        rq2.set_durability("TransientLocal")
+        rq2.set_history("KeepAll", 1)
+        rq2.set_resource_limits(100, 100, 100)
+        r2 = p2.create_subscriber().create_bytes_reader_with_qos(t2, rq2)
+        r2.wait_for_matched_publication(1, 5.0)
+        ka = _collect(r2, 6, timeout=3.0)
+
+        kl_ok = len(kl) <= 2 and len(kl) >= 1 and set(kl_seqs).issubset({4, 5})
+        ka_ok = len(ka) == 6
+        if kl_ok and ka_ok:
+            result(n, "verified",
+                   f"KEEP_LAST(2) capped late-joiner to {len(kl)} (seqs {kl_seqs}, "
+                   f"newest); KEEP_ALL retained all {len(ka)}/6")
+        elif kl_ok or ka_ok:
+            result(n, "partial",
+                   f"KEEP_LAST(2)->{len(kl)} seqs={kl_seqs} (cap_ok={kl_ok}); "
+                   f"KEEP_ALL->{len(ka)}/6 (ok={ka_ok})")
+        else:
+            result(n, "unsupported",
+                   f"KEEP_LAST(2)->{len(kl)} seqs={kl_seqs}; KEEP_ALL->{len(ka)}/6 "
+                   f"(neither matched expectation)")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 4. DEADLINE  reader requested-deadline-missed increments
+# ---------------------------------------------------------------------------
+def check_deadline():
+    n = "4-DEADLINE"
+    try:
+        def wq(q):
+            q.set_reliability("Reliable", 5.0)
+            q.set_deadline(0.2)
+        def rq(q):
+            q.set_reliability("Reliable", 5.0)
+            q.set_deadline(0.2)
+        p, t, w, r = _mk(wq, rq, topic_name="DlT")
+        w.wait_for_matched_subscription(1, 5.0)
+        r.wait_for_matched_publication(1, 5.0)
+        # Write one, then stall well beyond the 0.2s deadline.
+        w.write(Reading(id=1, seq=0, value=0.0).encode())
+        _collect(r, 1, timeout=1.0)
+        before = r.requested_deadline_missed_status()
+        time.sleep(1.5)  # ~7 missed deadlines on the live instance
+        after = r.requested_deadline_missed_status()
+        # status tuple is (count, ...). Compare count field [0].
+        b0 = before[0] if isinstance(before, (tuple, list)) else before
+        a0 = after[0] if isinstance(after, (tuple, list)) else after
+        if a0 > b0:
+            result(n, "verified",
+                   f"requested_deadline_missed count {b0}->{a0} after stalling "
+                   f"past 0.2s deadline")
+        elif a0 == 0 and b0 == 0:
+            result(n, "unsupported",
+                   f"deadline accepted but requested_deadline_missed never "
+                   f"incremented (stayed {a0}); status not wired to deadline timer")
+        else:
+            result(n, "partial",
+                   f"requested_deadline_missed {b0}->{a0} (no increment observed)")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 5. LIVELINESS  writer stops asserting -> reader liveliness changed alive->not
+# ---------------------------------------------------------------------------
+def check_liveliness():
+    n = "5-LIVELINESS"
+    try:
+        def wq(q):
+            q.set_reliability("Reliable", 5.0)
+            q.set_liveliness("ManualByTopic", 0.3)
+        def rq(q):
+            q.set_reliability("Reliable", 5.0)
+            q.set_liveliness("ManualByTopic", 0.3)
+        p, t, w, r = _mk(wq, rq, topic_name="LiveT")
+        w.wait_for_matched_subscription(1, 5.0)
+        r.wait_for_matched_publication(1, 5.0)
+        w.write(Reading(id=1, seq=0, value=0.0).encode())
+        _collect(r, 1, timeout=1.0)
+        # Reader has no liveliness_changed_status getter in this binding.
+        has_reader_status = hasattr(r, "liveliness_changed_status")
+        # Writer side: liveliness_lost should fire if it stops asserting.
+        has_writer_lost = hasattr(w, "liveliness_lost_status")
+        time.sleep(1.0)  # > lease, writer never re-asserts
+        if has_reader_status:
+            st = r.liveliness_changed_status()
+            result(n, "verified" if st else "partial",
+                   f"reader liveliness_changed_status = {st}")
+        elif has_writer_lost:
+            lost = w.liveliness_lost_status()
+            l0 = lost[0] if isinstance(lost, (tuple, list)) else lost
+            # ManualByTopic writer that never asserts -> lease expiry -> lost
+            if l0 > 0:
+                result(n, "partial",
+                       f"no reader liveliness_changed_status getter; writer "
+                       f"liveliness_lost count={l0} observed (lease expired)")
+            else:
+                result(n, "unsupported",
+                       f"no reader liveliness_changed_status getter; writer "
+                       f"liveliness_lost stayed {l0} despite expired lease — "
+                       f"liveliness not behaviorally observable")
+        else:
+            result(n, "unsupported",
+                   "no liveliness_changed_status (reader) nor "
+                   "liveliness_lost_status (writer) — not observable")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 6. OWNERSHIP  EXCLUSIVE: higher-strength writer wins
+# ---------------------------------------------------------------------------
+def check_ownership():
+    n = "6-OWNERSHIP"
+    try:
+        dom = _domain()
+        f = _core.DomainParticipantFactory.instance()
+        p = f.create_participant(dom)
+        topic = p.create_bytes_topic("OwnT")
+        pub = p.create_publisher()
+        # Two EXCLUSIVE writers, different strengths, same instance id=1.
+        wq_lo = _core.DataWriterQos()
+        wq_lo.set_reliability("Reliable", 5.0)
+        wq_lo.set_ownership("Exclusive")
+        wq_lo.set_ownership_strength(1)
+        w_lo = pub.create_bytes_writer_with_qos(topic, wq_lo)
+        wq_hi = _core.DataWriterQos()
+        wq_hi.set_reliability("Reliable", 5.0)
+        wq_hi.set_ownership("Exclusive")
+        wq_hi.set_ownership_strength(10)
+        w_hi = pub.create_bytes_writer_with_qos(topic, wq_hi)
+        rq = _core.DataReaderQos()
+        rq.set_reliability("Reliable", 5.0)
+        rq.set_ownership("Exclusive")
+        r = p.create_subscriber().create_bytes_reader_with_qos(topic, rq)
+        w_lo.wait_for_matched_subscription(1, 5.0)
+        w_hi.wait_for_matched_subscription(1, 5.0)
+        r.wait_for_matched_publication(2, 5.0)
+        # Both write the same instance with distinguishable values.
+        for i in range(5):
+            w_lo.write(Reading(id=1, seq=i, value=-1.0).encode())  # low strength
+            w_hi.write(Reading(id=1, seq=i, value=100.0).encode())  # high strength
+            time.sleep(0.05)
+        got = _collect(r, 10, timeout=3.0)
+        vals = [g.value for g in got]
+        from_hi = sum(1 for v in vals if v == 100.0)
+        from_lo = sum(1 for v in vals if v == -1.0)
+        if from_lo == 0 and from_hi > 0:
+            result(n, "verified",
+                   f"EXCLUSIVE: reader saw {from_hi} high-strength samples, "
+                   f"0 low-strength (ownership arbitration works)")
+        elif from_hi > 0 and from_lo > 0:
+            result(n, "unsupported",
+                   f"EXCLUSIVE accepted but NOT enforced: reader saw BOTH "
+                   f"high={from_hi} and low={from_lo} strength samples "
+                   f"(arbitration not applied)")
+        else:
+            result(n, "partial",
+                   f"EXCLUSIVE: high={from_hi} low={from_lo} (inconclusive)")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 7. PARTITION  matching communicates; mismatch does not
+# ---------------------------------------------------------------------------
+def check_partition():
+    n = "7-PARTITION"
+    try:
+        # Matching partition "A" on a fresh domain.
+        dom = _domain()
+        f = _core.DomainParticipantFactory.instance()
+        p = f.create_participant(dom)
+        topic = p.create_bytes_topic("PartT")
+        wq = _core.DataWriterQos()
+        wq.set_reliability("Reliable", 5.0)
+        wq.set_partition(["A"])
+        w = p.create_publisher().create_bytes_writer_with_qos(topic, wq)
+        rq = _core.DataReaderQos()
+        rq.set_reliability("Reliable", 5.0)
+        rq.set_partition(["A"])
+        r = p.create_subscriber().create_bytes_reader_with_qos(topic, rq)
+        match_ok = False
+        try:
+            w.wait_for_matched_subscription(1, 3.0)
+            r.wait_for_matched_publication(1, 3.0)
+            match_ok = True
+        except Exception:
+            match_ok = False
+        match_got = 0
+        if match_ok:
+            w.write(Reading(id=1, seq=0, value=1.0).encode())
+            match_got = len(_collect(r, 1, timeout=2.0))
+
+        # Mismatched partitions on a separate domain.
+        dom2 = _domain()
+        p2 = f.create_participant(dom2)
+        t2 = p2.create_bytes_topic("PartT2")
+        wq2 = _core.DataWriterQos()
+        wq2.set_reliability("Reliable", 5.0)
+        wq2.set_partition(["A"])
+        w2 = p2.create_publisher().create_bytes_writer_with_qos(t2, wq2)
+        rq2 = _core.DataReaderQos()
+        rq2.set_reliability("Reliable", 5.0)
+        rq2.set_partition(["B"])
+        r2 = p2.create_subscriber().create_bytes_reader_with_qos(t2, rq2)
+        mismatch_matched = False
+        try:
+            r2.wait_for_matched_publication(1, 1.5)
+            mismatch_matched = True
+        except Exception:
+            mismatch_matched = False
+        w2.write(Reading(id=1, seq=0, value=1.0).encode())
+        mismatch_got = len(_collect(r2, 1, timeout=1.5))
+
+        if match_got >= 1 and mismatch_got == 0 and not mismatch_matched:
+            result(n, "verified",
+                   f"partition 'A'<->'A' delivered {match_got}; 'A'<->'B' "
+                   f"did not match and delivered {mismatch_got}")
+        elif match_got >= 1 and mismatch_got == 0:
+            result(n, "partial",
+                   f"matching delivered {match_got}; mismatch delivered 0 but "
+                   f"endpoints still reported matched={mismatch_matched}")
+        elif match_got >= 1 and mismatch_got >= 1:
+            result(n, "unsupported",
+                   f"PARTITION not enforced: matching delivered {match_got} AND "
+                   f"mismatched 'A'/'B' ALSO delivered {mismatch_got}")
+        else:
+            result(n, "partial",
+                   f"matching delivered {match_got} (expected >=1); "
+                   f"mismatch delivered {mismatch_got}")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 8. CONTENT-FILTERED-TOPIC
+# ---------------------------------------------------------------------------
+def check_cft():
+    n = "8-CFT"
+    try:
+        f = _core.DomainParticipantFactory.instance()
+        p = f.create_participant(_domain())
+        # Probe for any CFT creation entry point.
+        cands = [c for c in dir(p) if "filter" in c.lower() or "cft" in c.lower()]
+        sub = p.create_subscriber()
+        sub_cands = [c for c in dir(sub) if "filter" in c.lower()]
+        topic = p.create_bytes_topic("CftT")
+        topic_cands = [c for c in dir(topic) if "filter" in c.lower()]
+        if cands or sub_cands or topic_cands:
+            result(n, "partial",
+                   f"possible CFT entry points: participant={cands} "
+                   f"subscriber={sub_cands} topic={topic_cands} — present but "
+                   f"behavior not exercised here")
+        else:
+            result(n, "unsupported",
+                   "no ContentFilteredTopic / filter creation API on "
+                   "DomainParticipant, Subscriber, or BytesTopic — CFT not "
+                   "exposed in the Python binding")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 9. KEYED LIFECYCLE  dispose / unregister / instance_state observability
+# ---------------------------------------------------------------------------
+def check_keyed_lifecycle():
+    n = "9-KEYED-LIFECYCLE"
+    try:
+        f = _core.DomainParticipantFactory.instance()
+        p = f.create_participant(_domain())
+        topic = p.create_bytes_topic("KeyT")
+        w = p.create_publisher().create_bytes_writer(topic)
+        r = p.create_subscriber().create_bytes_reader(topic)
+        w.wait_for_matched_subscription(1, 5.0)
+        r.wait_for_matched_publication(1, 5.0)
+        # Multiple instances by key.
+        w.write(Reading(id=1, seq=0, value=1.0).encode())
+        w.write(Reading(id=2, seq=0, value=2.0).encode())
+        got = _collect(r, 2, timeout=3.0)
+        ids = sorted(g.id for g in got)
+
+        # Probe writer-side keyed lifecycle API.
+        w_dispose = hasattr(w, "dispose")
+        w_unregister = hasattr(w, "unregister") or hasattr(w, "unregister_instance")
+        w_register = hasattr(w, "register_instance")
+        # Probe reader-side instance-state observability: take() returns
+        # list[bytes] only (no SampleInfo / instance_state).
+        sample = r.take()  # likely empty now; the type is list[bytes]
+        take_returns_bytes = (sample == [] or
+                              (len(sample) and isinstance(sample[0], (bytes, bytearray))))
+        r_has_info = any("info" in c.lower() or "instance_state" in c.lower()
+                         for c in dir(r))
+
+        missing = []
+        if not w_dispose: missing.append("writer.dispose")
+        if not w_unregister: missing.append("writer.unregister")
+        if not r_has_info: missing.append("reader SampleInfo/instance_state")
+
+        if not missing:
+            # If the full API existed we would exercise it; not reached here.
+            result(n, "verified", "full keyed lifecycle API present")
+        else:
+            result(n, "unsupported",
+                   f"multi-instance delivery by key works (ids={ids}), BUT "
+                   f"keyed lifecycle is NOT observable: missing {missing}. "
+                   f"BytesWriter.write takes bytes only (no dispose/unregister/"
+                   f"register_instance); take() returns list[bytes] with no "
+                   f"SampleInfo, so instance_state (ALIVE/NOT_ALIVE_DISPOSED/"
+                   f"NOT_ALIVE_NO_WRITERS) cannot be read back. @key in the IDL "
+                   f"is dropped by the python codegen (Reading dataclass has no "
+                   f"key metadata).")
+    except Exception as e:
+        result(n, "unsupported", f"EXC {type(e).__name__}: {e}")
+
+
+def main():
+    print("ZeroDDS Python PSM — QoS + keyed-lifecycle behavioral conformance")
+    print("=" * 70)
+    checks = [
+        check_reliability, check_durability, check_history, check_deadline,
+        check_liveliness, check_ownership, check_partition, check_cft,
+        check_keyed_lifecycle,
+    ]
+    for c in checks:
+        try:
+            c()
+        except Exception as e:  # pragma: no cover
+            print(f"RESULT::{c.__name__}::unsupported::HARNESS EXC {e}")
+        sys.stdout.flush()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

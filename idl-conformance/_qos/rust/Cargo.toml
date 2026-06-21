@@ -1,0 +1,19 @@
+[package]
+name = "qos-conformance-rust"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../../../crates.
+[workspace]
+
+[[bin]]
+name = "qos_lifecycle"
+path = "src/main.rs"
+
+[dependencies]
+zerodds-dcps = { path = "../../../../crates/dcps" }
+zerodds-cdr = { path = "../../../../crates/cdr" }
+zerodds-types = { path = "../../../../crates/types" }
+zerodds-sql-filter = { path = "../../../../crates/sql-filter" }
+zerodds-qos = { path = "../../../../crates/qos" }

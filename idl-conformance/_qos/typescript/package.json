@@ -1,0 +1,9 @@
+{
+  "name": "zerodds-qos-conformance-typescript",
+  "private": true,
+  "type": "module",
+  "description": "DDS QoS + keyed-lifecycle behavioral conformance probe for the ZeroDDS TypeScript binding over real native DCPS (@zerodds/node).",
+  "scripts": {
+    "start": "tsx qos_conformance.ts"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@zerodds/node": ["../../../../crates/ts-node/dist/index.d.ts"],
+      "@zerodds/cdr": ["../../../../crates/ts-node/dist/cdr/index.d.ts"],
+      "@zerodds/types": ["../../../../crates/idl-ts/src/runtime/index.ts"]
+    }
+  },
+  "include": ["*.ts"]
+}

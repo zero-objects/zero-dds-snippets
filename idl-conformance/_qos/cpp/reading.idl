@@ -1,0 +1,7 @@
+module qos {
+  struct Reading {
+    @key long id;
+    long seq;
+    double value;
+  };
+};
