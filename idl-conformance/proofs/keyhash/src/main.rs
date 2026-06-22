@@ -15,8 +15,8 @@
 #[path = "../generated/keyhash_cases.rs"]
 mod generated;
 
-use generated::keyhash::{BigKey, MixedKeys, SingleKey};
-use zerodds_cdr::{PlainCdr2BeKeyHolder, compute_key_hash};
+use generated::keyhash::{BigKey, MixedKeys, NestedKey, OuterKey, SingleKey};
+use zerodds_cdr::PlainCdr2BeKeyHolder;
 use zerodds_dcps::DdsType;
 
 fn hex16(b: &[u8; 16]) -> String {
@@ -75,17 +75,22 @@ fn main() {
         hc.as_bytes().iter().map(|x| format!("{x:02x}")).collect::<String>());
     println!("    KeyHash  = {}\n", hex16(&kc));
 
-    // ---- Case (d): nested @key struct, hand-built keyholder ----
-    // The ZeroDDS Rust backend currently rejects `@key NestedKey k` during
-    // codegen (Finding #1). We build the keyholder the generated code WOULD
-    // emit: the nested struct's own @key members (hi, lo) in member order,
-    // each a BE i32. NestedKey{ hi=0x01020304, lo=0x05060708 } -> 8 bytes,
-    // max <= 16 -> zero-pad.
+    // ---- Case (d): nested @key struct, GENERATED keyholder (FINDING F2) ----
+    // The ZeroDDS Rust backend now expands `@key NestedKey k` into the nested
+    // struct's own @key members (hi, lo) in member-id order — each a BE i32 —
+    // so `OuterKey::compute_key_hash()` / `encode_key_holder_be()` are fully
+    // generated. NestedKey{ hi=0x01020304, lo=0x05060708 } -> 8 bytes,
+    // max <= 16 -> zero-pad. (Previously hand-built because codegen rejected
+    // the nested-struct @key member.)
+    let d = OuterKey {
+        k: NestedKey { hi: 0x0102_0304, lo: 0x0506_0708 },
+        payload: 999,
+    };
+    let kd = d.compute_key_hash().expect("keyed");
+    println!("(d) OuterKey {{ k = NestedKey {{ hi=0x01020304, lo=0x05060708 }} }}  (generated keyholder)");
+    println!("    max_size = {:?}  (<=16 -> zero-pad)", OuterKey::KEY_HOLDER_MAX_SIZE);
     let mut hd = PlainCdr2BeKeyHolder::new();
-    hd.write_i32(0x0102_0304); // hi
-    hd.write_i32(0x0506_0708); // lo
-    let kd = compute_key_hash(hd.as_bytes(), 8);
-    println!("(d) OuterKey {{ k = NestedKey {{ hi=0x01020304, lo=0x05060708 }} }}  (hand-built keyholder)");
+    d.encode_key_holder_be(&mut hd);
     println!("    keyholder bytes ({} B) = {}", hd.as_bytes().len(),
         hd.as_bytes().iter().map(|x| format!("{x:02x}")).collect::<String>());
     println!("    KeyHash  = {}\n", hex16(&kd));

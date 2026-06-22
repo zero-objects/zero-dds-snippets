@@ -610,14 +610,40 @@ pub mod ts {
     impl zerodds_cdr::CdrDecode for MutLeaf {
         fn decode(reader: &mut zerodds_cdr::BufferReader<'_>) -> ::core::result::Result<Self, zerodds_cdr::DecodeError> {
             if reader.max_alignment() == 4 {
-                zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
-                    let u = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
-                    let v = <f64 as zerodds_cdr::CdrDecode>::decode(r)?;
-                    ::core::result::Result::Ok(Self {
-                        u,
-                        v,
-                    })
+            zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
+                // member-id 1
+                let mut u: ::core::option::Option<i32> = ::core::option::Option::None;
+                // member-id 2
+                let mut v: ::core::option::Option<f64> = ::core::option::Option::None;
+                loop {
+                    match zerodds_cdr::struct_enc::read_mutable_member(r)? {
+                        ::core::option::Option::Some(member) => {
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            match member.member_id {
+                                1 => {
+                                    u = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                2 => {
+                                    v = ::core::option::Option::Some(<f64 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                _ => {
+                                    if member.must_understand {
+                                        return ::core::result::Result::Err(zerodds_cdr::DecodeError::UnknownMustUnderstandMember {
+                                            member_id: member.member_id,
+                                        });
+                                    }
+                                    // unknown optional member: skip body
+                                }
+                            }
+                        }
+                        ::core::option::Option::None => break,
+                    }
+                }
+                ::core::result::Result::Ok(Self {
+                    u: u.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 1 })?,
+                    v: v.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 2 })?,
                 })
+            })
             } else {
                 let u = <i32 as zerodds_cdr::CdrDecode>::decode(reader)?;
                 let v = <f64 as zerodds_cdr::CdrDecode>::decode(reader)?;
@@ -647,8 +673,8 @@ pub mod ts {
             zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
                 let mut enc = zerodds_cdr::struct_enc::MutableStructEncoder::new(w, ::std::vec![10, 20, 30]);
                 enc.encode_member_lc(10, false, zerodds_cdr::struct_enc::LengthCode::Lc2, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.tag, w)?; Ok(()) })?;
-                enc.encode_member(20, false, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.leaf, w)?; Ok(()) })?;
-                enc.encode_member(30, false, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.list, w)?; Ok(()) })?;
+                enc.encode_member_lc(20, false, zerodds_cdr::struct_enc::LengthCode::Lc5, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.leaf, w)?; Ok(()) })?;
+                enc.encode_member_lc(30, false, zerodds_cdr::struct_enc::LengthCode::Lc5, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.list, w)?; Ok(()) })?;
                 enc.finish()?;
                 Ok(())
             })?;
@@ -715,8 +741,8 @@ pub mod ts {
                 zerodds_cdr::struct_enc::encode_appendable(writer, |w| {
                     let mut enc = zerodds_cdr::struct_enc::MutableStructEncoder::new(w, ::std::vec![10, 20, 30]);
                     enc.encode_member_lc(10, false, zerodds_cdr::struct_enc::LengthCode::Lc2, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.tag, w)?; Ok(()) })?;
-                    enc.encode_member(20, false, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.leaf, w)?; Ok(()) })?;
-                    enc.encode_member(30, false, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.list, w)?; Ok(()) })?;
+                    enc.encode_member_lc(20, false, zerodds_cdr::struct_enc::LengthCode::Lc5, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.leaf, w)?; Ok(()) })?;
+                    enc.encode_member_lc(30, false, zerodds_cdr::struct_enc::LengthCode::Lc5, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.list, w)?; Ok(()) })?;
                     enc.finish()?;
                     Ok(())
                 })?;
@@ -732,16 +758,46 @@ pub mod ts {
     impl zerodds_cdr::CdrDecode for MutOuter {
         fn decode(reader: &mut zerodds_cdr::BufferReader<'_>) -> ::core::result::Result<Self, zerodds_cdr::DecodeError> {
             if reader.max_alignment() == 4 {
-                zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
-                    let tag = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
-                    let leaf = <MutLeaf as zerodds_cdr::CdrDecode>::decode(r)?;
-                    let list = <Vec<MutLeaf> as zerodds_cdr::CdrDecode>::decode(r)?;
-                    ::core::result::Result::Ok(Self {
-                        tag,
-                        leaf,
-                        list,
-                    })
+            zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
+                // member-id 10
+                let mut tag: ::core::option::Option<i32> = ::core::option::Option::None;
+                // member-id 20
+                let mut leaf: ::core::option::Option<MutLeaf> = ::core::option::Option::None;
+                // member-id 30
+                let mut list: ::core::option::Option<Vec<MutLeaf>> = ::core::option::Option::None;
+                loop {
+                    match zerodds_cdr::struct_enc::read_mutable_member(r)? {
+                        ::core::option::Option::Some(member) => {
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            match member.member_id {
+                                10 => {
+                                    tag = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                20 => {
+                                    leaf = ::core::option::Option::Some(<MutLeaf as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                30 => {
+                                    list = ::core::option::Option::Some(<Vec<MutLeaf> as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                _ => {
+                                    if member.must_understand {
+                                        return ::core::result::Result::Err(zerodds_cdr::DecodeError::UnknownMustUnderstandMember {
+                                            member_id: member.member_id,
+                                        });
+                                    }
+                                    // unknown optional member: skip body
+                                }
+                            }
+                        }
+                        ::core::option::Option::None => break,
+                    }
+                }
+                ::core::result::Result::Ok(Self {
+                    tag: tag.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 10 })?,
+                    leaf: leaf.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 20 })?,
+                    list: list.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 30 })?,
                 })
+            })
             } else {
                 let tag = <i32 as zerodds_cdr::CdrDecode>::decode(reader)?;
                 let leaf = <MutLeaf as zerodds_cdr::CdrDecode>::decode(reader)?;

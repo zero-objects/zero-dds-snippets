@@ -57,24 +57,108 @@ namespace feat {
         void c(const std::string& value) { c_ = value; }
     };
 
-    /** IDL `@bit_bound(3)` */
-    enum class Perm : uint8_t {
+    class MutLeaf {
+    public:
+        MutLeaf() = default;
+        ~MutLeaf() = default;
+        MutLeaf(int32_t u, double v)
+            : u_(std::move(u)), v_(std::move(v)) {}
+
+    private:
+        int32_t u_;
+        double v_;
+
+    public:
+        int32_t& u() { return u_; }
+        const int32_t& u() const { return u_; }
+        void u(const int32_t& value) { u_ = value; }
+        double& v() { return v_; }
+        const double& v() const { return v_; }
+        void v(const double& value) { v_ = value; }
+    };
+
+    class MutNest {
+    public:
+        MutNest() = default;
+        ~MutNest() = default;
+        MutNest(int32_t tag, ::feat::MutLeaf leaf, std::vector<::feat::MutLeaf> list)
+            : tag_(std::move(tag)), leaf_(std::move(leaf)), list_(std::move(list)) {}
+
+    private:
+        int32_t tag_;
+        ::feat::MutLeaf leaf_;
+        std::vector<::feat::MutLeaf> list_;
+
+    public:
+        int32_t& tag() { return tag_; }
+        const int32_t& tag() const { return tag_; }
+        void tag(const int32_t& value) { tag_ = value; }
+        ::feat::MutLeaf& leaf() { return leaf_; }
+        const ::feat::MutLeaf& leaf() const { return leaf_; }
+        void leaf(const ::feat::MutLeaf& value) { leaf_ = value; }
+        std::vector<::feat::MutLeaf>& list() { return list_; }
+        const std::vector<::feat::MutLeaf>& list() const { return list_; }
+        void list(const std::vector<::feat::MutLeaf>& value) { list_ = value; }
+    };
+
+    class NestedKey {
+    public:
+        NestedKey() = default;
+        ~NestedKey() = default;
+        NestedKey(int32_t hi, int32_t lo)
+            : hi_(std::move(hi)), lo_(std::move(lo)) {}
+
+    private:
+        int32_t hi_; // @key
+        int32_t lo_; // @key
+
+    public:
+        int32_t& hi() { return hi_; }
+        const int32_t& hi() const { return hi_; }
+        void hi(const int32_t& value) { hi_ = value; }
+        int32_t& lo() { return lo_; }
+        const int32_t& lo() const { return lo_; }
+        void lo(const int32_t& value) { lo_ = value; }
+    };
+
+    class OuterKey {
+    public:
+        OuterKey() = default;
+        ~OuterKey() = default;
+        OuterKey(::feat::NestedKey k, int32_t payload)
+            : k_(std::move(k)), payload_(std::move(payload)) {}
+
+    private:
+        ::feat::NestedKey k_; // @key
+        int32_t payload_;
+
+    public:
+        ::feat::NestedKey& k() { return k_; }
+        const ::feat::NestedKey& k() const { return k_; }
+        void k(const ::feat::NestedKey& value) { k_ = value; }
+        int32_t& payload() { return payload_; }
+        const int32_t& payload() const { return payload_; }
+        void payload(const int32_t& value) { payload_ = value; }
+    };
+
+    /** IDL `@bit_bound(32)` */
+    enum class Perm : uint32_t {
         READ = 1ULL << 0,
         WRITE = 1ULL << 1,
         EXEC = 1ULL << 2,
     };
 
     constexpr Perm operator|(Perm a, Perm b) noexcept {
-        return static_cast<Perm>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+        return static_cast<Perm>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
     }
     constexpr Perm operator&(Perm a, Perm b) noexcept {
-        return static_cast<Perm>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+        return static_cast<Perm>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
     }
     constexpr Perm operator^(Perm a, Perm b) noexcept {
-        return static_cast<Perm>(static_cast<uint8_t>(a) ^ static_cast<uint8_t>(b));
+        return static_cast<Perm>(static_cast<uint32_t>(a) ^ static_cast<uint32_t>(b));
     }
     constexpr Perm operator~(Perm a) noexcept {
-        return static_cast<Perm>(~static_cast<uint8_t>(a));
+        return static_cast<Perm>(~static_cast<uint32_t>(a));
     }
 
     struct Flags {
@@ -261,6 +345,54 @@ struct topic_type_support<::feat::Mut> {
 };
 
 template <>
+struct topic_type_support<::feat::MutLeaf> {
+    static const char* type_name() { return "feat::MutLeaf"; }
+    static constexpr bool is_keyed() { return false; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::MUTABLE; }
+    static std::vector<uint8_t> encode(const ::feat::MutLeaf& zd_v);
+    static std::vector<uint8_t> encode(const ::feat::MutLeaf& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::feat::MutLeaf& zd_v);
+    static ::feat::MutLeaf decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::feat::MutLeaf& zd_v);
+};
+
+template <>
+struct topic_type_support<::feat::MutNest> {
+    static const char* type_name() { return "feat::MutNest"; }
+    static constexpr bool is_keyed() { return false; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::MUTABLE; }
+    static std::vector<uint8_t> encode(const ::feat::MutNest& zd_v);
+    static std::vector<uint8_t> encode(const ::feat::MutNest& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::feat::MutNest& zd_v);
+    static ::feat::MutNest decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::feat::MutNest& zd_v);
+};
+
+template <>
+struct topic_type_support<::feat::NestedKey> {
+    static const char* type_name() { return "feat::NestedKey"; }
+    static constexpr bool is_keyed() { return true; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::FINAL; }
+    static std::vector<uint8_t> encode(const ::feat::NestedKey& zd_v);
+    static std::vector<uint8_t> encode(const ::feat::NestedKey& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::feat::NestedKey& zd_v);
+    static ::feat::NestedKey decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::feat::NestedKey& zd_v);
+};
+
+template <>
+struct topic_type_support<::feat::OuterKey> {
+    static const char* type_name() { return "feat::OuterKey"; }
+    static constexpr bool is_keyed() { return true; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::FINAL; }
+    static std::vector<uint8_t> encode(const ::feat::OuterKey& zd_v);
+    static std::vector<uint8_t> encode(const ::feat::OuterKey& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::feat::OuterKey& zd_v);
+    static ::feat::OuterKey decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::feat::OuterKey& zd_v);
+};
+
+template <>
 struct topic_type_support<::feat::Bits> {
     static const char* type_name() { return "feat::Bits"; }
     static constexpr bool is_keyed() { return false; }
@@ -378,18 +510,14 @@ inline std::vector<uint8_t> topic_type_support<::feat::Mut>::encode(const ::feat
         (void)zd_max_align;
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
-        { const auto zd_sub = ::dds::topic::xcdr2::emheader_nextint_begin(zd_out, zd_origin, 10, false);
-            ::dds::topic::xcdr2::write_le_raw<int32_t>(zd_out, zd_v.a());
-            ::dds::topic::xcdr2::emheader_nextint_end(zd_out, zd_sub); }
-        { const auto zd_sub = ::dds::topic::xcdr2::emheader_nextint_begin(zd_out, zd_origin, 20, false);
-            ::dds::topic::xcdr2::write_le_raw<double>(zd_out, zd_v.b());
-            ::dds::topic::xcdr2::emheader_nextint_end(zd_out, zd_sub); }
+        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 10, false, zd_v.a());
+        ::dds::topic::xcdr2::emheader_8<double>(zd_out, zd_origin, 20, false, zd_v.b());
         if (zd_v.c().size() > 8) throw std::length_error("bounded string length exceeds its IDL bound (8)");
-        { const auto zd_sub = ::dds::topic::xcdr2::emheader_nextint_begin(zd_out, zd_origin, 30, false);
-            { const auto zd_body_origin = zd_sub.body_start; (void)zd_body_origin;
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
               ::dds::topic::xcdr2::write_string_origin(zd_out, zd_body_origin, zd_v.c(), zd_max_align);
-            }
-            ::dds::topic::xcdr2::emheader_nextint_end(zd_out, zd_sub); }
+            } }
         ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
         return zd_out;
     }
@@ -398,18 +526,18 @@ inline std::vector<uint8_t> topic_type_support<::feat::Mut>::encode_be(const ::f
         (void)zd_v;
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
-        { const auto zd_sub = ::dds::topic::xcdr2::emheader_nextint_begin(zd_out, zd_origin, 10, false);
-            ::dds::topic::xcdr2::write_be_raw<int32_t>(zd_out, zd_v.a());
-            ::dds::topic::xcdr2::emheader_nextint_end(zd_out, zd_sub); }
-        { const auto zd_sub = ::dds::topic::xcdr2::emheader_nextint_begin(zd_out, zd_origin, 20, false);
-            ::dds::topic::xcdr2::write_be_raw<double>(zd_out, zd_v.b());
-            ::dds::topic::xcdr2::emheader_nextint_end(zd_out, zd_sub); }
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 10, false));
+            ::dds::topic::xcdr2::write_be_raw<int32_t>(zd_out, zd_v.a()); }
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(3u, 20, false));
+            ::dds::topic::xcdr2::write_be_raw<double>(zd_out, zd_v.b()); }
         if (zd_v.c().size() > 8) throw std::length_error("bounded string length exceeds its IDL bound (8)");
-        { const auto zd_sub = ::dds::topic::xcdr2::emheader_nextint_begin(zd_out, zd_origin, 30, false);
-            { const auto zd_body_origin = zd_sub.body_start; (void)zd_body_origin;
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
               ::dds::topic::xcdr2::write_string_be(zd_out, zd_v.c());
-            }
-            ::dds::topic::xcdr2::emheader_nextint_end(zd_out, zd_sub); }
+            } }
         ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
         return zd_out;
     }
@@ -425,18 +553,14 @@ inline ::feat::Mut topic_type_support<::feat::Mut>::decode(const uint8_t* zd_buf
             const auto zd_h = ::dds::topic::xcdr2::emheader_read(zd_buf, zd_pos, zd_len, zd_origin);
             switch (zd_h.member_id) {
                 case 10: {
-                    { auto zd_n = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); (void)zd_n; }
                     zd_v.a(::dds::topic::xcdr2::read_le_raw<int32_t>(zd_buf, zd_pos, zd_len));
                     break;
                 }
                 case 20: {
-                    { auto zd_n = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); (void)zd_n; }
                     zd_v.b(::dds::topic::xcdr2::read_le_raw<double>(zd_buf, zd_pos, zd_len));
                     break;
                 }
                 case 30: {
-                    auto zd_n = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len);
-                    (void)zd_n;
                     auto zd_body_origin = zd_pos;
                     zd_v.c(::dds::topic::xcdr2::read_string_origin(zd_buf, zd_pos, zd_len, zd_body_origin, zd_max_align));
                     break;
@@ -465,6 +589,314 @@ inline std::array<uint8_t, 16> topic_type_support<::feat::Mut>::key_hash(const :
         return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
     }
 
+inline std::vector<uint8_t> topic_type_support<::feat::MutLeaf>::encode(const ::feat::MutLeaf& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::MutLeaf>::encode(const ::feat::MutLeaf& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
+        const size_t zd_origin = zd_scope.origin;
+        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 1, false, zd_v.u());
+        ::dds::topic::xcdr2::emheader_8<double>(zd_out, zd_origin, 2, false, zd_v.v());
+        ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::MutLeaf>::encode_be(const ::feat::MutLeaf& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
+        const size_t zd_origin = zd_scope.origin;
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 1, false));
+            ::dds::topic::xcdr2::write_be_raw<int32_t>(zd_out, zd_v.u()); }
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(3u, 2, false));
+            ::dds::topic::xcdr2::write_be_raw<double>(zd_out, zd_v.v()); }
+        ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
+        return zd_out;
+    }
+inline ::feat::MutLeaf topic_type_support<::feat::MutLeaf>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::feat::MutLeaf zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        while (zd_pos + 4 <= zd_end) {
+            const auto zd_h = ::dds::topic::xcdr2::emheader_read(zd_buf, zd_pos, zd_len, zd_origin);
+            switch (zd_h.member_id) {
+                case 1: {
+                    zd_v.u(::dds::topic::xcdr2::read_le_raw<int32_t>(zd_buf, zd_pos, zd_len));
+                    break;
+                }
+                case 2: {
+                    zd_v.v(::dds::topic::xcdr2::read_le_raw<double>(zd_buf, zd_pos, zd_len));
+                    break;
+                }
+                default: {
+                    // Unknown member: per-LC skip per XTypes 1.3
+                    // §7.4.3.4.2 (LengthCode::body_len). LC0..3 are
+                    // fixed 1/2/4/8-byte bodies WITHOUT NEXTINT; LC4/5 NEXTINT=
+                    // byte length; LC6/7 NEXTINT=element count (4 + 4n / 4 + 8n).
+                    if (zd_h.lc == 0) { zd_pos += 1; }
+                    else if (zd_h.lc == 1) { zd_pos += 2; }
+                    else if (zd_h.lc == 2) { zd_pos += 4; }
+                    else if (zd_h.lc == 3) { zd_pos += 8; }
+                    else if (zd_h.lc == 4 || zd_h.lc == 5) { auto zd_n = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); zd_pos += zd_n; }
+                    else if (zd_h.lc == 6) { auto zd_c = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); zd_pos += 4 + 4 * static_cast<size_t>(zd_c); }
+                    else { auto zd_c = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); zd_pos += 4 + 8 * static_cast<size_t>(zd_c); }
+                    break;
+                }
+            }
+        }
+        if (zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::feat::MutLeaf>::key_hash(const ::feat::MutLeaf& zd_v) {
+        (void)zd_v;
+        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    }
+
+inline std::vector<uint8_t> topic_type_support<::feat::MutNest>::encode(const ::feat::MutNest& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::MutNest>::encode(const ::feat::MutNest& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
+        const size_t zd_origin = zd_scope.origin;
+        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 10, false, zd_v.tag());
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 20, false));
+            auto zd_nsb0 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode(zd_v.leaf(), zd_repr);
+            zd_out.insert(zd_out.end(), zd_nsb0.begin(), zd_nsb0.end()); }
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
+              const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+              ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_body_origin, static_cast<uint32_t>(zd_v.list().size()), zd_max_align);
+              for (const auto& zd_e : zd_v.list()) {
+                    {
+                        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_body_origin, 4);
+                        auto zd_nsb1 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode(zd_e, zd_repr);
+                        zd_out.insert(zd_out.end(), zd_nsb1.begin(), zd_nsb1.end());
+                    }
+              }
+              ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
+            }
+        }
+        ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::MutNest>::encode_be(const ::feat::MutNest& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
+        const size_t zd_origin = zd_scope.origin;
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 10, false));
+            ::dds::topic::xcdr2::write_be_raw<int32_t>(zd_out, zd_v.tag()); }
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 20, false));
+            auto zd_nsb2 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode_be(zd_v.leaf());
+            zd_out.insert(zd_out.end(), zd_nsb2.begin(), zd_nsb2.end()); }
+        { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
+              const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+              ::dds::topic::xcdr2::write_be<uint32_t>(zd_out, static_cast<uint32_t>(zd_v.list().size()));
+              for (const auto& zd_e : zd_v.list()) {
+                    {
+                        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_body_origin, 4);
+                        auto zd_nsb3 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode_be(zd_e);
+                        zd_out.insert(zd_out.end(), zd_nsb3.begin(), zd_nsb3.end());
+                    }
+              }
+              ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
+            }
+        }
+        ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
+        return zd_out;
+    }
+inline ::feat::MutNest topic_type_support<::feat::MutNest>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::feat::MutNest zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        while (zd_pos + 4 <= zd_end) {
+            const auto zd_h = ::dds::topic::xcdr2::emheader_read(zd_buf, zd_pos, zd_len, zd_origin);
+            switch (zd_h.member_id) {
+                case 10: {
+                    zd_v.tag(::dds::topic::xcdr2::read_le_raw<int32_t>(zd_buf, zd_pos, zd_len));
+                    break;
+                }
+                case 20: {
+                    auto zd_body_origin = zd_pos; (void)zd_body_origin;
+                    ::feat::MutLeaf zd_ns4{};
+                    const size_t zd_nss4 = zd_pos;
+                    size_t zd_npk4 = zd_pos;
+                    const uint32_t zd_nl4 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk4, zd_len);
+                    zd_ns4 = ::dds::topic::topic_type_support<::feat::MutLeaf>::decode(zd_buf + zd_nss4, 4u + zd_nl4, zd_repr);
+                    zd_pos = zd_nss4 + 4u + zd_nl4;
+                    zd_v.leaf(zd_ns4);
+                    break;
+                }
+                case 30: {
+                    auto zd_body_origin = zd_pos;
+                    { const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_seq_dh; }
+                    auto zd_cnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_body_origin, zd_max_align);
+                    std::vector<::feat::MutLeaf> zd_seq;
+                    zd_seq.reserve(zd_cnt);
+                    for (uint32_t zd_i = 0; zd_i < zd_cnt; ++zd_i) {
+                        ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_body_origin, 4);
+                        const size_t zd_nss5 = zd_pos;
+                        size_t zd_npk5 = zd_pos;
+                        const uint32_t zd_nl5 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk5, zd_len);
+                        ::feat::MutLeaf zd_se5 = ::dds::topic::topic_type_support<::feat::MutLeaf>::decode(zd_buf + zd_nss5, 4u + zd_nl5, zd_repr);
+                        zd_pos = zd_nss5 + 4u + zd_nl5;
+                        zd_seq.push_back(std::move(zd_se5));
+                    }
+                    zd_v.list(std::move(zd_seq));
+                    break;
+                }
+                default: {
+                    // Unknown member: per-LC skip per XTypes 1.3
+                    // §7.4.3.4.2 (LengthCode::body_len). LC0..3 are
+                    // fixed 1/2/4/8-byte bodies WITHOUT NEXTINT; LC4/5 NEXTINT=
+                    // byte length; LC6/7 NEXTINT=element count (4 + 4n / 4 + 8n).
+                    if (zd_h.lc == 0) { zd_pos += 1; }
+                    else if (zd_h.lc == 1) { zd_pos += 2; }
+                    else if (zd_h.lc == 2) { zd_pos += 4; }
+                    else if (zd_h.lc == 3) { zd_pos += 8; }
+                    else if (zd_h.lc == 4 || zd_h.lc == 5) { auto zd_n = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); zd_pos += zd_n; }
+                    else if (zd_h.lc == 6) { auto zd_c = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); zd_pos += 4 + 4 * static_cast<size_t>(zd_c); }
+                    else { auto zd_c = ::dds::topic::xcdr2::emheader_nextint_read(zd_buf, zd_pos, zd_len); zd_pos += 4 + 8 * static_cast<size_t>(zd_c); }
+                    break;
+                }
+            }
+        }
+        if (zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::feat::MutNest>::key_hash(const ::feat::MutNest& zd_v) {
+        (void)zd_v;
+        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    }
+
+inline std::vector<uint8_t> topic_type_support<::feat::NestedKey>::encode(const ::feat::NestedKey& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::NestedKey>::encode(const ::feat::NestedKey& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.hi(), zd_max_align);
+        ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.lo(), zd_max_align);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::NestedKey>::encode_be(const ::feat::NestedKey& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.hi());
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.lo());
+        return zd_out;
+    }
+inline ::feat::NestedKey topic_type_support<::feat::NestedKey>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::feat::NestedKey zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+        zd_v.hi(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        zd_v.lo(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::feat::NestedKey>::key_hash(const ::feat::NestedKey& zd_v) {
+        (void)zd_v;
+        std::vector<uint8_t> zd_out;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.hi());
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.lo());
+        std::array<uint8_t, 16> zd_h{};
+        if (zd_out.size() <= 16) {
+            std::memcpy(zd_h.data(), zd_out.data(), zd_out.size());
+            return zd_h;
+        }
+        return ::dds::topic::xcdr2_md5::md5(zd_out);
+    }
+
+inline std::vector<uint8_t> topic_type_support<::feat::OuterKey>::encode(const ::feat::OuterKey& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::OuterKey>::encode(const ::feat::OuterKey& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+            ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.k().hi(), zd_max_align);
+            ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.k().lo(), zd_max_align);
+        ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.payload(), zd_max_align);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::OuterKey>::encode_be(const ::feat::OuterKey& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+            ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.k().hi());
+            ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.k().lo());
+        ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.payload());
+        return zd_out;
+    }
+inline ::feat::OuterKey topic_type_support<::feat::OuterKey>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::feat::OuterKey zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+        {
+            ::feat::NestedKey zd_ns6{};
+            zd_ns6.hi(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_ns6.lo(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_v.k(zd_ns6);
+        }
+        zd_v.payload(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::feat::OuterKey>::key_hash(const ::feat::OuterKey& zd_v) {
+        (void)zd_v;
+        std::vector<uint8_t> zd_out;
+        const size_t zd_origin = 0;
+        (void)zd_origin;
+            ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.k().hi());
+            ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.k().lo());
+        std::array<uint8_t, 16> zd_h{};
+        if (zd_out.size() <= 16) {
+            std::memcpy(zd_h.data(), zd_out.data(), zd_out.size());
+            return zd_h;
+        }
+        return ::dds::topic::xcdr2_md5::md5(zd_out);
+    }
+
 inline std::vector<uint8_t> topic_type_support<::feat::Bits>::encode(const ::feat::Bits& zd_v) {
         return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
     }
@@ -476,7 +908,7 @@ inline std::vector<uint8_t> topic_type_support<::feat::Bits>::encode(const ::fea
         const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         const size_t zd_origin = zd_out.size();
         (void)zd_origin;
-        ::dds::topic::xcdr2::write_le_origin<uint8_t>(zd_out, zd_origin, static_cast<uint8_t>(zd_v.perm()), zd_max_align);
+        ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_origin, static_cast<uint32_t>(zd_v.perm()), zd_max_align);
         ::dds::topic::xcdr2::write_le_origin<uint8_t>(zd_out, zd_origin, static_cast<uint8_t>(zd_v.flags().value), zd_max_align);
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
         return zd_out;
@@ -487,7 +919,7 @@ inline std::vector<uint8_t> topic_type_support<::feat::Bits>::encode_be(const ::
         const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         const size_t zd_origin = zd_out.size();
         (void)zd_origin;
-        ::dds::topic::xcdr2::write_be_origin<uint8_t>(zd_out, zd_origin, static_cast<uint8_t>(zd_v.perm()));
+        ::dds::topic::xcdr2::write_be_origin<uint32_t>(zd_out, zd_origin, static_cast<uint32_t>(zd_v.perm()));
         ::dds::topic::xcdr2::write_be_origin<uint8_t>(zd_out, zd_origin, static_cast<uint8_t>(zd_v.flags().value));
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
         return zd_out;
@@ -501,7 +933,7 @@ inline ::feat::Bits topic_type_support<::feat::Bits>::decode(const uint8_t* zd_b
         const size_t zd_origin = zd_pos;
         const size_t zd_end = zd_origin + zd_dh;
         (void)zd_end;
-        zd_v.perm(static_cast<::feat::Perm>(::dds::topic::xcdr2::read_le_origin<uint8_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align)));
+        zd_v.perm(static_cast<::feat::Perm>(::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align)));
         zd_v.flags(::feat::Flags{ static_cast<uint64_t>(::dds::topic::xcdr2::read_le_origin<uint8_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align)) });
         if (zd_pos < zd_end) zd_pos = zd_end;
         return zd_v;
@@ -529,8 +961,8 @@ inline std::vector<uint8_t> topic_type_support<::feat::Tree>::encode(const ::fea
         for (const auto& zd_e : zd_v.kids()) {
                 {
                     ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-                    auto zd_nsb0 = ::dds::topic::topic_type_support<::feat::Tree>::encode(zd_e, zd_repr);
-                    zd_out.insert(zd_out.end(), zd_nsb0.begin(), zd_nsb0.end());
+                    auto zd_nsb7 = ::dds::topic::topic_type_support<::feat::Tree>::encode(zd_e, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nsb7.begin(), zd_nsb7.end());
                 }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
@@ -551,8 +983,8 @@ inline std::vector<uint8_t> topic_type_support<::feat::Tree>::encode_be(const ::
         for (const auto& zd_e : zd_v.kids()) {
                 {
                     ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-                    auto zd_nsb1 = ::dds::topic::topic_type_support<::feat::Tree>::encode_be(zd_e);
-                    zd_out.insert(zd_out.end(), zd_nsb1.begin(), zd_nsb1.end());
+                    auto zd_nsb8 = ::dds::topic::topic_type_support<::feat::Tree>::encode_be(zd_e);
+                    zd_out.insert(zd_out.end(), zd_nsb8.begin(), zd_nsb8.end());
                 }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
@@ -577,12 +1009,12 @@ inline ::feat::Tree topic_type_support<::feat::Tree>::decode(const uint8_t* zd_b
             zd_seq.reserve(zd_cnt);
             for (uint32_t zd_i = 0; zd_i < zd_cnt; ++zd_i) {
                 ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
-                const size_t zd_nss2 = zd_pos;
-                size_t zd_npk2 = zd_pos;
-                const uint32_t zd_nl2 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk2, zd_len);
-                ::feat::Tree zd_se2 = ::dds::topic::topic_type_support<::feat::Tree>::decode(zd_buf + zd_nss2, 4u + zd_nl2, zd_repr);
-                zd_pos = zd_nss2 + 4u + zd_nl2;
-                zd_seq.push_back(std::move(zd_se2));
+                const size_t zd_nss9 = zd_pos;
+                size_t zd_npk9 = zd_pos;
+                const uint32_t zd_nl9 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk9, zd_len);
+                ::feat::Tree zd_se9 = ::dds::topic::topic_type_support<::feat::Tree>::decode(zd_buf + zd_nss9, 4u + zd_nl9, zd_repr);
+                zd_pos = zd_nss9 + 4u + zd_nl9;
+                zd_seq.push_back(std::move(zd_se9));
             }
             zd_v.kids(std::move(zd_seq));
         }
@@ -644,14 +1076,10 @@ inline std::vector<uint8_t> topic_type_support<::feat::Arr>::encode(const ::feat
         const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         const size_t zd_origin = zd_out.size();
         (void)zd_origin;
-        {
-        const auto zd_arr_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         for (const auto& zd_a0 : zd_v.grid()) {
             for (const auto& zd_a1 : zd_a0) {
                     ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_a1, zd_max_align);
             }
-        }
-        ::dds::topic::xcdr2::dheader_end(zd_out, zd_arr_dh);
         }
         {
         const auto zd_arr_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
@@ -670,14 +1098,10 @@ inline std::vector<uint8_t> topic_type_support<::feat::Arr>::encode_be(const ::f
         const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         const size_t zd_origin = zd_out.size();
         (void)zd_origin;
-        {
-        const auto zd_arr_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         for (const auto& zd_a0 : zd_v.grid()) {
             for (const auto& zd_a1 : zd_a0) {
                     ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_a1);
             }
-        }
-        ::dds::topic::xcdr2::dheader_end(zd_out, zd_arr_dh);
         }
         {
         const auto zd_arr_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
@@ -700,7 +1124,6 @@ inline ::feat::Arr topic_type_support<::feat::Arr>::decode(const uint8_t* zd_buf
         const size_t zd_end = zd_origin + zd_dh;
         (void)zd_end;
         {
-            const auto zd_arr_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_arr_dh;
             auto zd_arr = zd_v.grid();
             for (auto& zd_a0 : zd_arr) {
                 for (auto& zd_a1 : zd_a0) {
@@ -714,10 +1137,10 @@ inline ::feat::Arr topic_type_support<::feat::Arr>::decode(const uint8_t* zd_buf
         auto zd_arr = zd_v.shape();
         for (auto& zd_a0 : zd_arr) {
             {
-                ::feat::Pt zd_ns3{};
-                zd_ns3.x(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
-                zd_ns3.y(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
-                zd_a0 =(zd_ns3);
+                ::feat::Pt zd_ns10{};
+                zd_ns10.x(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+                zd_ns10.y(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+                zd_a0 =(zd_ns10);
             }
         }
         zd_v.shape(zd_arr);

@@ -7,11 +7,11 @@
 // instance per type is computed by ZeroDDS and compared byte-for-byte
 // against CycloneDDS / RTI Connext / Fast DDS.
 //
-// NOTE: case (d) (nested @key struct) lives in keyhash_nested.idl because
-// the ZeroDDS Rust backend currently rejects a nested-struct @key member
-// during code generation (see README "Findings"). The nested keyholder is
-// proven in the harness via the hand-built PlainCdr2BeKeyHolder, which the
-// generated code would otherwise emit.
+// Case (d) (nested @key struct) is generated below: the ZeroDDS Rust backend
+// now expands a nested-struct @key member into the nested struct's own @key
+// members in member-id order (XTypes 1.3 §7.6.8 step 3), matching CycloneDDS /
+// RTI / FastDDS. The keyholder it emits is byte-identical to the hand-built
+// PlainCdr2BeKeyHolder previously used to prove this case.
 
 module keyhash {
 
@@ -41,6 +41,22 @@ module keyhash {
     @key long   c;
     @key char   d;
     long        payload;
+  };
+
+  // ---- Case (d): nested @key struct. The OuterKey's @key member is itself
+  //               a struct whose hi/lo are both @key; the keyholder expands
+  //               to BE(hi) + BE(lo) = 8 bytes, max <= 16 -> zero-pad.
+  //               (XTypes 1.3 §7.6.8 step 3 — recursive key expansion.)
+  @nested @final
+  struct NestedKey {
+    @key long hi;
+    @key long lo;
+  };
+
+  @final
+  struct OuterKey {
+    @key NestedKey k;
+    long           payload;
   };
 
 };

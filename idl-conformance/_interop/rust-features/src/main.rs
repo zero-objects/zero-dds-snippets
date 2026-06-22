@@ -20,7 +20,9 @@ use zerodds_dcps::DdsType;
 #[path = "../generated/features.rs"]
 mod generated;
 
-use generated::feat::{Arr, Bits, Flags, Mut, Perm, Prim, Pt, Tree, WStr};
+use generated::feat::{
+    Arr, Bits, Flags, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm, Prim, Pt, Tree, WStr,
+};
 
 const DIR: &str =
     "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
@@ -43,6 +45,26 @@ fn canonical_mut() -> Mut {
         a: 1_000_000,
         b: 2.5,
         c: "ok".to_string(),
+    }
+}
+
+/// feat::MutNest — nested @mutable: tag=9, leaf={u=100,v=1.25},
+/// list=[{1,0.5},{2,0.25}]. Exercises LengthCode-5 reuse on the nested
+/// @mutable member (leaf) and the sequence<@mutable> member (list).
+fn canonical_mutnest() -> MutNest {
+    MutNest {
+        tag: 9,
+        leaf: MutLeaf { u: 100, v: 1.25 },
+        list: vec![MutLeaf { u: 1, v: 0.5 }, MutLeaf { u: 2, v: 0.25 }],
+    }
+}
+
+/// feat::OuterKey — nested-struct @key: k=NestedKey{hi=0x01020304,
+/// lo=0x05060708}, payload=999. Exercises recursive @key expansion.
+fn canonical_outerkey() -> OuterKey {
+    OuterKey {
+        k: NestedKey { hi: 0x0102_0304, lo: 0x0506_0708 },
+        payload: 999,
     }
 }
 
@@ -169,6 +191,8 @@ fn run_encode() -> bool {
     ok &= encode_one("tree", &canonical_tree());
     ok &= encode_one("arr", &canonical_arr());
     ok &= encode_one("prim", &canonical_prim());
+    ok &= encode_one("mutnest", &canonical_mutnest());
+    ok &= encode_one("outerkey", &canonical_outerkey());
     ok
 }
 
@@ -180,6 +204,8 @@ fn run_decode() -> bool {
     ok &= decode_one("tree", &canonical_tree());
     ok &= decode_one("arr", &canonical_arr());
     ok &= decode_one("prim", &canonical_prim());
+    ok &= decode_one("mutnest", &canonical_mutnest());
+    ok &= decode_one("outerkey", &canonical_outerkey());
     ok
 }
 
@@ -206,6 +232,8 @@ mod tests {
         rt!(canonical_tree());
         rt!(canonical_arr());
         rt!(canonical_prim());
+        rt!(canonical_mutnest());
+        rt!(canonical_outerkey());
     }
 }
 

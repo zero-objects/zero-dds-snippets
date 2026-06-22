@@ -132,31 +132,13 @@ namespace feat
         {
             using (var __scope = w.BeginMutable())
             {
-                {
-                    var __sub = new Xcdr2Writer(w.Endian);
-                    __sub.WriteInt32(sample.A);
-                    var __subBytes = __sub.ToArray();
-                    w.WriteEmHeader(10u, 4, false);
-                    w.WriteUInt32((uint)__subBytes.Length);
-                    w.WriteBytes(__subBytes);
-                }
-                {
-                    var __sub = new Xcdr2Writer(w.Endian);
-                    __sub.WriteFloat64(sample.B);
-                    var __subBytes = __sub.ToArray();
-                    w.WriteEmHeader(20u, 4, false);
-                    w.WriteUInt32((uint)__subBytes.Length);
-                    w.WriteBytes(__subBytes);
-                }
-                {
-                    var __sub = new Xcdr2Writer(w.Endian);
-                    if ((sample.C) != null && System.Text.Encoding.UTF8.GetByteCount(sample.C) > 8) throw new System.ArgumentException("bounded string length exceeds its IDL bound (8)");
-                    __sub.WriteString(sample.C);
-                    var __subBytes = __sub.ToArray();
-                    w.WriteEmHeader(30u, 4, false);
-                    w.WriteUInt32((uint)__subBytes.Length);
-                    w.WriteBytes(__subBytes);
-                }
+                w.WriteEmHeader(10u, 2, false);
+                w.WriteInt32(sample.A);
+                w.WriteEmHeader(20u, 3, false);
+                w.WriteFloat64(sample.B);
+                w.WriteEmHeader(30u, 5, false);
+                if ((sample.C) != null && System.Text.Encoding.UTF8.GetByteCount(sample.C) > 8) throw new System.ArgumentException("bounded string length exceeds its IDL bound (8)");
+                w.WriteString(sample.C);
             }
         }
 
@@ -175,7 +157,7 @@ namespace feat
             while (!r.DHeaderDone(__scope))
             {
                 var (__id, __lc, __mu) = r.ReadEmHeader();
-                if (__lc >= 4) { var __nx = r.ReadUInt32(); _ = __nx; }
+                if (__lc == 4) { var __nx = r.ReadUInt32(); _ = __nx; }
                 switch (__id)
                 {
                     case 10u:
@@ -203,6 +185,321 @@ namespace feat
         public byte[] KeyHash(Mut sample)
         {
             return new byte[16];
+        }
+    }
+
+    [Extensibility(ExtensibilityKind.Mutable)]
+    public partial record class MutLeaf : ITopicType<MutLeaf>
+    {
+        [Id(1)]
+        public int U { get; init; } = default!;
+        [Id(2)]
+        public double V { get; init; } = default!;
+    }
+
+    public sealed class MutLeafTypeSupport : IDdsTopicType<MutLeaf>
+    {
+        public static readonly MutLeafTypeSupport Instance = new();
+
+        public string TypeName => "feat::MutLeaf";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Mutable;
+
+        public byte[] Encode(MutLeaf sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(MutLeaf sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, MutLeaf sample)
+        {
+            using (var __scope = w.BeginMutable())
+            {
+                w.WriteEmHeader(1u, 2, false);
+                w.WriteInt32(sample.U);
+                w.WriteEmHeader(2u, 3, false);
+                w.WriteFloat64(sample.V);
+            }
+        }
+
+        public MutLeaf Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public MutLeaf DecodeFrom(ref Xcdr2Reader r)
+        {
+            int __m0 = default!;
+            double __m1 = default!;
+            var __scope = r.BeginDHeader();
+            while (!r.DHeaderDone(__scope))
+            {
+                var (__id, __lc, __mu) = r.ReadEmHeader();
+                if (__lc == 4) { var __nx = r.ReadUInt32(); _ = __nx; }
+                switch (__id)
+                {
+                    case 1u:
+                        __m0 = r.ReadInt32();
+                        break;
+                    case 2u:
+                        __m1 = r.ReadFloat64();
+                        break;
+                    default:
+                        throw new XcdrException($"unknown member id {__id}");
+                }
+            }
+            r.EndDHeader(__scope);
+            return new MutLeaf
+            {
+                U = __m0!,
+                V = __m1!,
+            };
+        }
+
+        public byte[] KeyHash(MutLeaf sample)
+        {
+            return new byte[16];
+        }
+    }
+
+    [Extensibility(ExtensibilityKind.Mutable)]
+    public partial record class MutNest : ITopicType<MutNest>
+    {
+        [Id(10)]
+        public int Tag { get; init; } = default!;
+        [Id(20)]
+        public MutLeaf Leaf { get; init; } = default!;
+        [Id(30)]
+        public ISequence<MutLeaf> List { get; init; } = default!;
+    }
+
+    public sealed class MutNestTypeSupport : IDdsTopicType<MutNest>
+    {
+        public static readonly MutNestTypeSupport Instance = new();
+
+        public string TypeName => "feat::MutNest";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Mutable;
+
+        public byte[] Encode(MutNest sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(MutNest sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, MutNest sample)
+        {
+            using (var __scope = w.BeginMutable())
+            {
+                w.WriteEmHeader(10u, 2, false);
+                w.WriteInt32(sample.Tag);
+                w.WriteEmHeader(20u, 5, false);
+                MutLeafTypeSupport.Instance.EncodeInto(w, sample.Leaf);
+                w.WriteEmHeader(30u, 5, false);
+                {
+                    var __seq0 = (sample.List) as System.Collections.Generic.IEnumerable<MutLeaf>;
+                    var __mat0 = __seq0 is null ? new System.Collections.Generic.List<MutLeaf>() : new System.Collections.Generic.List<MutLeaf>(__seq0);
+                    using (var __seqdh0 = w.BeginAppendable())
+                    {
+                        w.WriteSequenceLength(__mat0.Count);
+                        foreach (var __item0 in __mat0)
+                        {
+                            MutLeafTypeSupport.Instance.EncodeInto(w, __item0);
+                        }
+                    }
+                }
+            }
+        }
+
+        public MutNest Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public MutNest DecodeFrom(ref Xcdr2Reader r)
+        {
+            int __m0 = default!;
+            MutLeaf __m1 = default!;
+            Omg.Types.ISequence<MutLeaf> __m2 = default!;
+            var __scope = r.BeginDHeader();
+            while (!r.DHeaderDone(__scope))
+            {
+                var (__id, __lc, __mu) = r.ReadEmHeader();
+                if (__lc == 4) { var __nx = r.ReadUInt32(); _ = __nx; }
+                switch (__id)
+                {
+                    case 10u:
+                        __m0 = r.ReadInt32();
+                        break;
+                    case 20u:
+                        __m1 = MutLeafTypeSupport.Instance.DecodeFrom(ref r);
+                        break;
+                    case 30u:
+                        {
+                            var __seqdh0 = r.BeginDHeader();
+                            int __cnt0 = r.ReadSequenceLength();
+                            var __list0 = new Omg.Types.SequenceList<MutLeaf>();
+                            for (int __i0 = 0; __i0 < __cnt0; __i0++)
+                            {
+                                MutLeaf __e0;
+                                __e0 = MutLeafTypeSupport.Instance.DecodeFrom(ref r);
+                                __list0.Add(__e0);
+                            }
+                            r.EndDHeader(__seqdh0);
+                            __m2 = __list0;
+                        }
+                        break;
+                    default:
+                        throw new XcdrException($"unknown member id {__id}");
+                }
+            }
+            r.EndDHeader(__scope);
+            return new MutNest
+            {
+                Tag = __m0!,
+                Leaf = __m1!,
+                List = __m2!,
+            };
+        }
+
+        public byte[] KeyHash(MutNest sample)
+        {
+            return new byte[16];
+        }
+    }
+
+    [Nested]
+    [Extensibility(ExtensibilityKind.Final)]
+    public partial record class NestedKey
+    {
+        [Key]
+        public int Hi { get; init; } = default!;
+        [Key]
+        public int Lo { get; init; } = default!;
+    }
+
+    public sealed class NestedKeyTypeSupport : IDdsTopicType<NestedKey>
+    {
+        public static readonly NestedKeyTypeSupport Instance = new();
+
+        public string TypeName => "feat::NestedKey";
+        public bool IsKeyed => true;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Final;
+
+        public byte[] Encode(NestedKey sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(NestedKey sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, NestedKey sample)
+        {
+            w.WriteInt32(sample.Hi);
+            w.WriteInt32(sample.Lo);
+        }
+
+        public NestedKey Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public NestedKey DecodeFrom(ref Xcdr2Reader r)
+        {
+            int __m0 = default!;
+            __m0 = r.ReadInt32();
+            int __m1 = default!;
+            __m1 = r.ReadInt32();
+            return new NestedKey
+            {
+                Hi = __m0!,
+                Lo = __m1!,
+            };
+        }
+
+        public byte[] KeyHash(NestedKey sample)
+        {
+            var __kw = new Xcdr2Writer(EndianMode.BigEndian);
+            __kw.WriteInt32(sample.Hi);
+            __kw.WriteInt32(sample.Lo);
+            var __kb = __kw.ToArray();
+            if (__kb.Length > 16) { return Md5.Hash(__kb); }
+            var __h = new byte[16];
+            System.Array.Copy(__kb, 0, __h, 0, __kb.Length);
+            return __h;
+        }
+    }
+
+    [Extensibility(ExtensibilityKind.Final)]
+    public partial record class OuterKey : ITopicType<OuterKey>
+    {
+        [Key]
+        public NestedKey K { get; init; } = default!;
+        public int Payload { get; init; } = default!;
+    }
+
+    public sealed class OuterKeyTypeSupport : IDdsTopicType<OuterKey>
+    {
+        public static readonly OuterKeyTypeSupport Instance = new();
+
+        public string TypeName => "feat::OuterKey";
+        public bool IsKeyed => true;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Final;
+
+        public byte[] Encode(OuterKey sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(OuterKey sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, OuterKey sample)
+        {
+            NestedKeyTypeSupport.Instance.EncodeInto(w, sample.K);
+            w.WriteInt32(sample.Payload);
+        }
+
+        public OuterKey Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public OuterKey DecodeFrom(ref Xcdr2Reader r)
+        {
+            NestedKey __m0 = default!;
+            __m0 = NestedKeyTypeSupport.Instance.DecodeFrom(ref r);
+            int __m1 = default!;
+            __m1 = r.ReadInt32();
+            return new OuterKey
+            {
+                K = __m0!,
+                Payload = __m1!,
+            };
+        }
+
+        public byte[] KeyHash(OuterKey sample)
+        {
+            var __kw = new Xcdr2Writer(EndianMode.BigEndian);
+            // nested key types delegate via TypeSupport (Phase 6+)
+            var __kb = __kw.ToArray();
+            if (__kb.Length > 16) { return Md5.Hash(__kb); }
+            var __h = new byte[16];
+            System.Array.Copy(__kb, 0, __h, 0, __kb.Length);
+            return __h;
         }
     }
 
@@ -259,7 +556,7 @@ namespace feat
         {
             using (var __scope = w.BeginAppendable())
             {
-                w.WriteOctet((byte)sample.Perm);
+                w.WriteUInt32((uint)sample.Perm);
                 w.WriteOctet((byte)(sample.Flags).Value);
             }
         }
@@ -274,7 +571,7 @@ namespace feat
         {
             var __scope = r.BeginDHeader();
             Perm __m0 = default!;
-            __m0 = (Perm)r.ReadOctet();
+            __m0 = (Perm)r.ReadUInt32();
             Flags __m1 = default!;
             __m1 = new Flags { Value = r.ReadOctet() };
             r.EndDHeader(__scope);
@@ -456,17 +753,14 @@ namespace feat
         {
             using (var __scope = w.BeginAppendable())
             {
-                using (var __arrdh0 = w.BeginAppendable())
+                for (int __a0 = 0; __a0 < 2; __a0++)
                 {
-                    for (int __a0 = 0; __a0 < 2; __a0++)
+                    for (int __a1 = 0; __a1 < 3; __a1++)
                     {
-                        for (int __a1 = 0; __a1 < 3; __a1++)
-                        {
-                            w.WriteInt32(sample.Grid[__a0][__a1]);
-                        }
+                        w.WriteInt32(sample.Grid[__a0][__a1]);
                     }
                 }
-                using (var __arrdh1 = w.BeginAppendable())
+                using (var __arrdh0 = w.BeginAppendable())
                 {
                     for (int __a0 = 0; __a0 < 2; __a0++)
                     {
@@ -486,7 +780,6 @@ namespace feat
         {
             var __scope = r.BeginDHeader();
             int[][] __m0 = default!;
-            var __arrdh2 = r.BeginDHeader();
             __m0 = new int[2][];
             for (int __da0 = 0; __da0 < 2; __da0++)
             {
@@ -496,15 +789,14 @@ namespace feat
                     __m0[__da0][__da1] = r.ReadInt32();
                 }
             }
-            r.EndDHeader(__arrdh2);
             Pt[] __m1 = default!;
-            var __arrdh3 = r.BeginDHeader();
+            var __arrdh1 = r.BeginDHeader();
             __m1 = new Pt[2];
             for (int __da0 = 0; __da0 < 2; __da0++)
             {
                 __m1[__da0] = PtTypeSupport.Instance.DecodeFrom(ref r);
             }
-            r.EndDHeader(__arrdh3);
+            r.EndDHeader(__arrdh1);
             r.EndDHeader(__scope);
             return new Arr
             {

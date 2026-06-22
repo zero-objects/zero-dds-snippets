@@ -33,7 +33,7 @@ the vendor toolchains installed.
 | `union_long_default` | `LongUnion::Note("hi")` (default) | long-switch union, **default** arm: byte-identical to Cyclone and RTI (FastDDS differs only in the synthesised default-discriminator value — see "Known divergences") |
 | `opt_holder` | `{id=1, maybe_num=77, maybe_str=∅, maybe_obj={5,6}}` | standalone `@optional` (present primitive, **absent** string, present nested struct): byte-identical to Cyclone and RTI |
 | `enum_holder` | `{big=BLUE, small=T_C, medium=MID_D}` | 32-bit + `@bit_bound(8)` + `@bit_bound(16)` enums: byte-identical to FastDDS (see "Known divergences" for the `@bit_bound` width question) |
-| `mut_outer` | `{tag=9, leaf={100,1.25}, list=[{1,.5},{2,.25}]}` | nested `@mutable` + `sequence<@mutable>` EMHEADER framing (see "Known divergences" — an open ZeroDDS issue) |
+| `mut_outer` | `{tag=9, leaf={100,1.25}, list=[{1,.5},{2,.25}]}` | nested `@mutable` + `sequence<@mutable>` EMHEADER framing: **byte-identical to Fast DDS** (LengthCode-5 reuse); round-trips. Cyclone/RTI differ only in which member gets LC5 — see "Known divergences" |
 
 ## Result table (this run)
 
@@ -46,7 +46,7 @@ ZeroDDS XCDR2-LE vs vendor-native, encapsulation stripped. `✓` = byte-identica
 | `union_long_default` | 11 B | ✓ | ✓ | ≠ (default-disc value) |
 | `opt_holder`         | 28 B | ✓ | ✓ | ≠ (uninitialised padding) |
 | `enum_holder`        | 12 B | ≠ (`@bit_bound` width) | n/a (no `@bit_bound`) | ✓ |
-| `mut_outer`          | 108 B | ≠ | ≠ | ≠ (nested `@mutable` framing) |
+| `mut_outer`          | 100 B | ≠ (Cyclone LC mix, 104 B) | ≠ (RTI LC mix, 100 B) | ✓ |
 
 The `--check` harness prints this table from the committed goldens.
 
@@ -55,17 +55,31 @@ The `--check` harness prints this table from the committed goldens.
 A vendor oracle is only honest if it reports the misses. Four of the six cases
 diverge from at least one vendor; here is exactly why.
 
-1. **`mut_outer` — open ZeroDDS issue (nested `@mutable`).** ZeroDDS is the only
-   encoding no vendor matches (108 B vs 100–104 B), and it does not currently
-   round-trip through its own decoder. Two coupled causes: (a) the writer-agnostic
-   decoder for a nested `@mutable` struct reads the member EMHEADERs as if they
-   were plain sequential fields; (b) the encoder uses the EMHEADER "separate
-   length" form (LengthCode 4) for length-prefixed members where the vendors reuse
-   the member's own leading length word (LengthCode 5). This is tracked and the
-   two reproducer tests (`nested_mutable_self_roundtrip_known_bug`,
-   `decode_vendor_mut_outer_known_bug`) are `#[ignore]`d so this example stays
-   green; run `cargo test -- --ignored` to see them fail on purpose. The *other*
-   five constructs are unaffected.
+1. **`mut_outer` — nested `@mutable` (FIXED; byte-identical to Fast DDS).**
+   ZeroDDS now encodes `mut_outer` to **100 B, byte-identical to Fast DDS**, and
+   round-trips it through its own decoder (`nested_mutable_self_roundtrip`). Two
+   coupled defects were fixed: (a) the writer-agnostic `CdrDecode` for a nested
+   `@mutable` struct now parses the member EMHEADER frame (the `read_mutable_member`
+   loop) instead of reading the EMHEADERs as plain sequential fields; (b) the
+   encoder now uses the compact EMHEADER length-reuse form (**LengthCode 5**) for a
+   member whose body begins with a length word — a nested `@appendable`/`@mutable`
+   struct's DHEADER, a non-primitive `sequence`/`map` DHEADER, or a string length —
+   instead of the redundant separate-NEXTINT form (LengthCode 4). A `@final` nested
+   struct (no DHEADER) and a `sequence<primitive>` (bare element count) keep LC4.
+
+   The vendors split on *which* member gets LC5 (this is implementation latitude,
+   XTypes 1.3 §7.4.3.4.2): **Fast DDS** uses LC5 on both the nested struct (mid 20)
+   and the sequence (mid 30) → 100 B; **Cyclone** uses LC5 only on the sequence and
+   LC4 on the nested struct → 104 B; **RTI** uses LC5 on the nested struct and LC4
+   on the sequence → 100 B. ZeroDDS matches Fast DDS's universal-LC5 form exactly.
+   On DECODE, ZeroDDS reads back Cyclone's and Fast DDS's native bytes
+   (`decode_vendor_mut_outer`); **RTI's** LC4 `sequence` member additionally OMITS
+   the inner collection DHEADER from the member body (the NEXTINT is its sole
+   delimiter — a framing RTI does not apply to its own LC5 nested-struct member),
+   so ZeroDDS, which keeps the XCDR2-delimited sequence DHEADER like Fast DDS and
+   Cyclone, does not blind-decode that specific non-self-delimited LC4 sequence.
+   That is vendor framing latitude, not a ZeroDDS gap. The *other* five constructs
+   are unaffected.
 
 2. **`enum_holder` — `@bit_bound` enum width.** Per DDS-XTypes 1.3 §7.2.2.4.1.2 an
    `@bit_bound(8)` enum serialises as one octet and `@bit_bound(16)` as two.
@@ -122,7 +136,7 @@ union_long_default  0ba43f7ed32a68603f682b17df2e7a70077056e54f50c724e09b5f6a44c1
 union_long_struct   9575df8994e60d8ce0930d937f8ec9503a8d231fcea1cc500c246fb0f6679839
 union_enum_default  16aca604d9ac062a2c9a8ecdfc4d4b8e9cdf1b9c15e80de7100402dd56427700
 opt_holder          ce26b98442c366fc6f0746668771b3ae2d353b08f665b17d794824f276847b10
-mut_outer           0f55337363745eaa3daf7b3c6269a81f47775287a4052f0528e9ffa94f633839
+mut_outer           d3a87bd9f80baa9d00f1c2b4cc9157adb9bb6cf4d9732c05fa7f937797b5bec7
 ```
 
 ## Reproduce
@@ -138,8 +152,7 @@ cargo run --bin typesystem_proof
 # Byte-diff against the committed vendor goldens (prints the MATCH/DIFF table)
 cargo run --bin typesystem_proof -- --check
 
-# Self-roundtrip + decode-of-vendor-bytes tests (the two F1 reproducers are
-# #[ignore]d; add `-- --ignored` to watch them fail on purpose)
+# Self-roundtrip (incl. the now-fixed nested-@mutable) + decode-of-vendor-bytes
 cargo test
 ```
 

@@ -20,6 +20,34 @@ module feat {
     @id(30) string<8> c;
   };
 
+  // --- nested @mutable (mutable-in-mutable + sequence<@mutable>) ---
+  // EMHEADER LengthCode-5 reuse: a member whose body begins with a length
+  // word (nested @mutable DHEADER, non-primitive sequence DHEADER) reuses it
+  // as the NEXTINT. Byte-identical to FastDDS's universal-LC5 form.
+  @mutable
+  struct MutLeaf {
+    @id(1) long    u;
+    @id(2) double  v;
+  };
+  @mutable
+  struct MutNest {
+    @id(10) long              tag;   // primitive -> LC2
+    @id(20) MutLeaf           leaf;  // nested @mutable DHEADER -> LC5
+    @id(30) sequence<MutLeaf> list;  // non-primitive seq DHEADER -> LC5
+  };
+
+  // --- nested-struct @key (recursive key expansion, §7.6.8 step 3) ---
+  @nested @final
+  struct NestedKey {
+    @key long hi;
+    @key long lo;
+  };
+  @final
+  struct OuterKey {
+    @key NestedKey k;
+    long           payload;
+  };
+
   // --- bitset + bitmask ---
   bitmask Perm { READ, WRITE, EXEC };
   bitset Flags {

@@ -163,29 +163,23 @@ export const MutTypeSupport: DdsTopicType<Mut> = {
     encodeInto(w: Xcdr2Writer, s: Mut): void {
         const _tok = w.beginMutable();
         {
-            w.writeEmHeader(10, 4, false, 0);
-            const _bodyStart = w.pos;
+            w.writeEmHeader(10, 2, false);
             w.pushAlignmentOrigin();
             w.writeInt32(s.a);
             w.popAlignmentOrigin();
-            w.patchUint32(_bodyStart - 4, w.pos - _bodyStart);
         }
         {
-            w.writeEmHeader(20, 4, false, 0);
-            const _bodyStart = w.pos;
+            w.writeEmHeader(20, 3, false);
             w.pushAlignmentOrigin();
             w.writeFloat64(s.b);
             w.popAlignmentOrigin();
-            w.patchUint32(_bodyStart - 4, w.pos - _bodyStart);
         }
         {
-            w.writeEmHeader(30, 4, false, 0);
-            const _bodyStart = w.pos;
+            w.writeEmHeader(30, 5, false);
             w.pushAlignmentOrigin();
             if ([...s.c].length > 8) { throw new RangeError(`bounded string over capacity 8: ${[...s.c].length}`); }
             w.writeString(s.c);
             w.popAlignmentOrigin();
-            w.patchUint32(_bodyStart - 4, w.pos - _bodyStart);
         }
         w.endMutable(_tok);
     },
@@ -221,6 +215,7 @@ export const MutTypeSupport: DdsTopicType<Mut> = {
                 default: {
                     // Skip unknown member per XTypes §7.4.2.
                     if (_emh.nextInt !== null) { r.readBytes(_emh.nextInt); }
+                    else if (_emh.lc >= 5) { const _len = r.readUint32(); r.readBytes(_len); }
                     else { const _sz = Xcdr2Reader.lcInlineSize(_emh.lc); if (_sz > 0) r.readBytes(_sz); }
                     break;
                 }
@@ -239,6 +234,426 @@ export const MutTypeSupport: DdsTopicType<Mut> = {
     },
     keyHash(s: Mut): Uint8Array {
         return new Uint8Array(16);
+    },
+};
+
+export interface MutLeaf {
+    /**
+     * @dds-id 1
+     */
+    u: number;
+    /**
+     * @dds-id 2
+     */
+    v: number;
+}
+
+export function isMutLeaf(v: unknown): v is MutLeaf {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    if (typeof o.u !== "number") return false;
+    if (typeof o.v !== "number") return false;
+    return true;
+}
+
+export const MutLeafType: DdsTypeDescriptor<MutLeaf> = {
+    kind: "struct",
+    name: "MutLeaf",
+    extensibility: "mutable",
+    nested: false,
+    fields: [
+        {
+            name: "u",
+            id: 1,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "v",
+            id: 2,
+            type: { kind: "primitive", name: "double" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    typeGuard: isMutLeaf,
+};
+registerType(MutLeafType);
+
+export const MutLeafTypeSupport: DdsTopicType<MutLeaf> = {
+    typeName: "feat::MutLeaf",
+    isKeyed: false,
+    extensibility: "mutable",
+    encodeInto(w: Xcdr2Writer, s: MutLeaf): void {
+        const _tok = w.beginMutable();
+        {
+            w.writeEmHeader(1, 2, false);
+            w.pushAlignmentOrigin();
+            w.writeInt32(s.u);
+            w.popAlignmentOrigin();
+        }
+        {
+            w.writeEmHeader(2, 3, false);
+            w.pushAlignmentOrigin();
+            w.writeFloat64(s.v);
+            w.popAlignmentOrigin();
+        }
+        w.endMutable(_tok);
+    },
+    encode(s: MutLeaf, endian: EndianMode = "le"): Uint8Array {
+        const w = new Xcdr2Writer(endian);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): MutLeaf {
+        let _f_u: number | undefined = 0;
+        let _f_v: number | undefined = 0 as unknown as undefined;
+        const _tok = r.beginMutable();
+        while (r.pos < _tok.bodyEnd) {
+            const _emh = r.readEmHeader();
+            switch (_emh.memberId) {
+                case 1: {
+                    const _v: number = r.readInt32();
+                    _f_u = _v;
+                    break;
+                }
+                case 2: {
+                    const _v: number = r.readFloat64();
+                    _f_v = _v;
+                    break;
+                }
+                default: {
+                    // Skip unknown member per XTypes §7.4.2.
+                    if (_emh.nextInt !== null) { r.readBytes(_emh.nextInt); }
+                    else if (_emh.lc >= 5) { const _len = r.readUint32(); r.readBytes(_len); }
+                    else { const _sz = Xcdr2Reader.lcInlineSize(_emh.lc); if (_sz > 0) r.readBytes(_sz); }
+                    break;
+                }
+            }
+        }
+        r.endMutable(_tok);
+        return {
+            u: _f_u as number,
+            v: _f_v as number,
+        };
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): MutLeaf {
+        const r = new Xcdr2Reader(bytes, offset, length, "le");
+        return this.decodeFrom(r);
+    },
+    keyHash(s: MutLeaf): Uint8Array {
+        return new Uint8Array(16);
+    },
+};
+
+export interface MutNest {
+    /**
+     * @dds-id 10
+     */
+    tag: number;
+    /**
+     * @dds-id 20
+     */
+    leaf: MutLeaf;
+    /**
+     * @dds-id 30
+     */
+    list: Array<MutLeaf>;
+}
+
+export function isMutNest(v: unknown): v is MutNest {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    if (typeof o.tag !== "number") return false;
+    return true;
+}
+
+export const MutNestType: DdsTypeDescriptor<MutNest> = {
+    kind: "struct",
+    name: "MutNest",
+    extensibility: "mutable",
+    nested: false,
+    fields: [
+        {
+            name: "tag",
+            id: 10,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "leaf",
+            id: 20,
+            type: { kind: "ref", name: "MutLeaf" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "list",
+            id: 30,
+            type: { kind: "sequence", element: { kind: "ref", name: "MutLeaf" } },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    typeGuard: isMutNest,
+};
+registerType(MutNestType);
+
+export const MutNestTypeSupport: DdsTopicType<MutNest> = {
+    typeName: "feat::MutNest",
+    isKeyed: false,
+    extensibility: "mutable",
+    encodeInto(w: Xcdr2Writer, s: MutNest): void {
+        const _tok = w.beginMutable();
+        {
+            w.writeEmHeader(10, 2, false);
+            w.pushAlignmentOrigin();
+            w.writeInt32(s.tag);
+            w.popAlignmentOrigin();
+        }
+        {
+            w.writeEmHeader(20, 5, false);
+            w.pushAlignmentOrigin();
+            MutLeafTypeSupport.encodeInto(w, s.leaf);
+            w.popAlignmentOrigin();
+        }
+        {
+            w.writeEmHeader(30, 5, false);
+            w.pushAlignmentOrigin();
+            const _seqtok0 = w.beginAppendable();
+            w.writeUint32(s.list.length);
+            for (const _e0 of s.list) {
+                MutLeafTypeSupport.encodeInto(w, _e0);
+            }
+            w.endAppendable(_seqtok0);
+            w.popAlignmentOrigin();
+        }
+        w.endMutable(_tok);
+    },
+    encode(s: MutNest, endian: EndianMode = "le"): Uint8Array {
+        const w = new Xcdr2Writer(endian);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): MutNest {
+        let _f_tag: number | undefined = 0;
+        let _f_leaf: MutLeaf | undefined = undefined;
+        let _f_list: Array<MutLeaf> | undefined = [] as unknown as undefined;
+        const _tok = r.beginMutable();
+        while (r.pos < _tok.bodyEnd) {
+            const _emh = r.readEmHeader();
+            switch (_emh.memberId) {
+                case 10: {
+                    const _v: number = r.readInt32();
+                    _f_tag = _v;
+                    break;
+                }
+                case 20: {
+                    if (_emh.lc === 3) { r.readUint32(); }
+                    const _v: MutLeaf = MutLeafTypeSupport.decodeFrom(r);
+                    _f_leaf = _v;
+                    break;
+                }
+                case 30: {
+                    if (_emh.lc === 3) { r.readUint32(); }
+                    const _v: Array<MutLeaf> = ((): Array<MutLeaf> => { const _t = r.beginAppendable(); const _n = r.readUint32(); const _o: Array<MutLeaf> = []; for (let _i = 0; _i < _n; _i++) { _o.push(MutLeafTypeSupport.decodeFrom(r)); } r.endAppendable(_t); return _o; })();
+                    _f_list = _v;
+                    break;
+                }
+                default: {
+                    // Skip unknown member per XTypes §7.4.2.
+                    if (_emh.nextInt !== null) { r.readBytes(_emh.nextInt); }
+                    else if (_emh.lc >= 5) { const _len = r.readUint32(); r.readBytes(_len); }
+                    else { const _sz = Xcdr2Reader.lcInlineSize(_emh.lc); if (_sz > 0) r.readBytes(_sz); }
+                    break;
+                }
+            }
+        }
+        r.endMutable(_tok);
+        return {
+            tag: _f_tag as number,
+            leaf: _f_leaf as MutLeaf,
+            list: _f_list as Array<MutLeaf>,
+        };
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): MutNest {
+        const r = new Xcdr2Reader(bytes, offset, length, "le");
+        return this.decodeFrom(r);
+    },
+    keyHash(s: MutNest): Uint8Array {
+        return new Uint8Array(16);
+    },
+};
+
+export interface NestedKey {
+    /**
+     * @dds-key
+     */
+    hi: number;
+    /**
+     * @dds-key
+     */
+    lo: number;
+}
+
+export function isNestedKey(v: unknown): v is NestedKey {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    if (typeof o.hi !== "number") return false;
+    if (typeof o.lo !== "number") return false;
+    return true;
+}
+
+export const NestedKeyType: DdsTypeDescriptor<NestedKey> = {
+    kind: "struct",
+    name: "NestedKey",
+    extensibility: "final",
+    nested: true,
+    fields: [
+        {
+            name: "hi",
+            id: 0,
+            type: { kind: "primitive", name: "int32" },
+            key: true,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "lo",
+            id: 1,
+            type: { kind: "primitive", name: "int32" },
+            key: true,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    typeGuard: isNestedKey,
+};
+registerType(NestedKeyType);
+
+export const NestedKeyTypeSupport: DdsTopicType<NestedKey> = {
+    typeName: "feat::NestedKey",
+    isKeyed: true,
+    extensibility: "final",
+    encodeInto(w: Xcdr2Writer, s: NestedKey): void {
+        w.writeInt32(s.hi);
+        w.writeInt32(s.lo);
+    },
+    encode(s: NestedKey, endian: EndianMode = "le"): Uint8Array {
+        const w = new Xcdr2Writer(endian);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): NestedKey {
+        const _f_hi: number = r.readInt32();
+        const _f_lo: number = r.readInt32();
+        return {
+            hi: _f_hi,
+            lo: _f_lo,
+        };
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): NestedKey {
+        const r = new Xcdr2Reader(bytes, offset, length, "le");
+        return this.decodeFrom(r);
+    },
+    keyHash(s: NestedKey): Uint8Array {
+        const w = new Xcdr2Writer("be");
+        w.writeInt32(s.hi);
+        w.writeInt32(s.lo);
+        const __holder = w.toBytes();
+        if (__holder.length <= 16) {
+            const __h = new Uint8Array(16);
+            __h.set(__holder);
+            return __h;
+        }
+        return md5(__holder);
+    },
+};
+
+export interface OuterKey {
+    /**
+     * @dds-key
+     */
+    k: NestedKey;
+    payload: number;
+}
+
+export function isOuterKey(v: unknown): v is OuterKey {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    if (typeof o.payload !== "number") return false;
+    return true;
+}
+
+export const OuterKeyType: DdsTypeDescriptor<OuterKey> = {
+    kind: "struct",
+    name: "OuterKey",
+    extensibility: "final",
+    nested: false,
+    fields: [
+        {
+            name: "k",
+            id: 0,
+            type: { kind: "ref", name: "NestedKey" },
+            key: true,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "payload",
+            id: 1,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    typeGuard: isOuterKey,
+};
+registerType(OuterKeyType);
+
+export const OuterKeyTypeSupport: DdsTopicType<OuterKey> = {
+    typeName: "feat::OuterKey",
+    isKeyed: true,
+    extensibility: "final",
+    encodeInto(w: Xcdr2Writer, s: OuterKey): void {
+        NestedKeyTypeSupport.encodeInto(w, s.k);
+        w.writeInt32(s.payload);
+    },
+    encode(s: OuterKey, endian: EndianMode = "le"): Uint8Array {
+        const w = new Xcdr2Writer(endian);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): OuterKey {
+        const _f_k: NestedKey = NestedKeyTypeSupport.decodeFrom(r);
+        const _f_payload: number = r.readInt32();
+        return {
+            k: _f_k,
+            payload: _f_payload,
+        };
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): OuterKey {
+        const r = new Xcdr2Reader(bytes, offset, length, "le");
+        return this.decodeFrom(r);
+    },
+    keyHash(s: OuterKey): Uint8Array {
+        const w = new Xcdr2Writer("be");
+        NestedKeyTypeSupport.encodeInto(w, s.k);
+        const __holder = w.toBytes();
+        if (__holder.length <= 16) {
+            const __h = new Uint8Array(16);
+            __h.set(__holder);
+            return __h;
+        }
+        return md5(__holder);
     },
 };
 
@@ -381,7 +796,7 @@ export const BitsTypeSupport: DdsTopicType<Bits> = {
     extensibility: "appendable",
     encodeInto(w: Xcdr2Writer, s: Bits): void {
         const _tok = w.beginAppendable();
-        w.writeOctet(s.perm as unknown as number);
+        w.writeUint32(s.perm as unknown as number);
         w.writeOctet((((0 | (((s.flags).kind & 0x7) << 0)) | (((s.flags).prio & 0x1f) << 3))) >>> 0);
         w.endAppendable(_tok);
     },
@@ -392,7 +807,7 @@ export const BitsTypeSupport: DdsTopicType<Bits> = {
     },
     decodeFrom(r: Xcdr2Reader): Bits {
         const _tok = r.beginAppendable();
-        const _f_perm: Perm = r.readOctet() as unknown as never;
+        const _f_perm: Perm = r.readUint32() as unknown as never;
         const _f_flags: Flags = ((): never => { const _h = r.readOctet(); return { kind: ((_h >>> 0) & 0x7), prio: ((_h >>> 3) & 0x1f) } as unknown as never; })();
         r.endAppendable(_tok);
         return {
@@ -455,12 +870,12 @@ export const TreeTypeSupport: DdsTopicType<Tree> = {
     encodeInto(w: Xcdr2Writer, s: Tree): void {
         const _tok = w.beginAppendable();
         w.writeInt32(s.value);
-        const _seqtok0 = w.beginAppendable();
+        const _seqtok1 = w.beginAppendable();
         w.writeUint32(s.kids.length);
-        for (const _e0 of s.kids) {
-            TreeTypeSupport.encodeInto(w, _e0);
+        for (const _e1 of s.kids) {
+            TreeTypeSupport.encodeInto(w, _e1);
         }
-        w.endAppendable(_seqtok0);
+        w.endAppendable(_seqtok1);
         w.endAppendable(_tok);
     },
     encode(s: Tree, endian: EndianMode = "le"): Uint8Array {
@@ -607,18 +1022,16 @@ export const ArrTypeSupport: DdsTopicType<Arr> = {
     extensibility: "appendable",
     encodeInto(w: Xcdr2Writer, s: Arr): void {
         const _tok = w.beginAppendable();
-        const _atok1 = w.beginAppendable();
         for (let _a0 = 0; _a0 < 2; _a0++) {
             for (let _a1 = 0; _a1 < 3; _a1++) {
                 w.writeInt32(s.grid[_a0][_a1]);
             }
         }
-        w.endAppendable(_atok1);
-        const _atok3 = w.beginAppendable();
+        const _atok4 = w.beginAppendable();
         for (let _a0 = 0; _a0 < 2; _a0++) {
             PtTypeSupport.encodeInto(w, s.shape[_a0]);
         }
-        w.endAppendable(_atok3);
+        w.endAppendable(_atok4);
         w.endAppendable(_tok);
     },
     encode(s: Arr, endian: EndianMode = "le"): Uint8Array {
@@ -628,7 +1041,7 @@ export const ArrTypeSupport: DdsTopicType<Arr> = {
     },
     decodeFrom(r: Xcdr2Reader): Arr {
         const _tok = r.beginAppendable();
-        const _f_grid: Array<Array<number>> = ((): Array<Array<number>> => { const _adt = r.beginAppendable(); const _o: Array<Array<number>> = []; for (let _i = 0; _i < 2; _i++) { _o.push(((): Array<number> => { const _o: Array<number> = []; for (let _i = 0; _i < 3; _i++) { _o.push(r.readInt32()); } return _o; })()); } r.endAppendable(_adt); return _o; })();
+        const _f_grid: Array<Array<number>> = ((): Array<Array<number>> => { const _o: Array<Array<number>> = []; for (let _i = 0; _i < 2; _i++) { _o.push(((): Array<number> => { const _o: Array<number> = []; for (let _i = 0; _i < 3; _i++) { _o.push(r.readInt32()); } return _o; })()); } return _o; })();
         const _f_shape: Array<Pt> = ((): Array<Pt> => { const _adt = r.beginAppendable(); const _o: Array<Pt> = []; for (let _i = 0; _i < 2; _i++) { _o.push(PtTypeSupport.decodeFrom(r)); } r.endAppendable(_adt); return _o; })();
         r.endAppendable(_tok);
         return {

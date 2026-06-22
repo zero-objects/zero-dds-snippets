@@ -16,6 +16,10 @@ import feat.Arr;
 import feat.Bits;
 import feat.Flags;
 import feat.Mut;
+import feat.MutLeaf;
+import feat.MutNest;
+import feat.NestedKey;
+import feat.OuterKey;
 import feat.Perm;
 import feat.Prim;
 import feat.Pt;
@@ -46,6 +50,34 @@ public final class FeaturesInterop {
         x.setA(1000000);
         x.setB(2.5);
         x.setC("ok");
+        return x;
+    }
+
+    static MutLeaf mutLeaf(int u, double v) {
+        MutLeaf x = new MutLeaf();
+        x.setU(u);
+        x.setV(v);
+        return x;
+    }
+
+    static MutNest canonicalMutNest() {
+        MutNest x = new MutNest();
+        x.setTag(9);
+        x.setLeaf(mutLeaf(100, 1.25));
+        List<MutLeaf> list = new ArrayList<>();
+        list.add(mutLeaf(1, 0.5));
+        list.add(mutLeaf(2, 0.25));
+        x.setList(list);
+        return x;
+    }
+
+    static OuterKey canonicalOuterKey() {
+        OuterKey x = new OuterKey();
+        NestedKey k = new NestedKey();
+        k.setHi(0x01020304);
+        k.setLo(0x05060708);
+        x.setK(k);
+        x.setPayload(999);
         return x;
     }
 
@@ -142,6 +174,10 @@ public final class FeaturesInterop {
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         ok &= enc("mut", feat.MutTypeSupport.INSTANCE.encode(canonicalMut(),
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
+        ok &= enc("mutnest", feat.MutNestTypeSupport.INSTANCE.encode(canonicalMutNest(),
+            org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
+        ok &= enc("outerkey", feat.OuterKeyTypeSupport.INSTANCE.encode(canonicalOuterKey(),
+            org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         ok &= enc("bits", feat.BitsTypeSupport.INSTANCE.encode(canonicalBits(),
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         ok &= enc("tree", feat.TreeTypeSupport.INSTANCE.encode(canonicalTree(),
@@ -165,6 +201,8 @@ public final class FeaturesInterop {
         boolean ok = true;
         ok &= decWStr();
         ok &= decMut();
+        ok &= decMutNest();
+        ok &= decOuterKey();
         ok &= decBits();
         ok &= decTree();
         ok &= decArr();
@@ -193,6 +231,29 @@ public final class FeaturesInterop {
         eq("mut.b", c.getB(), r.getB());
         eq("mut.c", c.getC(), r.getC());
         return report("mut");
+    }
+
+    static boolean decMutNest() throws Exception {
+        failures = 0;
+        MutNest r = feat.MutNestTypeSupport.INSTANCE.decode(golden("mutnest"));
+        eq("mutnest.tag", 9, r.getTag());
+        eq("mutnest.leaf.u", 100, r.getLeaf().getU());
+        eq("mutnest.leaf.v", 1.25, r.getLeaf().getV());
+        eq("mutnest.list.size", 2, r.getList().size());
+        eq("mutnest.list[0].u", 1, r.getList().get(0).getU());
+        eq("mutnest.list[0].v", 0.5, r.getList().get(0).getV());
+        eq("mutnest.list[1].u", 2, r.getList().get(1).getU());
+        eq("mutnest.list[1].v", 0.25, r.getList().get(1).getV());
+        return report("mutnest");
+    }
+
+    static boolean decOuterKey() throws Exception {
+        failures = 0;
+        OuterKey r = feat.OuterKeyTypeSupport.INSTANCE.decode(golden("outerkey"));
+        eq("outerkey.k.hi", 0x01020304, r.getK().getHi());
+        eq("outerkey.k.lo", 0x05060708, r.getK().getLo());
+        eq("outerkey.payload", 999, r.getPayload());
+        return report("outerkey");
     }
 
     static boolean decBits() throws Exception {

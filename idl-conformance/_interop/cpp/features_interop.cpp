@@ -67,6 +67,25 @@ static feat::Prim canon_prim() {
     v.f32(3.5f); v.f64(-1234.5); v.b(true); v.o(0xAB); v.ch('Z');
     return v;
 }
+// nested @mutable (mutable-in-mutable + sequence<@mutable>): EMHEADER LC=5
+// reuse — leaf/list members each begin with a DHEADER that doubles as NEXTINT.
+static feat::MutNest canon_mutnest() {
+    feat::MutNest v;
+    v.tag(9);
+    feat::MutLeaf leaf; leaf.u(100); leaf.v(1.25); v.leaf(leaf);
+    feat::MutLeaf e0; e0.u(1); e0.v(0.5);
+    feat::MutLeaf e1; e1.u(2); e1.v(0.25);
+    v.list(std::vector<feat::MutLeaf>{e0, e1});
+    return v;
+}
+// nested-struct @key (@final outer + @nested @final NestedKey): plain flat
+// XCDR2 (no EMHEADER); the @key only drives the keyhash, not these wire bytes.
+static feat::OuterKey canon_outerkey() {
+    feat::OuterKey v;
+    feat::NestedKey k; k.hi(0x01020304); k.lo(0x05060708); v.k(k);
+    v.payload(999);
+    return v;
+}
 
 static std::vector<uint8_t> readfile(const char* p) {
     std::ifstream f(p, std::ios::binary);
@@ -123,6 +142,22 @@ static void verify_prim(const feat::Prim& g, const feat::Prim& w) {
     chk("b", g.b(), w.b()); chk("o", uint32_t(g.o()), uint32_t(w.o()));
     chk("ch", g.ch(), w.ch());
 }
+static void verify_mutnest(const feat::MutNest& g, const feat::MutNest& w) {
+    chk("tag", g.tag(), w.tag());
+    chk("leaf.u", g.leaf().u(), w.leaf().u());
+    chk("leaf.v", g.leaf().v(), w.leaf().v());
+    chk("list.size", g.list().size(), w.list().size());
+    if (g.list().size() == w.list().size())
+        for (size_t i = 0; i < g.list().size(); ++i) {
+            chk("list.u", g.list()[i].u(), w.list()[i].u());
+            chk("list.v", g.list()[i].v(), w.list()[i].v());
+        }
+}
+static void verify_outerkey(const feat::OuterKey& g, const feat::OuterKey& w) {
+    chk("k.hi", g.k().hi(), w.k().hi());
+    chk("k.lo", g.k().lo(), w.k().lo());
+    chk("payload", g.payload(), w.payload());
+}
 
 int main(int argc, char** argv) {
     if (argc < 3) { std::cerr << "usage: <feature> ENCODE|DECODE <file>\n"; return 2; }
@@ -136,6 +171,8 @@ int main(int argc, char** argv) {
         if (feat == "tree") return do_encode(file, canon_tree());
         if (feat == "arr")  return do_encode(file, canon_arr());
         if (feat == "prim") return do_encode(file, canon_prim());
+        if (feat == "mutnest")  return do_encode(file, canon_mutnest());
+        if (feat == "outerkey") return do_encode(file, canon_outerkey());
     } else if (mode == "DECODE") {
         auto buf = readfile(file);
         if (buf.empty()) { std::cerr << "empty/missing " << file << "\n"; return 2; }
@@ -145,6 +182,8 @@ int main(int argc, char** argv) {
         else if (feat == "tree") verify_tree(TS<feat::Tree>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_tree());
         else if (feat == "arr") verify_arr(TS<feat::Arr>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_arr());
         else if (feat == "prim") verify_prim(TS<feat::Prim>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_prim());
+        else if (feat == "mutnest") verify_mutnest(TS<feat::MutNest>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_mutnest());
+        else if (feat == "outerkey") verify_outerkey(TS<feat::OuterKey>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_outerkey());
         else { std::cerr << "unknown feature\n"; return 2; }
         if (g_fail == 0) { std::cout << "DECODE OK: " << feat << "\n"; return 0; }
         std::cout << "DECODE FAILED: " << g_fail << " mismatch(es)\n"; return 1;

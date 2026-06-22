@@ -19,10 +19,36 @@ class feat_Mut:
     b: Float64
     c: BoundedString[8]
 
+@idl_struct(typename="feat::MutLeaf", extensibility="mutable", member_ids=[1, 2])
+@dataclass
+class feat_MutLeaf:
+    u: Int32
+    v: Float64
+
+@idl_struct(typename="feat::MutNest", extensibility="mutable", member_ids=[10, 20, 30])
+@dataclass
+class feat_MutNest:
+    tag: Int32
+    leaf: feat_MutLeaf
+    list: List[feat_MutLeaf]
+
+@idl_struct(typename="feat::NestedKey")
+@dataclass
+class feat_NestedKey:
+    hi: Int32
+    lo: Int32
+
+@idl_struct(typename="feat::OuterKey")
+@dataclass
+class feat_OuterKey:
+    k: feat_NestedKey
+    payload: Int32
+
 class feat_Perm(IntFlag):
     READ = 1 << 0
     WRITE = 1 << 1
     EXEC = 1 << 2
+feat_Perm._idl_bit_bound = 32
 
 feat_Flags: TypeAlias = Bitset[8]
 

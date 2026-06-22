@@ -40,6 +40,10 @@ Tree = features.feat_Tree
 Arr = features.feat_Arr
 Pt = features.feat_Pt
 Prim = features.feat_Prim
+MutLeaf = features.feat_MutLeaf
+MutNest = features.feat_MutNest
+NestedKey = features.feat_NestedKey
+OuterKey = features.feat_OuterKey
 
 GOLDENS = os.path.join(_HERE, "..", "goldens")
 
@@ -92,6 +96,29 @@ def canonical_prim():
     )
 
 
+def canonical_mutnest():
+    # @mutable nested-mutable + non-primitive sequence: tag(@id10)=9,
+    # leaf(@id20)={u=100, v=1.25}, list(@id30)=[{u=1,v=0.5},{u=2,v=0.25}].
+    # The nested @mutable leaf and the sequence<MutLeaf> each begin their body
+    # with a DHEADER, so their EMHEADERs use LengthCode 5 (the leading word is
+    # reused as the NEXTINT). tag is a primitive long -> LC2.
+    return MutNest(
+        tag=9,
+        leaf=MutLeaf(u=100, v=1.25),
+        list=[MutLeaf(u=1, v=0.5), MutLeaf(u=2, v=0.25)],
+    )
+
+
+def canonical_outerkey():
+    # @final OuterKey with a nested @final NestedKey: k={hi=0x01020304,
+    # lo=0x05060708}, payload=999. A @final nested struct is tight-packed (no
+    # DHEADER); both structs are @final so the whole thing is positional.
+    return OuterKey(
+        k=NestedKey(hi=0x01020304, lo=0x05060708),
+        payload=999,
+    )
+
+
 FEATURES = {
     "wstr": (WStr, canonical_wstr),
     "mut": (Mut, canonical_mut),
@@ -99,6 +126,8 @@ FEATURES = {
     "tree": (Tree, canonical_tree),
     "arr": (Arr, canonical_arr),
     "prim": (Prim, canonical_prim),
+    "mutnest": (MutNest, canonical_mutnest),
+    "outerkey": (OuterKey, canonical_outerkey),
 }
 
 

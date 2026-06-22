@@ -31,7 +31,7 @@ static inline int zd_x2_read_i64(const uint8_t* buf, size_t len, size_t* pos, in
 static inline int zd_x2_read_f64(const uint8_t* buf, size_t len, size_t* pos, double* out) { uint64_t u; int rc = zd_x2_read_u64(buf, len, pos, &u); if (rc != 0) return rc; memcpy(out, &u, sizeof(*out)); return 0; }
 #endif
 
-typedef uint8_t feat_Perm_t;
+typedef uint32_t feat_Perm_t;
 enum { feat_Perm_READ = (1u << 0) };
 enum { feat_Perm_WRITE = (1u << 1) };
 enum { feat_Perm_EXEC = (1u << 2) };
@@ -52,6 +52,27 @@ typedef struct feat_Mut_s {
     double b;
     char* c;
 } feat_Mut_t;
+
+typedef struct feat_MutLeaf_s {
+    int32_t u;
+    double v;
+} feat_MutLeaf_t;
+
+typedef struct feat_MutNest_s {
+    int32_t tag;
+    feat_MutLeaf_t leaf;
+    struct { uint32_t len; feat_MutLeaf_t* elems; } list;
+} feat_MutNest_t;
+
+typedef struct feat_NestedKey_s {
+    int32_t hi;
+    int32_t lo;
+} feat_NestedKey_t;
+
+typedef struct feat_OuterKey_s {
+    feat_NestedKey_t k;
+    int32_t payload;
+} feat_OuterKey_t;
 
 typedef struct feat_Bits_s {
     feat_Perm_t perm;
@@ -274,35 +295,17 @@ static int feat_Mut_encode(const void* sample, uint8_t* out_buf, size_t out_cap,
     w_len += 4;
     size_t mut_body_start = w_len;
     {
-        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x4000000Au) != 0) goto fail;
-        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-        size_t m_nextint_pos = w_len;
-        w_len += 4;
-        size_t m_body_start = w_len;
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x2000000Au) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->a) != 0) goto fail;
-        uint32_t m_body_len = (uint32_t)(w_len - m_body_start);
-        zerodds_xcdr2_c_put_u32_at(w_buf, m_nextint_pos, m_body_len);
     }
     {
-        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x40000014u) != 0) goto fail;
-        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-        size_t m_nextint_pos = w_len;
-        w_len += 4;
-        size_t m_body_start = w_len;
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000014u) != 0) goto fail;
     if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->b) != 0) goto fail;
-        uint32_t m_body_len = (uint32_t)(w_len - m_body_start);
-        zerodds_xcdr2_c_put_u32_at(w_buf, m_nextint_pos, m_body_len);
     }
     {
-        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x4000001Eu) != 0) goto fail;
-        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-        size_t m_nextint_pos = w_len;
-        w_len += 4;
-        size_t m_body_start = w_len;
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x5000001Eu) != 0) goto fail;
     if ((s->c) != NULL && strlen(s->c) > 8u) goto fail;
     if (zerodds_xcdr2_c_write_string(&w_buf, &w_len, &w_cap, s->c) != 0) goto fail;
-        uint32_t m_body_len = (uint32_t)(w_len - m_body_start);
-        zerodds_xcdr2_c_put_u32_at(w_buf, m_nextint_pos, m_body_len);
     }
     uint32_t dheader_len = (uint32_t)(w_len - mut_body_start);
     zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
@@ -330,7 +333,12 @@ static int feat_Mut_decode(const uint8_t* buf, size_t len, void* out_sample) {
         uint32_t lc = (emheader >> 28) & 0x7u;
         uint32_t nextint = 0;
         size_t body_len = 0;
-        if (lc == 0) body_len = 1; else if (lc == 1) body_len = 2; else if (lc == 2) body_len = 4; else if (lc == 3) body_len = 8; else {
+        if (lc == 0) body_len = 1; else if (lc == 1) body_len = 2; else if (lc == 2) body_len = 4; else if (lc == 3) body_len = 8;
+        else if (lc == 5) {
+            size_t peek_pos = pos;
+            if (zerodds_xcdr2_c_read_u32(buf, len, &peek_pos, &nextint) != 0) return -7;
+            body_len = 4u + (size_t)nextint;
+        } else {
             if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nextint) != 0) return -7;
             body_len = nextint;
         }
@@ -362,6 +370,456 @@ static void feat_Mut_sample_free(void* sample) {
     free(s->c); s->c = NULL;
 }
 
+static int feat_MutLeaf_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_MutLeaf_decode(const uint8_t* buf, size_t len, void* out_sample);
+static void feat_MutLeaf_sample_free(void* sample);
+
+static const char feat_MutLeaf_type_name[] = "feat::MutLeaf";
+static const zerodds_typesupport_t feat_MutLeaf_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_MutLeaf_type_name,
+    .is_keyed = 0,
+    .extensibility = 2,
+    ._reserved = {0},
+    .encode = feat_MutLeaf_encode,
+    .decode = feat_MutLeaf_decode,
+    .key_hash = NULL,
+    .sample_free = feat_MutLeaf_sample_free,
+};
+
+static int feat_MutLeaf_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+    const feat_MutLeaf_t* s = (const feat_MutLeaf_t*)sample;
+    (void)s;
+    /* Two-pass: grow the buffer, then copy. */
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t dheader_pos = w_len;
+    w_len += 4;
+    size_t mut_body_start = w_len;
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->u) != 0) goto fail;
+    }
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
+    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->v) != 0) goto fail;
+    }
+    uint32_t dheader_len = (uint32_t)(w_len - mut_body_start);
+    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_MutLeaf_decode(const uint8_t* buf, size_t len, void* out_sample) {
+    feat_MutLeaf_t* s = (feat_MutLeaf_t*)out_sample;
+    size_t pos = 0;
+    uint32_t dheader = 0;
+    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader) != 0) return -7;
+    size_t body_end = pos + dheader;
+    if (body_end > len) return -7;
+    while (pos < body_end) {
+        uint32_t emheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader) != 0) return -7;
+        uint32_t mid = emheader & 0x0FFFFFFFu;
+        uint32_t lc = (emheader >> 28) & 0x7u;
+        uint32_t nextint = 0;
+        size_t body_len = 0;
+        if (lc == 0) body_len = 1; else if (lc == 1) body_len = 2; else if (lc == 2) body_len = 4; else if (lc == 3) body_len = 8;
+        else if (lc == 5) {
+            size_t peek_pos = pos;
+            if (zerodds_xcdr2_c_read_u32(buf, len, &peek_pos, &nextint) != 0) return -7;
+            body_len = 4u + (size_t)nextint;
+        } else {
+            if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nextint) != 0) return -7;
+            body_len = nextint;
+        }
+        if (pos + body_len > body_end) return -7;
+        switch (mid) {
+        case 1: {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->u)) != 0) return -7;
+            break;
+        }
+        case 2: {
+    if (zd_x2_read_f64(buf, len, &pos, &(s->v)) != 0) return -7;
+            break;
+        }
+        default: pos += body_len; break;
+        }
+    }
+    (void)s;
+    return 0;
+}
+
+static void feat_MutLeaf_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_MutLeaf_t* s = (feat_MutLeaf_t*)sample;
+    (void)s;
+}
+
+static int feat_MutNest_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_MutNest_decode(const uint8_t* buf, size_t len, void* out_sample);
+static void feat_MutNest_sample_free(void* sample);
+
+static const char feat_MutNest_type_name[] = "feat::MutNest";
+static const zerodds_typesupport_t feat_MutNest_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_MutNest_type_name,
+    .is_keyed = 0,
+    .extensibility = 2,
+    ._reserved = {0},
+    .encode = feat_MutNest_encode,
+    .decode = feat_MutNest_decode,
+    .key_hash = NULL,
+    .sample_free = feat_MutNest_sample_free,
+};
+
+static int feat_MutNest_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+    const feat_MutNest_t* s = (const feat_MutNest_t*)sample;
+    (void)s;
+    /* Two-pass: grow the buffer, then copy. */
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t dheader_pos = w_len;
+    w_len += 4;
+    size_t mut_body_start = w_len;
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x2000000Au) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->tag) != 0) goto fail;
+    }
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x50000014u) != 0) goto fail;
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t nst_dheader_pos = w_len;
+    w_len += 4;
+    size_t nst_body_start = w_len;
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->leaf).u) != 0) goto fail;
+    }
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
+    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, (s->leaf).v) != 0) goto fail;
+    }
+    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    }
+    }
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x5000001Eu) != 0) goto fail;
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t seq_dheader_pos = w_len;
+    w_len += 4;
+    size_t seq_body_start = w_len;
+    if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->list).len) != 0) goto fail;
+    for (uint32_t i0 = 0; i0 < (s->list).len; ++i0) {
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t nst_dheader_pos = w_len;
+    w_len += 4;
+    size_t nst_body_start = w_len;
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).u) != 0) goto fail;
+    }
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
+    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).v) != 0) goto fail;
+    }
+    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    }
+    }
+    uint32_t seq_dheader_len = (uint32_t)(w_len - seq_body_start);
+    zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, seq_dheader_len);
+    }
+    }
+    uint32_t dheader_len = (uint32_t)(w_len - mut_body_start);
+    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_MutNest_decode(const uint8_t* buf, size_t len, void* out_sample) {
+    feat_MutNest_t* s = (feat_MutNest_t*)out_sample;
+    size_t pos = 0;
+    uint32_t dheader = 0;
+    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader) != 0) return -7;
+    size_t body_end = pos + dheader;
+    if (body_end > len) return -7;
+    while (pos < body_end) {
+        uint32_t emheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader) != 0) return -7;
+        uint32_t mid = emheader & 0x0FFFFFFFu;
+        uint32_t lc = (emheader >> 28) & 0x7u;
+        uint32_t nextint = 0;
+        size_t body_len = 0;
+        if (lc == 0) body_len = 1; else if (lc == 1) body_len = 2; else if (lc == 2) body_len = 4; else if (lc == 3) body_len = 8;
+        else if (lc == 5) {
+            size_t peek_pos = pos;
+            if (zerodds_xcdr2_c_read_u32(buf, len, &peek_pos, &nextint) != 0) return -7;
+            body_len = 4u + (size_t)nextint;
+        } else {
+            if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nextint) != 0) return -7;
+            body_len = nextint;
+        }
+        if (pos + body_len > body_end) return -7;
+        switch (mid) {
+        case 10: {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->tag)) != 0) return -7;
+            break;
+        }
+        case 20: {
+    {
+        uint32_t nst_dheader0 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader0) != 0) return -7;
+        size_t nst_end0 = pos + nst_dheader0;
+        if (nst_end0 > len) return -7;
+        while (pos < nst_end0) {
+            uint32_t emheader0 = 0;
+            if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader0) != 0) return -7;
+            uint32_t mid0 = emheader0 & 0x0FFFFFFFu;
+            uint32_t lc0 = (emheader0 >> 28) & 0x7u;
+            uint32_t nextint0 = 0;
+            size_t body_len0 = 0;
+            if (lc0 == 0) body_len0 = 1; else if (lc0 == 1) body_len0 = 2; else if (lc0 == 2) body_len0 = 4; else if (lc0 == 3) body_len0 = 8;
+            else if (lc0 == 5) {
+                size_t peek_pos0 = pos;
+                if (zerodds_xcdr2_c_read_u32(buf, len, &peek_pos0, &nextint0) != 0) return -7;
+                body_len0 = 4u + (size_t)nextint0;
+            } else {
+                if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nextint0) != 0) return -7;
+                body_len0 = nextint0;
+            }
+            if (pos + body_len0 > nst_end0) return -7;
+        switch (mid0) {
+        case 1: {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->leaf).u)) != 0) return -7;
+            break;
+        }
+        case 2: {
+    if (zd_x2_read_f64(buf, len, &pos, &((s->leaf).v)) != 0) return -7;
+            break;
+        }
+        default: pos += body_len0; break;
+        }
+        }
+    }
+            break;
+        }
+        case 30: {
+    {
+        uint32_t seq_dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_dheader) != 0) return -7;
+        (void)seq_dheader;
+        uint32_t seq_len = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_len) != 0) return -7;
+        (s->list).len = seq_len;
+        (s->list).elems = (feat_MutLeaf_t*)calloc(seq_len ? seq_len : 1, sizeof(feat_MutLeaf_t));
+        if ((s->list).elems == NULL && seq_len > 0) return -7;
+        for (uint32_t i0 = 0; i0 < seq_len; ++i0) {
+    {
+        uint32_t nst_dheader1 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader1) != 0) return -7;
+        size_t nst_end1 = pos + nst_dheader1;
+        if (nst_end1 > len) return -7;
+        while (pos < nst_end1) {
+            uint32_t emheader1 = 0;
+            if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader1) != 0) return -7;
+            uint32_t mid1 = emheader1 & 0x0FFFFFFFu;
+            uint32_t lc1 = (emheader1 >> 28) & 0x7u;
+            uint32_t nextint1 = 0;
+            size_t body_len1 = 0;
+            if (lc1 == 0) body_len1 = 1; else if (lc1 == 1) body_len1 = 2; else if (lc1 == 2) body_len1 = 4; else if (lc1 == 3) body_len1 = 8;
+            else if (lc1 == 5) {
+                size_t peek_pos1 = pos;
+                if (zerodds_xcdr2_c_read_u32(buf, len, &peek_pos1, &nextint1) != 0) return -7;
+                body_len1 = 4u + (size_t)nextint1;
+            } else {
+                if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nextint1) != 0) return -7;
+                body_len1 = nextint1;
+            }
+            if (pos + body_len1 > nst_end1) return -7;
+        switch (mid1) {
+        case 1: {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->list).elems[i0]).u)) != 0) return -7;
+            break;
+        }
+        case 2: {
+    if (zd_x2_read_f64(buf, len, &pos, &(((s->list).elems[i0]).v)) != 0) return -7;
+            break;
+        }
+        default: pos += body_len1; break;
+        }
+        }
+    }
+        }
+    }
+            break;
+        }
+        default: pos += body_len; break;
+        }
+    }
+    (void)s;
+    return 0;
+}
+
+static void feat_MutNest_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_MutNest_t* s = (feat_MutNest_t*)sample;
+    (void)s;
+    free((s->list).elems); (s->list).elems = NULL; (s->list).len = 0;
+}
+
+static int feat_NestedKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_NestedKey_decode(const uint8_t* buf, size_t len, void* out_sample);
+static void feat_NestedKey_sample_free(void* sample);
+static int feat_NestedKey_key_hash(const void* sample, uint8_t out_hash[16]);
+
+static const char feat_NestedKey_type_name[] = "feat::NestedKey";
+static const zerodds_typesupport_t feat_NestedKey_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_NestedKey_type_name,
+    .is_keyed = 1,
+    .extensibility = 0,
+    ._reserved = {0},
+    .encode = feat_NestedKey_encode,
+    .decode = feat_NestedKey_decode,
+    .key_hash = feat_NestedKey_key_hash,
+    .sample_free = feat_NestedKey_sample_free,
+};
+
+static int feat_NestedKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+    const feat_NestedKey_t* s = (const feat_NestedKey_t*)sample;
+    (void)s;
+    /* Two-pass: grow the buffer, then copy. */
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->hi) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->lo) != 0) goto fail;
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_NestedKey_decode(const uint8_t* buf, size_t len, void* out_sample) {
+    feat_NestedKey_t* s = (feat_NestedKey_t*)out_sample;
+    size_t pos = 0;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->hi)) != 0) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->lo)) != 0) return -7;
+    (void)s;
+    return 0;
+}
+
+static void feat_NestedKey_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_NestedKey_t* s = (feat_NestedKey_t*)sample;
+    (void)s;
+}
+
+static int feat_NestedKey_key_hash(const void* sample, uint8_t out_hash[16]) {
+    const feat_NestedKey_t* s = (const feat_NestedKey_t*)sample;
+    uint8_t* kh_buf = NULL;
+    size_t kh_len = 0;
+    size_t kh_cap = 0;
+    if (zerodds_xcdr2_c_kh_write_i32(&kh_buf, &kh_len, &kh_cap, s->hi) != 0) { free(kh_buf); return -1; }
+    if (zerodds_xcdr2_c_kh_write_i32(&kh_buf, &kh_len, &kh_cap, s->lo) != 0) { free(kh_buf); return -1; }
+    zerodds_xcdr2_c_compute_key_hash(kh_buf, kh_len, /*max_size_static=*/0, out_hash);
+    free(kh_buf);
+    return 0;
+}
+
+static int feat_OuterKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_OuterKey_decode(const uint8_t* buf, size_t len, void* out_sample);
+static void feat_OuterKey_sample_free(void* sample);
+static int feat_OuterKey_key_hash(const void* sample, uint8_t out_hash[16]);
+
+static const char feat_OuterKey_type_name[] = "feat::OuterKey";
+static const zerodds_typesupport_t feat_OuterKey_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_OuterKey_type_name,
+    .is_keyed = 1,
+    .extensibility = 0,
+    ._reserved = {0},
+    .encode = feat_OuterKey_encode,
+    .decode = feat_OuterKey_decode,
+    .key_hash = feat_OuterKey_key_hash,
+    .sample_free = feat_OuterKey_sample_free,
+};
+
+static int feat_OuterKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+    const feat_OuterKey_t* s = (const feat_OuterKey_t*)sample;
+    (void)s;
+    /* Two-pass: grow the buffer, then copy. */
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->k).hi) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->k).lo) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->payload) != 0) goto fail;
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_OuterKey_decode(const uint8_t* buf, size_t len, void* out_sample) {
+    feat_OuterKey_t* s = (feat_OuterKey_t*)out_sample;
+    size_t pos = 0;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->k).hi)) != 0) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->k).lo)) != 0) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->payload)) != 0) return -7;
+    (void)s;
+    return 0;
+}
+
+static void feat_OuterKey_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_OuterKey_t* s = (feat_OuterKey_t*)sample;
+    (void)s;
+}
+
+static int feat_OuterKey_key_hash(const void* sample, uint8_t out_hash[16]) {
+    const feat_OuterKey_t* s = (const feat_OuterKey_t*)sample;
+    uint8_t* kh_buf = NULL;
+    size_t kh_len = 0;
+    size_t kh_cap = 0;
+    zerodds_xcdr2_c_compute_key_hash(kh_buf, kh_len, /*max_size_static=*/0, out_hash);
+    free(kh_buf);
+    return 0;
+}
+
 static int feat_Bits_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Bits_decode(const uint8_t* buf, size_t len, void* out_sample);
 static void feat_Bits_sample_free(void* sample);
@@ -391,7 +849,7 @@ static int feat_Bits_encode(const void* sample, uint8_t* out_buf, size_t out_cap
     size_t dheader_pos = w_len;
     w_len += 4;
     size_t body_start = w_len;
-    if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, s->perm) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, s->perm) != 0) goto fail;
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, s->flags) != 0) goto fail;
     uint32_t dheader_len = (uint32_t)(w_len - body_start);
     zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
@@ -412,7 +870,7 @@ static int feat_Bits_decode(const uint8_t* buf, size_t len, void* out_sample) {
     if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader) != 0) return -7;
     size_t body_end = pos + dheader;
     if (body_end > len) return -7;
-    if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(s->perm)) != 0) return -7;
+    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &(s->perm)) != 0) return -7;
     if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(s->flags)) != 0) return -7;
     pos = body_end;
     (void)s;
@@ -602,18 +1060,10 @@ static int feat_Arr_encode(const void* sample, uint8_t* out_buf, size_t out_cap,
     size_t dheader_pos = w_len;
     w_len += 4;
     size_t body_start = w_len;
-    {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t arr_dheader_pos = w_len;
-    w_len += 4;
-    size_t arr_body_start = w_len;
     for (uint32_t ai0 = 0; ai0 < 2; ++ai0) {
     for (uint32_t ai1 = 0; ai1 < 3; ++ai1) {
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->grid[ai0][ai1]) != 0) goto fail;
     }
-    }
-    { uint32_t arr_dheader_len = (uint32_t)(w_len - arr_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, arr_dheader_pos, arr_dheader_len); }
     }
     {
     if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
@@ -646,7 +1096,6 @@ static int feat_Arr_decode(const uint8_t* buf, size_t len, void* out_sample) {
     if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader) != 0) return -7;
     size_t body_end = pos + dheader;
     if (body_end > len) return -7;
-    { uint32_t arr_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &arr_dheader) != 0) return -7; (void)arr_dheader; }
     for (uint32_t ri0 = 0; ri0 < 2; ++ri0) {
     for (uint32_t ri1 = 0; ri1 < 3; ++ri1) {
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->grid[ri0][ri1])) != 0) return -7;

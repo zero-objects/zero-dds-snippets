@@ -31,6 +31,27 @@ static WStr CanonicalWStr() => new WStr
 
 static Mut CanonicalMut() => new Mut { A = 1000000, B = 2.5, C = "ok" };
 
+// nested @mutable: tag=9, leaf={u=100,v=1.25}, list=[{u=1,v=0.5},{u=2,v=0.25}].
+// Member 20 (leaf, nested @mutable) and 30 (list, sequence<@mutable>) ride the
+// EMHEADER LengthCode-5 reuse path; member 10 (tag, long) is LC2.
+static MutNest CanonicalMutNest() => new MutNest
+{
+    Tag = 9,
+    Leaf = new MutLeaf { U = 100, V = 1.25 },
+    List = new SequenceList<MutLeaf>(new[]
+    {
+        new MutLeaf { U = 1, V = 0.5 },
+        new MutLeaf { U = 2, V = 0.25 },
+    }),
+};
+
+// nested-struct @key: OuterKey{k={hi=0x01020304,lo=0x05060708}, payload=999}.
+static OuterKey CanonicalOuterKey() => new OuterKey
+{
+    K = new NestedKey { Hi = 0x01020304, Lo = 0x05060708 },
+    Payload = 999,
+};
+
 static Bits CanonicalBits()
 {
     var flags = new Flags();
@@ -94,6 +115,8 @@ static int RunEncode()
 {
     WriteGolden("wstr", WStrTypeSupport.Instance.Encode(CanonicalWStr(), EndianMode.LittleEndian));
     WriteGolden("mut", MutTypeSupport.Instance.Encode(CanonicalMut(), EndianMode.LittleEndian));
+    WriteGolden("mutnest", MutNestTypeSupport.Instance.Encode(CanonicalMutNest(), EndianMode.LittleEndian));
+    WriteGolden("outerkey", OuterKeyTypeSupport.Instance.Encode(CanonicalOuterKey(), EndianMode.LittleEndian));
     WriteGolden("bits", BitsTypeSupport.Instance.Encode(CanonicalBits(), EndianMode.LittleEndian));
     WriteGolden("tree", TreeTypeSupport.Instance.Encode(CanonicalTree(), EndianMode.LittleEndian));
     WriteGolden("arr", ArrTypeSupport.Instance.Encode(CanonicalArr(), EndianMode.LittleEndian));
@@ -129,6 +152,31 @@ static int RunDecode()
         Check($"mut.a ({got.A})", got.A == want.A);
         Check($"mut.b ({got.B})", got.B == want.B);
         Check($"mut.c ({got.C})", got.C == want.C);
+    }
+    // mutnest (nested @mutable + sequence<@mutable> via LC5 EMHEADER reuse)
+    {
+        var got = MutNestTypeSupport.Instance.Decode(Read("mutnest"));
+        var want = CanonicalMutNest();
+        Check($"mutnest.tag ({got.Tag})", got.Tag == want.Tag);
+        Check($"mutnest.leaf.u ({got.Leaf.U})", got.Leaf.U == want.Leaf.U);
+        Check($"mutnest.leaf.v ({got.Leaf.V})", got.Leaf.V == want.Leaf.V);
+        var list = got.List.ToList();
+        Check($"mutnest.list.count ({list.Count})", list.Count == 2);
+        if (list.Count == 2)
+        {
+            Check($"mutnest.list[0].u ({list[0].U})", list[0].U == 1);
+            Check($"mutnest.list[0].v ({list[0].V})", list[0].V == 0.5);
+            Check($"mutnest.list[1].u ({list[1].U})", list[1].U == 2);
+            Check($"mutnest.list[1].v ({list[1].V})", list[1].V == 0.25);
+        }
+    }
+    // outerkey (nested-struct @key)
+    {
+        var got = OuterKeyTypeSupport.Instance.Decode(Read("outerkey"));
+        var want = CanonicalOuterKey();
+        Check($"outerkey.k.hi ({got.K.Hi:x})", got.K.Hi == want.K.Hi);
+        Check($"outerkey.k.lo ({got.K.Lo:x})", got.K.Lo == want.K.Lo);
+        Check($"outerkey.payload ({got.Payload})", got.Payload == want.Payload);
     }
     // bits
     {

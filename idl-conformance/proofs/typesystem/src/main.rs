@@ -287,23 +287,21 @@ mod tests {
         rt_union!(LongUnion, union_long_struct());
         rt_union!(EnumUnion, union_enum_default());
         rt_struct!(OptHolder, opt_holder());
-        // NB: mut_outer (nested @mutable) is covered by the `#[ignore]`d
-        // `nested_mutable_self_roundtrip_known_bug` test — it does NOT round-
-        // trip today (FINDING F1 in README: the writer-agnostic CdrDecode for
-        // a @mutable struct decodes EMHEADER members as plain sequential
-        // fields). Asserting it here would make the proof harness red.
+        // mut_outer (nested @mutable + sequence<@mutable>) now round-trips —
+        // see `nested_mutable_self_roundtrip`. The fixed `CdrDecode` for a
+        // @mutable struct parses the EMHEADER member frame.
+        rt_struct!(MutOuter, mut_outer());
     }
 
-    /// KNOWN-BUG reproducer (FINDING F1). A `@mutable` struct nested inside
-    /// another type is encoded with EMHEADER member framing but decoded — via
-    /// the writer-agnostic `CdrDecode` impl — as if it were `@appendable`
-    /// (plain sequential members), so it fails to round-trip. Marked
-    /// `#[ignore]` so the public proof stays green; remove the attribute once
-    /// idl-rust emits the `read_mutable_member` loop in `CdrDecode` for
-    /// `@mutable` aggregates. See internal/idl-codegen/typesystem-oracle-wave2-findings.md.
+    /// Nested-@mutable round-trip (was FINDING F1, now FIXED). A `@mutable`
+    /// struct nested inside another `@mutable` struct is encoded with EMHEADER
+    /// member framing AND decoded the same way — its `CdrDecode` impl runs the
+    /// `read_mutable_member` loop (it previously decoded positionally, as if
+    /// `@appendable`, reading the inner struct's first EMHEADER into the first
+    /// field). Both the nested `@mutable` member and every `sequence<@mutable>`
+    /// element now reconstruct exactly.
     #[test]
-    #[ignore = "FINDING F1: nested @mutable CdrDecode reads EMHEADERs as fields"]
-    fn nested_mutable_self_roundtrip_known_bug() {
+    fn nested_mutable_self_roundtrip() {
         use zerodds_cdr::CdrDecode;
         let sample = mut_outer();
         let bytes = encode(&sample);
@@ -362,9 +360,9 @@ mod tests {
         decode_vendor_union("union_long_struct", &union_long_struct());
         decode_vendor_union("union_enum_default", &union_enum_default());
         decode_vendor_struct("opt_holder", &opt_holder());
-        // mut_outer decode is the `#[ignore]`d known-bug case (FINDING F1):
-        // decoding a nested @mutable member reads its EMHEADERs as fields.
-        // It is asserted in `decode_vendor_mut_outer_known_bug` below.
+        // mut_outer decode is now asserted in `decode_vendor_mut_outer` below
+        // (Cyclone + FastDDS — the vendors whose member bodies carry the inner
+        // sequence DHEADER; RTI's LC4 sequence omits it — see that test).
         // NB: enum_holder and union_long_default are intentionally NOT asserted
         // here — see README "known divergences": Cyclone honours @bit_bound
         // (1/2-octet enums) which ZeroDDS/FastDDS do not, and FastDDS uses
@@ -373,19 +371,31 @@ mod tests {
         // other party's bytes is not expected to reconstruct the same value.
     }
 
-    /// KNOWN-BUG reproducer (FINDING F1) on the DECODE direction: ZeroDDS
-    /// cannot decode a vendor's `mut_outer` (the nested @mutable struct member
-    /// is mis-parsed). `#[ignore]`d so the public proof stays green; remove
-    /// once idl-rust fixes the @mutable `CdrDecode` emission.
+    /// DECODE-direction interop for the nested-@mutable case (was FINDING F1).
+    /// ZeroDDS now decodes a vendor's native `mut_outer` back to the canonical
+    /// value for the vendors whose `sequence<@mutable>` member body carries the
+    /// inner collection DHEADER inside the EMHEADER frame — **CycloneDDS** (it
+    /// LC5-reuses the sequence DHEADER) and **FastDDS** (LC5 on both members).
+    ///
+    /// **RTI** is intentionally excluded: its `list` (mid 30) member uses LC4
+    /// and OMITS the inner sequence DHEADER from the member body (the separate
+    /// NEXTINT serves as the sole delimiter), so `member.body` = `[count +
+    /// elements]` with no leading DHEADER — a framing RTI does not even apply
+    /// to its own LC5 nested-struct member. ZeroDDS (like FastDDS/Cyclone)
+    /// keeps the XCDR2-delimited sequence DHEADER, so it does not blind-decode
+    /// RTI's non-self-delimited LC4 sequence. This is genuine vendor framing
+    /// latitude (XTypes 1.3 §7.4.3.4.2), NOT a ZeroDDS encode gap — ZeroDDS's
+    /// own `mut_outer` ENCODE is byte-identical to FastDDS (100 B). See README
+    /// "Known divergences".
     #[test]
-    #[ignore = "FINDING F1: nested @mutable CdrDecode reads EMHEADERs as fields"]
-    fn decode_vendor_mut_outer_known_bug() {
+    fn decode_vendor_mut_outer() {
         use zerodds_dcps::DdsType;
         let expected = mut_outer();
-        for v in ["cyclonedds", "rti", "fastdds"] {
+        for v in ["cyclonedds", "fastdds"] {
             let path = dir("vendor").join(v).join("mut_outer.bin");
             let bytes = std::fs::read(&path).expect("vendor golden");
-            let got = MutOuter::decode(&bytes).expect("decode");
+            let got = MutOuter::decode(&bytes)
+                .unwrap_or_else(|e| panic!("{v}/mut_outer decode failed: {e:?}"));
             assert_eq!(got, expected, "{v}/mut_outer must decode to canonical");
         }
     }

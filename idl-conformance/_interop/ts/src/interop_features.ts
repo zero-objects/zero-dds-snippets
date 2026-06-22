@@ -24,6 +24,8 @@ const {
   TreeTypeSupport,
   ArrTypeSupport,
   PrimTypeSupport,
+  MutNestTypeSupport,
+  OuterKeyTypeSupport,
 } = feat;
 
 const GOLDEN_DIR =
@@ -67,6 +69,25 @@ const ARR: feat.Arr = {
     { x: 1, y: 2 },
     { x: 3, y: 4 },
   ],
+};
+
+// feat::MutNest — @mutable nesting: tag(@id10)=9 (LC2 primitive),
+// leaf(@id20)={u=100,v=1.25} (nested @mutable → leading DHEADER → LC5),
+// list(@id30)=[{u=1,v=0.5},{u=2,v=0.25}] (non-primitive sequence DHEADER → LC5).
+const MUTNEST: feat.MutNest = {
+  tag: 9,
+  leaf: { u: 100, v: 1.25 },
+  list: [
+    { u: 1, v: 0.5 },
+    { u: 2, v: 0.25 },
+  ],
+};
+
+// feat::OuterKey — @final with a nested @final @key struct (no DHEADER):
+// k={hi=0x01020304, lo=0x05060708}, payload=999.
+const OUTERKEY: feat.OuterKey = {
+  k: { hi: 0x01020304, lo: 0x05060708 },
+  payload: 999,
 };
 
 // feat::Prim — every integer at its extreme + exact floats.
@@ -144,6 +165,28 @@ function diffPrim(g: feat.Prim, w: feat.Prim): Diff {
   for (const k of Object.keys(w) as Array<keyof feat.Prim>) eq(d, k, g[k], w[k]);
   return d;
 }
+function diffLeaf(d: Diff, path: string, g: feat.MutLeaf, w: feat.MutLeaf): void {
+  eq(d, `${path}.u`, g.u, w.u);
+  eq(d, `${path}.v`, g.v, w.v);
+}
+function diffMutNest(g: feat.MutNest, w: feat.MutNest): Diff {
+  const d: Diff = [];
+  eq(d, "tag", g.tag, w.tag);
+  diffLeaf(d, "leaf", g.leaf, w.leaf);
+  if (g.list.length !== w.list.length) {
+    d.push(`list.length: got ${g.list.length} != want ${w.list.length}`);
+  } else {
+    for (let i = 0; i < w.list.length; i++) diffLeaf(d, `list[${i}]`, g.list[i], w.list[i]);
+  }
+  return d;
+}
+function diffOuterKey(g: feat.OuterKey, w: feat.OuterKey): Diff {
+  const d: Diff = [];
+  eq(d, "k.hi", g.k.hi, w.k.hi);
+  eq(d, "k.lo", g.k.lo, w.k.lo);
+  eq(d, "payload", g.payload, w.payload);
+  return d;
+}
 
 // ---------------------------------------------------------------------------
 interface Feature<T> {
@@ -196,6 +239,20 @@ const FEATURES: Array<Feature<any>> = [
     encode: (s) => PrimTypeSupport.encode(s, "le"),
     decode: (b) => PrimTypeSupport.decode(b),
     diff: diffPrim,
+  },
+  {
+    name: "mutnest",
+    sample: MUTNEST,
+    encode: (s) => MutNestTypeSupport.encode(s, "le"),
+    decode: (b) => MutNestTypeSupport.decode(b),
+    diff: diffMutNest,
+  },
+  {
+    name: "outerkey",
+    sample: OUTERKEY,
+    encode: (s) => OuterKeyTypeSupport.encode(s, "le"),
+    decode: (b) => OuterKeyTypeSupport.decode(b),
+    diff: diffOuterKey,
   },
 ];
 

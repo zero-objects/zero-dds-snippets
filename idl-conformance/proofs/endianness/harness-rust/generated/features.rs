@@ -185,9 +185,10 @@ pub mod feat {
                     Ok(())
                 })?;
             } else {
-                <_ as zerodds_cdr::CdrEncode>::encode(&self.a, writer)?;
-                <_ as zerodds_cdr::CdrEncode>::encode(&self.b, writer)?;
-                if self.c.len() > 8 { return Err(zerodds_cdr::EncodeError::ValueOutOfRange { message: "bounded string length exceeds its IDL bound (8)" }.into()); } <_ as zerodds_cdr::CdrEncode>::encode(&self.c, writer)?;
+                zerodds_cdr::xcdr1::encode_pl_cdr1_member(writer, 10, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.a, w)?; Ok(()) })?;
+                zerodds_cdr::xcdr1::encode_pl_cdr1_member(writer, 20, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.b, w)?; Ok(()) })?;
+                zerodds_cdr::xcdr1::encode_pl_cdr1_member(writer, 30, |w| { if self.c.len() > 8 { return Err(zerodds_cdr::EncodeError::ValueOutOfRange { message: "bounded string length exceeds its IDL bound (8)" }.into()); } <_ as zerodds_cdr::CdrEncode>::encode(&self.c, w)?; Ok(()) })?;
+                zerodds_cdr::xcdr1::write_pl_cdr1_sentinel(writer)?;
             }
             ::core::result::Result::Ok(())
         }
@@ -196,24 +197,78 @@ pub mod feat {
     impl zerodds_cdr::CdrDecode for Mut {
         fn decode(reader: &mut zerodds_cdr::BufferReader<'_>) -> ::core::result::Result<Self, zerodds_cdr::DecodeError> {
             if reader.max_alignment() == 4 {
-                zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
-                    let a = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
-                    let b = <f64 as zerodds_cdr::CdrDecode>::decode(r)?;
-                    let c = <String as zerodds_cdr::CdrDecode>::decode(r)?;
-                    ::core::result::Result::Ok(Self {
-                        a,
-                        b,
-                        c,
-                    })
-                })
-            } else {
-                let a = <i32 as zerodds_cdr::CdrDecode>::decode(reader)?;
-                let b = <f64 as zerodds_cdr::CdrDecode>::decode(reader)?;
-                let c = <String as zerodds_cdr::CdrDecode>::decode(reader)?;
+            zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
+                // member-id 10
+                let mut a: ::core::option::Option<i32> = ::core::option::Option::None;
+                // member-id 20
+                let mut b: ::core::option::Option<f64> = ::core::option::Option::None;
+                // member-id 30
+                let mut c: ::core::option::Option<String> = ::core::option::Option::None;
+                loop {
+                    match zerodds_cdr::struct_enc::read_mutable_member(r)? {
+                        ::core::option::Option::Some(member) => {
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            match member.member_id {
+                                10 => {
+                                    a = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                20 => {
+                                    b = ::core::option::Option::Some(<f64 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                30 => {
+                                    c = ::core::option::Option::Some(<String as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                _ => {
+                                    if member.must_understand {
+                                        return ::core::result::Result::Err(zerodds_cdr::DecodeError::UnknownMustUnderstandMember {
+                                            member_id: member.member_id,
+                                        });
+                                    }
+                                    // unknown optional member: skip body
+                                }
+                            }
+                        }
+                        ::core::option::Option::None => break,
+                    }
+                }
                 ::core::result::Result::Ok(Self {
-                    a,
-                    b,
-                    c,
+                    a: a.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 10 })?,
+                    b: b.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 20 })?,
+                    c: c.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 30 })?,
+                })
+            })
+            } else {
+                // member-id 10
+                let mut a: ::core::option::Option<i32> = ::core::option::Option::None;
+                // member-id 20
+                let mut b: ::core::option::Option<f64> = ::core::option::Option::None;
+                // member-id 30
+                let mut c: ::core::option::Option<String> = ::core::option::Option::None;
+                let __endian = zerodds_cdr::BufferReader::endianness(reader);
+                loop {
+                    match zerodds_cdr::xcdr1::read_pl_cdr1_member(reader)? {
+                        ::core::option::Option::Some(member) => {
+                            let mut body_reader = zerodds_cdr::BufferReader::new(&member.body, __endian);
+                            match member.member_id {
+                                10 => {
+                                    a = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                20 => {
+                                    b = ::core::option::Option::Some(<f64 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                30 => {
+                                    c = ::core::option::Option::Some(<String as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                _ => { /* unknown PL_CDR1 member: skip */ }
+                            }
+                        }
+                        ::core::option::Option::None => break,
+                    }
+                }
+                ::core::result::Result::Ok(Self {
+                    a: a.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 10 })?,
+                    b: b.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 20 })?,
+                    c: c.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 30 })?,
                 })
             }
         }

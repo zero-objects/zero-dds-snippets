@@ -4,7 +4,8 @@
  *   <feature> ENCODE <out.bin>   -> write canonical feat::<T> as raw XCDR2-LE
  *   <feature> DECODE <in.bin>    -> decode, assert == canonical, exit 0/1
  *
- * feature in { wstr, mut, bits, tree, arr, prim }; values are CANONICAL.md.
+ * feature in { wstr, mut, mutnest, outerkey, bits, tree, arr, prim };
+ * values are CANONICAL.md.
  * Header-only codec — the emitted bytes ARE the wire.
  */
 #include "gen_feat/features.h"
@@ -44,6 +45,22 @@ static void canon_arr(feat_Arr_t* v) {
     memcpy(v->grid, g, sizeof(g));
     v->shape[0].x = 1; v->shape[0].y = 2;
     v->shape[1].x = 3; v->shape[1].y = 4;
+}
+/* nested @mutable: MutNest{tag=9, leaf={u=100,v=1.25}, list=[{1,0.5},{2,0.25}]} */
+static feat_MutLeaf_t MN_LIST[2];
+static void canon_mutnest(feat_MutNest_t* v) {
+    memset(v,0,sizeof(*v));
+    v->tag = 9;
+    v->leaf.u = 100; v->leaf.v = 1.25;
+    MN_LIST[0].u = 1; MN_LIST[0].v = 0.5;
+    MN_LIST[1].u = 2; MN_LIST[1].v = 0.25;
+    v->list.len = 2; v->list.elems = MN_LIST;
+}
+/* nested-struct @key: OuterKey{k={hi=0x01020304,lo=0x05060708}, payload=999} */
+static void canon_outerkey(feat_OuterKey_t* v) {
+    memset(v,0,sizeof(*v));
+    v->k.hi = 0x01020304; v->k.lo = 0x05060708;
+    v->payload = 999;
 }
 static void canon_prim(feat_Prim_t* v) {
     memset(v,0,sizeof(*v));
@@ -85,10 +102,13 @@ int main(int argc, char** argv) {
     const char* file = argc > 3 ? argv[3] : NULL;
 
     feat_WStr_t ws; feat_Mut_t mu; feat_Bits_t bi; feat_Tree_t tr; feat_Arr_t ar; feat_Prim_t pr;
+    feat_MutNest_t mn; feat_OuterKey_t ok;
 
     if (strcmp(mode, "ENCODE") == 0) {
         if (!strcmp(feat,"wstr")) { canon_wstr(&ws); return do_encode(file, feat_WStr_encode, &ws); }
         if (!strcmp(feat,"mut"))  { canon_mut(&mu);  return do_encode(file, feat_Mut_encode,  &mu); }
+        if (!strcmp(feat,"mutnest")) { canon_mutnest(&mn); return do_encode(file, feat_MutNest_encode, &mn); }
+        if (!strcmp(feat,"outerkey")) { canon_outerkey(&ok); return do_encode(file, feat_OuterKey_encode, &ok); }
         if (!strcmp(feat,"bits")) { canon_bits(&bi); return do_encode(file, feat_Bits_encode, &bi); }
         if (!strcmp(feat,"tree")) { canon_tree(&tr); return do_encode(file, feat_Tree_encode, &tr); }
         if (!strcmp(feat,"arr"))  { canon_arr(&ar);  return do_encode(file, feat_Arr_encode,  &ar); }
@@ -108,6 +128,20 @@ int main(int argc, char** argv) {
             feat_Mut_t g; memset(&g,0,sizeof(g)); feat_Mut_t w; canon_mut(&w);
             if (feat_Mut_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
             CHK(g.a==w.a, "a"); CHK(g.b==w.b, "b"); CHK(g.c && !strcmp(g.c,w.c), "c");
+        } else if (!strcmp(feat,"mutnest")) {
+            feat_MutNest_t g; memset(&g,0,sizeof(g)); feat_MutNest_t w; canon_mutnest(&w);
+            if (feat_MutNest_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
+            CHK(g.tag==w.tag, "tag");
+            CHK(g.leaf.u==w.leaf.u, "leaf.u"); CHK(g.leaf.v==w.leaf.v, "leaf.v");
+            CHK(g.list.len==w.list.len, "list.len");
+            if (g.list.len==w.list.len) for (uint32_t li=0; li<g.list.len; ++li) {
+                CHK(g.list.elems[li].u==w.list.elems[li].u, "list.u");
+                CHK(g.list.elems[li].v==w.list.elems[li].v, "list.v");
+            }
+        } else if (!strcmp(feat,"outerkey")) {
+            feat_OuterKey_t g; memset(&g,0,sizeof(g)); feat_OuterKey_t w; canon_outerkey(&w);
+            if (feat_OuterKey_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
+            CHK(g.k.hi==w.k.hi, "k.hi"); CHK(g.k.lo==w.k.lo, "k.lo"); CHK(g.payload==w.payload, "payload");
         } else if (!strcmp(feat,"bits")) {
             feat_Bits_t g; memset(&g,0,sizeof(g)); feat_Bits_t w; canon_bits(&w);
             if (feat_Bits_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
