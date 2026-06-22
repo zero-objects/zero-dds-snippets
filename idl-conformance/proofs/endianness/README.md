@@ -1,0 +1,166 @@
+# Endianness × XCDR-version wire proof
+
+This example proves that ZeroDDS serializes the OMG **XTypes 1.3** wire format
+correctly across **both byte orders** (little- and big-endian) and **both CDR
+versions** (XCDR1 = `PLAIN_CDR`, XCDR2 = `PLAIN_CDR2`), and that the resulting
+bytes are **byte-identical to CycloneDDS and eProsima Fast DDS** wherever the
+spec is unambiguous.
+
+The original interop corpus (`../../_interop/`) pins one representation only:
+**XCDR2, little-endian**. That is the form a ZeroDDS DataWriter emits by default
+on x86/ARM, and all seven ZeroDDS language backends already converge on it
+byte-for-byte. This proof widens the check to the three representations that the
+default path never exercises:
+
+| repr       | encapsulation id | CDR version | max alignment | extensibility framing |
+|------------|------------------|-------------|---------------|------------------------|
+| `xcdr2-le` | `0x0011` LE      | XCDR2       | **4**         | DHEADER (appendable), EMHEADER (mutable) |
+| `xcdr2-be` | `0x0010` BE      | XCDR2       | **4**         | same, big-endian |
+| `xcdr1-le` | `0x0001` LE      | XCDR1       | **8**         | none (appendable plain), PL_CDR (mutable) |
+| `xcdr1-be` | `0x0000` BE      | XCDR1       | **8**         | same, big-endian |
+
+(The goldens here are the **bare CDR body** — the 4-byte RTPS encapsulation
+header that carries the id above is stripped, on both sides, so the comparison
+is over the payload only.)
+
+## Why XCDR1 and big-endian matter
+
+* **XCDR1 vs XCDR2 alignment.** XCDR2 (§7.4.1.1.1) caps primitive alignment at
+  4: a `double`/`int64`/`uint64` aligns to 4, **not** 8. XCDR1 (classic
+  `PLAIN_CDR`) keeps the full max-alignment of 8. The same struct therefore has
+  a *different byte layout* depending on the version — getting the alignment cap
+  wrong silently corrupts 64-bit members on the wire. This was the historical
+  XTypes `align(8)`-vs-`min(sizeof,4)` interop bug; this proof exercises it
+  directly on a struct (`Prim`) that carries `int64`/`uint64`/`double`.
+* **XCDR2 carries a DHEADER, XCDR1 does not.** An `@appendable` struct gets a
+  4-byte DHEADER (delimited length) under XCDR2 but is encoded *plain* under
+  XCDR1. An `@mutable` struct uses EMHEADER member framing under XCDR2 but the
+  PID-based `PL_CDR` parameter list under XCDR1.
+* **Big-endian** flips the byte order of *every* primitive, *every* length
+  prefix, *and* every UTF-16 wstring code unit. A codec that only ever runs
+  little-endian (because every dev box is x86/ARM) can hide a byte-swap bug in
+  any of those three places.
+
+## The samples
+
+Six topic types from `features.idl` (identical values to
+`../../_interop/CANONICAL.md`):
+
+* `wstr`  — bounded + unbounded `wstring` (UTF-16; includes an astral 🎉).
+* `mut`   — `@mutable` struct (EMHEADER / PL_CDR member framing).
+* `bits`  — `bitmask` + `bitset`.
+* `tree`  — self-recursive `sequence<Tree>`.
+* `arr`   — multi-dim array + array-of-struct.
+* `prim`  — every integer type at min/max + exact floats (the 64-bit alignment
+            probe).
+
+## Result table (repr × vendor)
+
+`MATCH` = byte-identical to ZeroDDS. `DIFF` = bytes differ (see `FINDINGS.md`).
+`n/a` = the vendor's code generator cannot emit that type (documented below).
+
+| feature | xcdr2-le | xcdr2-be | xcdr1-le | xcdr1-be | vs Cyclone | vs FastDDS |
+|---------|----------|----------|----------|----------|------------|------------|
+| prim    | ✓ ✓      | ✓ ✓      | ✓ ✓      | ✓ ✓      | **MATCH (4/4)** | **MATCH (4/4)** |
+| bits    | ✓        | ✓        | ✓        | ✓        | n/a        | **MATCH (4/4)** |
+| arr     | ✓        | ✓        | ✓        | ✓        | **MATCH (4/4)** | MATCH xcdr1; DIFF xcdr2¹ |
+| mut     | ✓        | ✓        | ✓        | ✓        | n/a        | MATCH xcdr2; DIFF xcdr1² |
+| wstr    | ✓        | ✓        | ✓        | ✓        | MATCH LE; DIFF BE³ | DIFF (count)⁴ |
+| tree    | ✓        | ✓        | ✓        | ✓        | n/a⁵       | n/a⁵       |
+
+The `✓` columns mean *the ZeroDDS Rust reference produced that representation
+through the same codec the DataWriter uses, and it round-trips back to the
+canonical value* (except the two decode gaps noted in `FINDINGS.md`, which are
+encode-correct). The XCDR2-LE column is additionally byte-identical to all seven
+ZeroDDS language backends (see `../../_interop/goldens/`).
+
+¹ `arr`/xcdr2 vs FastDDS — **extensibility-default mismatch**, not an
+  endianness/alignment bug. `struct Pt` is unannotated; ZeroDDS codegen defaults
+  it to `@final`, fastddsgen defaults it to `@appendable`, so FastDDS wraps each
+  array element in its own DHEADER. Regenerating the FastDDS type with
+  `fastddsgen -de final` makes it byte-identical to ZeroDDS. Cyclone (Pt final)
+  matches ZeroDDS in all four reprs.
+
+² `mut`/xcdr1 vs FastDDS — **ZeroDDS gap**: the `@mutable` XCDR1 path emits the
+  members *plain-positionally* instead of as a `PL_CDR` PID parameter list. See
+  `FINDINGS.md` #2. (XCDR2-LE/BE — the default DataWriter path — are correct and
+  byte-identical to FastDDS.)
+
+³ `wstr`/BE vs Cyclone — Cyclone does **not** byte-swap the UTF-16 code units in
+  a big-endian stream (it emits machine-native LE units); ZeroDDS and FastDDS
+  both byte-swap them, which is the correct CDR behaviour for a 2-byte
+  primitive. This is a CycloneDDS quirk, not a ZeroDDS bug. See `FINDINGS.md` #3.
+
+⁴ `wstr` vs FastDDS — FastDDS writes the wstring length as a **code-unit count**;
+  ZeroDDS *and CycloneDDS* write it as an **octet count** (classic-CDR rule). A
+  genuine, underspecified cross-vendor disagreement; ZeroDDS is on the Cyclone
+  side. See `FINDINGS.md` #4.
+
+⁵ `tree` — **neither** Cyclone's `idlc` nor `fastddsgen` can generate a
+  self-recursive `sequence<Tree>` (fastddsgen errors; Cyclone idlc emits empty
+  files). ZeroDDS encodes it and round-trips it in all four reprs, and all seven
+  ZeroDDS backends agree on the XCDR2-LE bytes, but there is no DDS-vendor oracle
+  to byte-compare against, for a structural reason on the vendor side.
+
+## Vendor versions & how they were configured
+
+See `vendor-src/VENDOR-VERSIONS.txt`. Summary:
+
+* **CycloneDDS 0.11.0** (`libddsc.so.11.0.1`). Oracle drivers
+  (`vendor-src/cyclone_*_oracle.c`) call `dds_ostreamLE_init` /
+  `dds_ostreamBE_init` with `xcdr_version` 1 or 2 and `dds_stream_writeLE/BE`
+  against the `idlc -l c` topic descriptor — i.e. Cyclone's own CDR stream, with
+  the version + endianness selected explicitly.
+* **eProsima Fast DDS 3.6.1 / Fast CDR 2.3.5**, types generated with
+  **fastddsgen v4.3.0**. The oracle driver (`vendor-src/fastdds_oracle.cpp`)
+  builds an `eprosima::fastcdr::Cdr(buffer, endianness, CdrVersion::XCDRv1|v2)`
+  and calls the generated `serialize()` — so the XTypes framing (DHEADER /
+  EMHEADER / PL_CDR) is whatever Fast CDR itself produces for that version.
+
+No vendor binaries were modified. Fast CDR leaves alignment padding bytes
+uninitialized; the oracle zeroes its scratch buffer before serializing so the
+padding compares deterministically (ZeroDDS always zero-fills padding).
+
+## Reproduce
+
+ZeroDDS side (local, needs the `zerodds` workspace checked out alongside):
+
+```sh
+make goldens     # cargo run -p endian-proof-rust ENCODE  -> goldens/
+make roundtrip   # cargo run … ROUNDTRIP  (self-consistency of the codec)
+```
+
+Vendor side (on a host with CycloneDDS + Fast DDS + fastddsgen installed):
+
+```sh
+make vendors     # uploads features.idl, generates+builds+runs both oracles,
+                 # pulls goldens into vendor-cyclone/ and vendor-fastcdr/
+```
+
+Then the table + diff detail:
+
+```sh
+python3 compare.py
+```
+
+The committed `goldens/`, `vendor-cyclone/`, and `vendor-fastcdr/` directories
+are the captured proof; `compare.py` reproduces the table from them offline.
+
+### Known round-trip gaps (`make roundtrip` = 18/24 OK)
+
+`make roundtrip` re-decodes each freshly-encoded buffer through the
+`CdrDecode` trait and asserts equality. 18 of 24 pass; six fail, and all six are
+**encode-correct** (the bytes match the vendors / the `DdsType` goldens) — the
+failure is on the low-level `CdrDecode` *companion* trait:
+
+* `wstr`/`xcdr2-be`, `wstr`/`xcdr1-be` — the generated wstring decode reads the
+  UTF-16 units little-endian regardless of stream byte order (decode-side BE
+  bug; encode is correct and matches Cyclone for LE / is the spec-correct BE).
+* `mut`/`xcdr2-{le,be}`, `arr`/`xcdr2-{le,be}` — the `CdrDecode` companion for
+  `@mutable` reads members positionally instead of via EMHEADER, and the
+  array-of-struct decode reads a spurious alignment word. The real DataReader
+  path (`DdsType::decode`) decodes these correctly; only the raw trait pair is
+  inconsistent.
+
+These are tracked as ZeroDDS codec/codegen items; they do not affect the
+encode-side byte-identity that this proof establishes.

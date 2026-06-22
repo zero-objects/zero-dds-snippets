@@ -1,0 +1,6 @@
+CycloneDDS: 11.0.1
+FastCDR: "2.3.5"
+FastDDS: 3.6.1.0
+fastddsgen: v4.3.0
+g++ (Debian 14.2.0-19) 14.2.0
+gcc (Debian 14.2.0-19) 14.2.0

@@ -1,0 +1,67 @@
+// Cross-PSM interop feature corpus — the constructs NOT covered by the combo
+// (wstring, @mutable/EMHEADER, bitset/bitmask, recursion, multi-dim + array-of-
+// struct, extreme primitives). Each is a single topic type with ONE canonical
+// sample (see CANONICAL.md). Every PSM must encode each to a byte-identical
+// XCDR2-LE golden and decode every other PSM's golden.
+module feat {
+
+  // --- wstring (UTF-16) ---
+  @appendable
+  struct WStr {
+    wstring<16>  label;   // bounded
+    wstring      text;    // unbounded
+  };
+
+  // --- @mutable (EMHEADER framing) ---
+  @mutable
+  struct Mut {
+    @id(10) long      a;
+    @id(20) double    b;
+    @id(30) string<8> c;
+  };
+
+  // --- bitset + bitmask ---
+  bitmask Perm { READ, WRITE, EXEC };
+  bitset Flags {
+    bitfield<3> kind;
+    bitfield<5> prio;
+  };
+  @appendable
+  struct Bits {
+    Perm  perm;
+    Flags flags;
+  };
+
+  // --- recursion (self-referential via sequence) ---
+  @appendable
+  struct Tree {
+    long              value;
+    sequence<Tree>    kids;
+  };
+
+  // --- multi-dim array + array-of-struct ---
+  struct Pt { long x; long y; };
+  @appendable
+  struct Arr {
+    long  grid[2][3];
+    Pt    shape[2];
+  };
+
+  // --- extreme primitives (all integer types at min/max) ---
+  @appendable
+  struct Prim {
+    int8     i8;
+    uint8    u8;
+    int16    i16;
+    uint16   u16;
+    int32    i32;
+    uint32   u32;
+    int64    i64;
+    uint64   u64;
+    float    f32;
+    double   f64;
+    boolean  b;
+    octet    o;
+    char     ch;
+  };
+};

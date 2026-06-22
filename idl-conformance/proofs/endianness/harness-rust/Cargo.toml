@@ -1,0 +1,19 @@
+[package]
+name = "endian-proof-rust"
+version = "0.1.0"
+edition = "2024"
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../../../../crates.
+[workspace]
+
+[[bin]]
+name = "endian_proof"
+path = "src/main.rs"
+
+[dependencies]
+zerodds-cdr = { path = "../../../../../crates/cdr" }
+zerodds-dcps = { path = "../../../../../crates/dcps" }
+zerodds-types = { path = "../../../../../crates/types" }
+zerodds-sql-filter = { path = "../../../../../crates/sql-filter" }
+sha2 = "0.10"
