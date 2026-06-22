@@ -1,0 +1,18 @@
+[package]
+name = "idl-typeobject-proof"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../../../crates.
+[workspace]
+
+[[bin]]
+name = "typeobject_proof"
+path = "src/main.rs"
+
+[dependencies]
+# TypeObject / TypeIdentifier model, the builder, and the MD5-based
+# EquivalenceHash (hash::compute_minimal_hash / compute_complete_hash).
+zerodds-types = { path = "../../../../crates/types" }

@@ -1,0 +1,68 @@
+// Canonical type corpus for the TypeObject / TypeIdentifier byte-identity
+// proof (DDS-XTypes 1.3 §7.3.4). Each type below is built identically in
+// the ZeroDDS harness (src/main.rs) and registered in each vendor's type
+// system by the extractors under extractors/. The vendor side dumps the
+// serialized MinimalTypeObject + CompleteTypeObject and the resulting
+// 14-byte EquivalenceHash for byte-diff against ZeroDDS.
+//
+// Module + member NAMES are load-bearing: the MinimalTypeObject hashes
+// member names (NameHash = first 4 bytes of MD5(name)); the CompleteType-
+// Object carries the names verbatim. Keep names byte-stable across vendors.
+
+module to {
+
+  // (1) plain final struct
+  @final
+  struct Plain {
+    long  a;
+    short b;
+  };
+
+  // (2) @appendable struct
+  @appendable
+  struct Appendable {
+    long  a;
+    short b;
+  };
+
+  // (3) @mutable struct with explicit @id members
+  @mutable
+  struct Mutable {
+    @id(10) long  a;
+    @id(20) short b;
+  };
+
+  // (6) enum
+  enum Color {
+    RED,
+    GREEN,
+    BLUE
+  };
+
+  // (5) alias / typedef
+  typedef sequence<long, 4> LongSeq4;
+
+  // (4) struct with nested struct + sequence + string + enum
+  @final
+  struct Inner {
+    long  x;
+    long  y;
+  };
+
+  @appendable
+  struct Nested {
+    Inner               child;
+    sequence<long, 8>   seq;
+    string<64>          name;
+    Color               color;
+  };
+
+  // (7) union
+  @final
+  union Choice switch (long) {
+    case 1: long   as_long;
+    case 2: double as_double;
+    default: string<32> as_text;
+  };
+
+};

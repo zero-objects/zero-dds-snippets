@@ -1,0 +1,9 @@
+Vendor toolchains used to produce the goldens in vendor/<vendor>/.
+Recorded on the multi-vendor test host, 2026-06-22.
+
+CycloneDDS        idlc 11.0.1 / libddsc.so.11.0.1
+eProsima Fast DDS libfastdds.so.3.6.1.0 (3.6.1); fastddsgen via OpenJDK 21.0.11
+RTI Connext DDS   rtiddsgen 4.7.0 (Connext 7.7.0); runtime lib arch x64Linux4gcc8.5.0
+
+Extraction method per vendor: see ../README.md "Reproduction" and the header
+comment of each file under ../extractors/.
