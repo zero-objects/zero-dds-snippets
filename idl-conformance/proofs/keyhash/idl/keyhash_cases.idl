@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: Apache-2.0
+// Canonical keyed types for cross-vendor KeyHash (PID_KEY_HASH, 0x0070)
+// conformance. See README.md for the <=16-byte-vs-MD5 rule (DDSI-RTPS 2.5
+// §9.6.3.8 / OMG XTypes 1.3 §7.6.8).
+//
+// Each type is registered as its own topic. The KeyHash of one fixed
+// instance per type is computed by ZeroDDS and compared byte-for-byte
+// against CycloneDDS / RTI Connext / Fast DDS.
+//
+// NOTE: case (d) (nested @key struct) lives in keyhash_nested.idl because
+// the ZeroDDS Rust backend currently rejects a nested-struct @key member
+// during code generation (see README "Findings"). The nested keyholder is
+// proven in the harness via the hand-built PlainCdr2BeKeyHolder, which the
+// generated code would otherwise emit.
+
+module keyhash {
+
+  // ---- Case (a): single @key long  ->  4-byte keyholder  ->  zero-pad ----
+  @final
+  struct SingleKey {
+    @key long id;
+    long       payload;
+  };
+
+  // ---- Case (b): @key string (unbounded) + @key long, serialized > 16B ->
+  //               MD5 path. The unbounded string forces the MD5 branch.
+  @final
+  struct BigKey {
+    @key string name;
+    @key long   region;
+    long        payload;
+  };
+
+  // ---- Case (c): multiple @key fields of mixed primitive types.
+  //               octet(1) + pad(1) + short(2) + long(4) + char(1) = 9 bytes
+  //               max <= 16 -> zero-pad.
+  @final
+  struct MixedKeys {
+    @key octet  a;
+    @key short  b;
+    @key long   c;
+    @key char   d;
+    long        payload;
+  };
+
+};

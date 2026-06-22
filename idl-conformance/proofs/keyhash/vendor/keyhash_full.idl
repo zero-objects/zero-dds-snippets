@@ -1,0 +1,7 @@
+module keyhash {
+  @final struct SingleKey { @key long id; long payload; };
+  @final struct BigKey { @key string name; @key long region; long payload; };
+  @final struct MixedKeys { @key octet a; @key short b; @key long c; @key char d; long payload; };
+  struct NestedKey { @key long hi; @key long lo; };
+  @final struct OuterKey { @key NestedKey k; long payload; };
+};

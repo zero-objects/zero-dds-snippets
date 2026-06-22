@@ -1,0 +1,23 @@
+[package]
+name = "keyhash-proof"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../../../crates.
+[workspace]
+
+[[bin]]
+name = "keyhash_proof"
+path = "src/main.rs"
+
+[dependencies]
+# DdsType trait (compute_key_hash) + Extensibility, used by generated code.
+zerodds-dcps = { path = "../../../../crates/dcps" }
+# Generated encode/decode bodies + PlainCdr2BeKeyHolder + compute_key_hash.
+zerodds-cdr = { path = "../../../../crates/cdr" }
+# Generated DdsType impls reference zerodds_types::TypeIdentifier.
+zerodds-types = { path = "../../../../crates/types" }
+# Generated field_value() references zerodds_sql_filter::Value.
+zerodds-sql-filter = { path = "../../../../crates/sql-filter" }

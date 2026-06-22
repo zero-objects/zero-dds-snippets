@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+ <qos_library name="L"><qos_profile name="P" is_default_qos="true">
+  <participant_qos>
+   <transport_builtin><mask>UDPv4</mask></transport_builtin>
+   <discovery><initial_peers><element>udpv4://127.0.0.1</element></initial_peers>
+     <multicast_receive_addresses/></discovery>
+  </participant_qos>
+ </qos_profile></qos_library>
+</dds>

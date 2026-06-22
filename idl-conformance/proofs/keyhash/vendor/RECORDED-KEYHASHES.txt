@@ -1,0 +1,68 @@
+Recorded vendor KeyHashes for the canonical keyed instances.
+Captured 2026-06-22 on host "codepit" (Debian 13, x86_64).
+
+Vendor versions
+---------------
+  CycloneDDS   : libddsc DDS_VERSION 11.0.1  (idlc + dds_cdrstream API)
+  RTI Connext  : 7.7.0  (rtiddsgen 4.7.0, lib arch x64Linux4gcc8.5.0)
+  Fast DDS     : 3.6.1.0  (libfastdds.so.3.6.1.0 + libfastcdr.so.2.3.5)
+  ZeroDDS      : this repo, crates/cdr key_hash.rs + idl-rust codegen
+
+Instances (identical across all four implementations)
+-----------------------------------------------------
+  (a) SingleKey { id = 0x11223344 }
+  (b) BigKey    { name = "sensor-array-north-wing", region = 7 }
+  (c) MixedKeys { a = 0xAA, b = 0x1234, c = 0x55667788, d = 0x5A ('Z') }
+  (d) OuterKey  { k = NestedKey { hi = 0x01020304, lo = 0x05060708 } }
+
+How each vendor value was obtained
+----------------------------------
+  CycloneDDS : dds_stream_write (XCDR2 LE) -> dds_stream_extract_keyBE_from_data
+               (BE key, member-id order, same engine CycloneDDS uses on the
+               wire), then the <=16-pad / >16-MD5 rule. CycloneDDS does NOT
+               emit PID_KEY_HASH inline on the wire by default (verified by
+               tcpdump: no 0x0070 in DATA inlineQos), so its key is read from
+               the public dds_cdrstream API instead. Source: cyclone_keyhash.c
+  RTI Connext: real on-the-wire capture. rti_pubsub publishes one instance of
+               each type over UDPv4 loopback; tcpdump captures lo; tshark reads
+               the PID_KEY_HASH (0x0070) parameter from the DATA submessage
+               inlineQos. RTI emits the keyhash inline by default. This is the
+               authoritative wire value. Source: rti_pubsub.cxx, capture rti.pcap
+  Fast DDS   : Fast DDS' own FastCDR (Cdr, BIG_ENDIANNESS, XCDRv2, no
+               encapsulation) serializes the @key members exactly as the
+               fastddsgen-generated compute_key() does; the <=16-pad / >16-MD5
+               decision uses Fast DDS' own eprosima::fastdds::MD5 class.
+               (No fastddsgen binary on host, so the generated compute_key path
+               is reproduced with vendor FastCDR + vendor MD5.) NOTE: the
+               alignment-pad byte must be pre-zeroed; FastCDR does not zero it
+               (see README finding). Source: fastdds_keyhash.cpp
+
+16-byte KeyHash (hex)  -- all four columns are byte-identical
+------------------------------------------------------------------------------
+case | ZeroDDS                          | Cyclone | RTI(wire) | FastDDS | branch
+-----+----------------------------------+---------+-----------+---------+--------
+ (a) | 11223344000000000000000000000000 | MATCH   | MATCH     | MATCH   | zero-pad
+ (b) | 492ce15eccc6c49993afe63223435b91 | MATCH   | MATCH     | MATCH   | MD5
+ (c) | aa001234556677885a00000000000000 | MATCH   | MATCH     | MATCH   | zero-pad
+ (d) | 01020304050607080000000000000000 | MATCH   | MATCH     | MATCH   | zero-pad
+
+Raw BE keyholder bytes that feed case (b)'s MD5 (identical, all impls):
+  00 00 00 18 | "sensor-array-north-wing" | 00 (NUL) | 00 00 00 07
+  = 0000001873656e736f722d61727261792d6e6f7274682d77696e670000000007
+  MD5(above) = 492ce15eccc6c49993afe63223435b91
+
+RTI wire capture excerpt (tshark, PID_KEY_HASH rendered as "guid:")
+-------------------------------------------------------------------
+  (a)  guid: 11223344:00000000:00000000:00000000
+  (b)  guid: 492ce15e:ccc6c499:93afe632:23435b91
+  (c)  guid: aa001234:55667788:5a000000:00000000
+  (d)  guid: 01020304:05060708:00000000:00000000
+
+Bounded-string divergence (separate type, see README finding F1)
+----------------------------------------------------------------
+  Type @final struct BS { @key string<8> code; long payload; }, code="AB".
+  BE keyholder = 00 00 00 03 41 42 00  (len=3 BE + "AB" + NUL, max 13 <= 16).
+    CycloneDDS (own CDR engine): 00000003414200000000000000000000  (zero-pad)
+    ZeroDDS                    : afe1514800e44535d0f8280b7d11b82f  (MD5)  <-- DIFF
+  ZeroDDS treats every string key as unbounded -> MD5; the spec + Cyclone
+  zero-pad when the bounded max <= 16. These never correlate.
