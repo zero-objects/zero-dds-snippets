@@ -1,0 +1,38 @@
+######## PROFILE: data-enc ########
+zerodds ->zerodds  data-enc   mutable    : PROOF_OK type=secxt::MutableMsg ok=30/30
+zerodds ->fastdds  data-enc   mutable    : PROOF_FAIL type=secxt::MutableMsg ok=1 miss=29 fp_fail=0
+zerodds ->cyclone  data-enc   mutable    : XTYPES_DECODE_FAIL
+fastdds ->zerodds  data-enc   mutable    : XTYPES_DECODE_FAIL
+fastdds ->fastdds  data-enc   mutable    : PROOF_OK type=secxt::MutableMsg ok=30/30
+fastdds ->cyclone  data-enc   mutable    : FAIL
+cyclone ->zerodds  data-enc   mutable    : XTYPES_DECODE_FAIL
+cyclone ->fastdds  data-enc   mutable    : FAIL
+cyclone ->cyclone  data-enc   mutable    : PROOF_OK ok=30/30
+zerodds ->zerodds  data-enc   appendable : PROOF_OK type=secxt::AppendableMsg ok=30/30
+zerodds ->fastdds  data-enc   appendable : PROOF_OK type=secxt::AppendableMsg ok=30/30
+zerodds ->cyclone  data-enc   appendable : XTYPES_DECODE_FAIL
+fastdds ->zerodds  data-enc   appendable : PROOF_OK type=secxt::AppendableMsg ok=30/30
+fastdds ->fastdds  data-enc   appendable : PROOF_OK type=secxt::AppendableMsg ok=30/30
+fastdds ->cyclone  data-enc   appendable : FAIL
+cyclone ->zerodds  data-enc   appendable : XTYPES_DECODE_FAIL
+cyclone ->fastdds  data-enc   appendable : FAIL
+cyclone ->cyclone  data-enc   appendable : PROOF_OK ok=30/30
+zerodds ->zerodds  data-enc   keyed      : PROOF_OK type=secxt::KeyedMsg ok=30/30
+zerodds ->fastdds  data-enc   keyed      : FAIL
+zerodds ->cyclone  data-enc   keyed      : FAIL
+fastdds ->zerodds  data-enc   keyed      : FAIL
+fastdds ->fastdds  data-enc   keyed      : PROOF_OK type=secxt::KeyedMsg ok=30/30
+fastdds ->cyclone  data-enc   keyed      : FAIL
+cyclone ->zerodds  data-enc   keyed      : FAIL
+cyclone ->fastdds  data-enc   keyed      : FAIL
+cyclone ->cyclone  data-enc   keyed      : PROOF_OK ok=30/30
+zerodds ->zerodds  data-enc   nested     : PROOF_OK type=secxt::NestedMsg ok=30/30
+zerodds ->fastdds  data-enc   nested     : PROOF_FAIL type=secxt::NestedMsg ok=0 miss=30 fp_fail=0
+zerodds ->cyclone  data-enc   nested     : XTYPES_DECODE_FAIL
+fastdds ->zerodds  data-enc   nested     : XTYPES_DECODE_FAIL
+fastdds ->fastdds  data-enc   nested     : PROOF_OK type=secxt::NestedMsg ok=30/30
+fastdds ->cyclone  data-enc   nested     : FAIL
+cyclone ->zerodds  data-enc   nested     : XTYPES_DECODE_FAIL
+cyclone ->fastdds  data-enc   nested     : FAIL
+cyclone ->cyclone  data-enc   nested     : PROOF_OK ok=30/30
+=== secure XTypes matrix done ===

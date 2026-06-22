@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Cross-vendor DDS-Security x XTypes interop proof types.
+//
+// Each type stresses one richer-than-@final XCDR2 framing construct and is
+// carried over a *secured* (governance + permissions signed, AES-GCM message
+// and/or payload protection) ZeroDDS <-> {Fast DDS, Cyclone DDS} session. The
+// question under test: does the SecureDataPayload / SecureSubMessage transform
+// carry the XCDR2 framing (DHEADER / EMHEADER / TypeObject / KeyHash) intact so
+// the peer can decode it after decryption?
+//
+// All members carry pinned @id (autoid SEQUENTIAL would also work, but explicit
+// ids make the EMHEADER member-ids deterministic across every vendor codegen
+// -- rtiddsgen / idlc / fastddsgen / opendds_idl / idl-cpp -- so the TypeObject
+// is byte-identical and Type-Consistency Enforcement matches).
+
+module secxt {
+
+  // ---------------------------------------------------------------------------
+  // (1) @mutable struct with @id members.
+  // Wire form: a DHEADER (total length) followed by one EMHEADER per member
+  // (member-id + length-code + length). The crypto transform must preserve the
+  // ENTIRE EMHEADER stream inside the ciphertext so the peer can skip/match
+  // members after decryption. seq is the correlation field the ping/pong loop
+  // uses to verify a correct round-trip.
+  // ---------------------------------------------------------------------------
+  @topic
+  @mutable
+  struct MutableMsg {
+    @id(10) unsigned long          seq;
+    @id(20) long                   a;
+    @id(30) double                 b;
+    @id(40) string                 label;
+    @id(50) sequence<octet, 4096>  payload;
+  };
+
+  // ---------------------------------------------------------------------------
+  // (2) @appendable struct.
+  // Wire form: a single DHEADER (total length) then the members packed like a
+  // @final body. The crypto transform must preserve the leading DHEADER so the
+  // peer's delimited-CDR2 reader knows the body length after decryption.
+  // ---------------------------------------------------------------------------
+  @topic
+  @appendable
+  struct AppendableMsg {
+    @id(0) unsigned long           seq;
+    @id(1) unsigned long long      t_send_ns;
+    @id(2) string                  label;
+    @id(3) sequence<octet, 4096>   payload;
+  };
+
+  // ---------------------------------------------------------------------------
+  // (3) Keyed type. The KeyHash (PID_KEY_HASH, 0x0070) is computed over the
+  // *plaintext* key (PLAIN_CDR2-BE) and travels in the plaintext inline-QoS of
+  // the DATA submessage while the body is encrypted. Two @key members keep the
+  // keyholder <= 16 bytes (zero-pad branch) so the KeyHash is a clean
+  // byte-comparison; the body is still @mutable to combine key + EMHEADER.
+  // ---------------------------------------------------------------------------
+  @topic
+  @mutable
+  struct KeyedMsg {
+    @id(0) @key long               region;
+    @id(1) @key long               unit;
+    @id(2) unsigned long           seq;
+    @id(3) sequence<octet, 4096>   payload;
+  };
+
+  // ---------------------------------------------------------------------------
+  // (4) Nested + mutable: complex enough to require TypeObject / TypeLookup
+  // discovery. A @mutable outer with a @mutable nested member and a sequence of
+  // nested structs cannot be matched by minimal-TypeObject alone on strict
+  // peers -- it exercises the complete-TypeObject / TypeLookup path, which on a
+  // secured domain runs over the *secure* builtin discovery endpoints.
+  // ---------------------------------------------------------------------------
+  @mutable
+  struct Inner {
+    @id(0) long                    x;
+    @id(1) double                  y;
+    @id(2) string                  tag;
+  };
+
+  @topic
+  @mutable
+  struct NestedMsg {
+    @id(0) unsigned long           seq;
+    @id(1) Inner                   head;
+    @id(2) sequence<Inner, 16>     items;
+    @id(3) sequence<octet, 4096>   payload;
+  };
+
+};
