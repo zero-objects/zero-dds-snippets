@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: Apache-2.0
+// XCDR2 type-system conformance corpus — WAVE 2.
+//
+// These constructs were NOT covered by the first interop oracle
+// (which byte-verified wstring/@mutable/bitset/recursion/array/prim/map).
+// Each construct below is encoded by ZeroDDS to XCDR2-LE and byte-diffed
+// against the native encoding produced by CycloneDDS, RTI Connext and
+// eProsima FastDDS. See README.md for the exact canonical values and the
+// interop property each case proves.
+//
+// Spec references (OMG DDS-XTypes 1.3, formal/2020-02-04):
+//   §7.4.3        union wire format (discriminator + selected member)
+//   §7.2.2.4.1.2  enum bit_bound (8/16/32-bit storage)
+//   §7.4.3.4.x    @optional member encoding (PL / member-presence)
+//   §7.4.3.4.2    EMHEADER for @mutable nested members
+module ts {
+
+  // ----------------------------------------------------------------------
+  // ENUMs (default 32-bit and explicit @bit_bound 8 / 16)
+  // ----------------------------------------------------------------------
+
+  // Default enum: §7.2.2.4.1.2 — absent @bit_bound the storage is 32-bit.
+  enum Color { RED, GREEN, BLUE, AMBER };   // RED=0, GREEN=1, BLUE=2, AMBER=3
+
+  // 8-bit enum: holder is one octet on the wire.
+  @bit_bound(8)
+  enum Tiny { T_A, T_B, T_C };              // values 0,1,2
+
+  // 16-bit enum: holder is two octets (LE) on the wire.
+  // NOTE: enumerators are prefixed MID_ to avoid colliding with the
+  // <math.h> macros M_E / M_PI that C/C++ vendor headers pull in.
+  @bit_bound(16)
+  enum Mid { MID_A, MID_B, MID_C, MID_D, MID_E };  // values 0..4
+
+  // A @final struct carrying all three enum widths back-to-back so the
+  // CDR alignment between an 8-, 16- and 32-bit enum is exercised.
+  @final
+  struct EnumHolder {
+    Color big;     // 32-bit, value BLUE  (=2)
+    Tiny  small;   //  8-bit, value T_C   (=2)
+    Mid   medium;  // 16-bit, value M_D   (=3)
+  };
+
+  // ----------------------------------------------------------------------
+  // UNIONs
+  // ----------------------------------------------------------------------
+
+  // A small nested struct used as a union member (a non-primitive case).
+  @final
+  struct Point {
+    long x;
+    long y;
+  };
+
+  // Union switching on a long, WITH a default case and a struct member case.
+  // §7.4.3: discriminator first (aligned), then the selected member.
+  @final
+  union LongUnion switch (long) {
+    case 1:  long    count;     // primitive arm
+    case 2:  Point   where;     // struct arm
+    default: string  note;      // default arm (selected by any other disc)
+  };
+
+  // Union switching on an ENUM discriminator (Color), also with a default.
+  @final
+  union EnumUnion switch (Color) {
+    case RED:    double   temperature;
+    case GREEN:  Point    location;
+    default:     long     fallback;     // covers BLUE, AMBER
+  };
+
+  // ----------------------------------------------------------------------
+  // @optional members (standalone, present + absent)
+  // ----------------------------------------------------------------------
+
+  @final
+  struct Inner {
+    long  a;
+    long  b;
+  };
+
+  // §7.4.3.4: a struct carrying standalone @optional members of a
+  // primitive, a string, and a nested struct. The canonical sample sets
+  // the primitive PRESENT, the string ABSENT, the nested struct PRESENT.
+  @appendable
+  struct OptHolder {
+    long              id;        // always-present anchor
+    @optional long    maybe_num; // PRESENT  = 77
+    @optional string  maybe_str; // ABSENT
+    @optional Inner   maybe_obj; // PRESENT  = { a=5, b=6 }
+  };
+
+  // ----------------------------------------------------------------------
+  // Nested @mutable (mutable-in-mutable) and sequence<mutable>
+  // ----------------------------------------------------------------------
+
+  // §7.4.3.4.2: EMHEADER per member; a @mutable struct as a member of
+  // another @mutable struct must itself carry its own member headers.
+  @mutable
+  struct MutLeaf {
+    @id(1) long    u;   // = 100
+    @id(2) double  v;   // = 1.25
+  };
+
+  @mutable
+  struct MutOuter {
+    @id(10) long              tag;   // = 9
+    @id(20) MutLeaf           leaf;  // nested @mutable, { u=100, v=1.25 }
+    @id(30) sequence<MutLeaf> list;  // sequence of @mutable: [{1,0.5},{2,0.25}]
+  };
+
+};
