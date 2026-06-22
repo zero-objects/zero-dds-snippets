@@ -1,0 +1,21 @@
+=== zerodds: rtps.sm.id distribution ===
+    376 0x06
+    372 0x07
+    376 0x0e
+    150 0x15
+
+=== cyclone: rtps.sm.id distribution ===
+   1190 0x06
+   1288 0x07
+    144 0x09
+   1160 0x0e
+    539 0x15
+
+=== fastdds: rtps.sm.id distribution ===
+   1041 0x06
+   1239 0x07
+     96 0x09
+   1068 0x0e
+    422 0x15
+    716 0x80
+

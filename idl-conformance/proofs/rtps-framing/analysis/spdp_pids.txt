@@ -1,0 +1,47 @@
+==========================================
+=== zerodds: SPDP participant DATA (wrEntityId 0x000100c2), ordered parameterId list ===
+==========================================
+parameterId: PID_PROTOCOL_VERSION (0x0015)
+parameterId: PID_VENDOR_ID (0x0016)
+parameterId: PID_PARTICIPANT_GUID (0x0050)
+parameterId: PID_DEFAULT_UNICAST_LOCATOR (0x0031)
+parameterId: PID_METATRAFFIC_UNICAST_LOCATOR (0x0032)
+parameterId: PID_METATRAFFIC_MULTICAST_LOCATOR (0x0033)
+parameterId: PID_DOMAIN_ID (0x000f)
+parameterId: PID_BUILTIN_ENDPOINT_SET (0x0058)
+parameterId: PID_PARTICIPANT_LEASE_DURATION (0x0002)
+parameterId: PID_SENTINEL (0x0001)
+
+==========================================
+=== cyclone: SPDP participant DATA (wrEntityId 0x000100c2), ordered parameterId list ===
+==========================================
+parameterId: PID_USER_DATA (0x002c)
+parameterId: PID_PARTICIPANT_LEASE_DURATION (0x0002)
+parameterId: PID_PROPERTY_LIST (0x0059)
+parameterId: PID_PROTOCOL_VERSION (0x0015)
+parameterId: PID_VENDOR_ID (0x0016)
+parameterId: PID_PARTICIPANT_GUID (0x0050)
+parameterId: PID_BUILTIN_ENDPOINT_SET (0x0058)
+parameterId: PID_DOMAIN_ID (0x000f)
+parameterId: PID_DEFAULT_UNICAST_LOCATOR (0x0031)
+parameterId: PID_DEFAULT_MULTICAST_LOCATOR (0x0048)
+parameterId: PID_METATRAFFIC_UNICAST_LOCATOR (0x0032)
+parameterId: PID_METATRAFFIC_MULTICAST_LOCATOR (0x0033)
+parameterId: Unknown (0x8007)
+parameterId: Unknown (0x8019)
+parameterId: PID_SENTINEL (0x0001)
+
+==========================================
+=== fastdds: SPDP participant DATA (wrEntityId 0x000100c2), ordered parameterId list ===
+==========================================
+parameterId: PID_PROTOCOL_VERSION (0x0015)
+parameterId: PID_VENDOR_ID (0x0016)
+parameterId: PID_PARTICIPANT_GUID (0x0050)
+parameterId: PID_DEFAULT_UNICAST_LOCATOR (0x0031)
+parameterId: PID_METATRAFFIC_UNICAST_LOCATOR (0x0032)
+parameterId: PID_METATRAFFIC_MULTICAST_LOCATOR (0x0033)
+parameterId: PID_DOMAIN_ID (0x000f)
+parameterId: PID_BUILTIN_ENDPOINT_SET (0x0058)
+parameterId: PID_PARTICIPANT_LEASE_DURATION (0x0002)
+parameterId: PID_SENTINEL (0x0001)
+

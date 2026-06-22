@@ -1,0 +1,39 @@
+Frame 12: 94 bytes on wire (752 bits), 94 bytes captured (752 bits) on interface unknown, id 0
+Ethernet II, Src: 00:00:00_00:00:00 (00:00:00:00:00:00), Dst: 00:00:00_00:00:00 (00:00:00:00:00:00)
+Internet Protocol Version 4, Src: 203.0.113.10, Dst: 203.0.113.10
+User Datagram Protocol, Src Port: 44321, Dst Port: 7412
+Real-Time Publish-Subscribe Wire Protocol
+    Magic: RTPS
+    Protocol version: 2.5
+        major: 2
+        minor: 5
+    vendorId: 01.240 (Unknown)
+    guidPrefix: 91839248e99a050013ae755a
+        hostId: 0x91839248
+        appId: 0xe99a0500
+        instanceId: 0x13ae755a
+    Default port mapping (Based on calculated domainId. Might not be accurate): domainId=0, participantIdx=1, nature=UNICAST_METATRAFFIC
+        [domain_id: 0]
+        [participant_idx: 1]
+        [traffic_nature: UNICAST_METATRAFFIC (0)]
+    submessageId: HEARTBEAT (0x07)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Liveliness flag: Not set
+            .... ..0. = Final flag: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 28
+        readerEntityId: ENTITYID_BUILTIN_SUBSCRIPTIONS_READER (0x000004c7)
+            readerEntityKey: 0x000004
+            readerEntityKind: Built-in reader (with key) (0xc7)
+        writerEntityId: ENTITYID_BUILTIN_SUBSCRIPTIONS_WRITER (0x000004c2)
+            writerEntityKey: 0x000004
+            writerEntityKind: Built-in writer (with key) (0xc2)
+        firstAvailableSeqNumber: 1
+        lastSeqNumber: 1
+        count: 1
+

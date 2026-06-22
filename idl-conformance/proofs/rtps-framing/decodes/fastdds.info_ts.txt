@@ -1,0 +1,165 @@
+Frame 116: 606 bytes on wire (4848 bits), 606 bytes captured (4848 bits) on interface unknown, id 0
+Ethernet II, Src: 00:00:00_00:00:00 (00:00:00:00:00:00), Dst: 00:00:00_00:00:00 (00:00:00:00:00:00)
+Internet Protocol Version 4, Src: 127.0.0.1, Dst: 239.255.0.1
+User Datagram Protocol, Src Port: 40686, Dst Port: 7400
+Real-Time Publish-Subscribe Wire Protocol
+    Magic: RTPS
+    Protocol version: 2.3
+        major: 2
+        minor: 3
+    vendorId: 01.15 (eProsima - Fast-RTPS)
+    guidPrefix: 010fa72b029cbddb00000000
+        hostId: 0x010fa72b
+        appId: 0x029cbddb
+        instanceId: 0x00000000
+    Default port mapping: domainId=Unknown, participantIdx=120, nature=UNICAST_METATRAFFIC
+        [domain_id: 4294967295]
+        [participant_idx: 120]
+        [traffic_nature: UNICAST_METATRAFFIC (0)]
+    submessageId: INFO_TS (0x09)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Reserved: Not set
+            .... ..0. = Timestamp flag: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 8
+        Timestamp: Jun 22, 2026 08:33:47.509048795 UTC
+    submessageId: DATA (0x15)
+        Flags: 0x05, Data present, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Serialized Key: Not set
+            .... .1.. = Data present: Set
+            .... ..0. = Inline QoS: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 468
+        0000 0000 0000 0000 = Extra flags: 0x0000
+        Octets to inline QoS: 16
+        readerEntityId: ENTITYID_BUILTIN_PARTICIPANT_READER (0x000100c7)
+            readerEntityKey: 0x000100
+            readerEntityKind: Built-in reader (with key) (0xc7)
+        writerEntityId: ENTITYID_BUILTIN_PARTICIPANT_WRITER (0x000100c2)
+            writerEntityKey: 0x000100
+            writerEntityKind: Built-in writer (with key) (0xc2)
+        writerSeqNumber: 1
+        serializedData
+            encapsulation kind: PL_CDR_LE (0x0003)
+            encapsulation options: 0x0000
+            serializedData:
+                PID_PROTOCOL_VERSION
+                    parameterId: PID_PROTOCOL_VERSION (0x0015)
+                    parameterLength: 4
+                    Protocol version: 2.3
+                        major: 2
+                        minor: 3
+                PID_VENDOR_ID
+                    parameterId: PID_VENDOR_ID (0x0016)
+                    parameterLength: 4
+                    vendorId: 01.15 (eProsima - Fast-RTPS)
+                Unknown (0x8000)
+                    parameterId: Unknown (0x8000)
+                    parameterLength: 4
+                    parameterData: 03060100
+                PID_DOMAIN_ID
+                    parameterId: PID_DOMAIN_ID (0x000f)
+                    parameterLength: 4
+                    parameterData: 00000000
+                PID_PARTICIPANT_GUID
+                    parameterId: PID_PARTICIPANT_GUID (0x0050)
+                    parameterLength: 16
+                    Participant GUID: 010fa72b 029cbddb 00000000 000001c1
+                        hostId: 0x010fa72b
+                        appId: 0x029cbddb
+                        instanceId: 0x00000000
+                        entityId: ENTITYID_PARTICIPANT (0x000001c1)
+                            entityKey: 0x000001
+                            entityKind: Built-in participant (0xc1)
+                Unknown (0x8007)
+                    parameterId: Unknown (0x8007)
+                    parameterLength: 4
+                    parameterData: 01000000
+                Unknown (0x8003)
+                    parameterId: Unknown (0x8003)
+                    parameterLength: 40
+                    parameterData: 21000000653830653630353335646339343432636231306537323239313038653135666600000000
+                PID_METATRAFFIC_UNICAST_LOCATOR (LOCATOR_KIND_UDPV4, 203.0.113.10:7414)
+                    parameterId: PID_METATRAFFIC_UNICAST_LOCATOR (0x0032)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 7414
+                        Address: 203.0.113.10
+                PID_DEFAULT_UNICAST_LOCATOR
+                    parameterId: PID_DEFAULT_UNICAST_LOCATOR (0x0031)
+                    parameterLength: 24
+                    locator
+                        Kind: Unknown (0x00000013)
+                PID_DEFAULT_UNICAST_LOCATOR (LOCATOR_KIND_UDPV4, 203.0.113.10:7415)
+                    parameterId: PID_DEFAULT_UNICAST_LOCATOR (0x0031)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 7415
+                        Address: 203.0.113.10
+                PID_PARTICIPANT_LEASE_DURATION
+                    parameterId: PID_PARTICIPANT_LEASE_DURATION (0x0002)
+                    parameterLength: 8
+                    lease_duration: 20.000000 sec (20s + 0x00000000)
+                        seconds: 20
+                        fraction: 0
+                PID_BUILTIN_ENDPOINT_SET
+                    parameterId: PID_BUILTIN_ENDPOINT_SET (0x0058)
+                    parameterLength: 4
+                    […] Flags: 0x000ffc3f, Secure Subscription Reader, Secure Subscription Writer, Secure Publication Reader, Secure Publication Writer, Reserved, Participant Message DataReader, Participant Message DataWriter, Subscription Detector, Subscri
+                        .... 0... .... .... .... .... .... .... = Participant Secure Reader: Not set
+                        .... .0.. .... .... .... .... .... .... = Participant Secure Writer: Not set
+                        .... ..0. .... .... .... .... .... .... = Secure Participant Volatile Message Reader: Not set
+                        .... ...0 .... .... .... .... .... .... = Secure Participant Volatile Message Writer: Not set
+                        .... .... 0... .... .... .... .... .... = Participant Stateless Message Reader: Not set
+                        .... .... .0.. .... .... .... .... .... = Participant Stateless Message Writer: Not set
+                        .... .... ..0. .... .... .... .... .... = Secure Participant Message Reader: Not set
+                        .... .... ...0 .... .... .... .... .... = Secure Participant Message Writer: Not set
+                        .... .... .... 1... .... .... .... .... = Secure Subscription Reader: Set
+                        .... .... .... .1.. .... .... .... .... = Secure Subscription Writer: Set
+                        .... .... .... ..1. .... .... .... .... = Secure Publication Reader: Set
+                        .... .... .... ...1 .... .... .... .... = Secure Publication Writer: Set
+                        .... .... .... .... 1111 .... .... .... = Reserved: Set
+                        .... .... .... .... .... 1... .... .... = Participant Message DataReader: Set
+                        .... .... .... .... .... .1.. .... .... = Participant Message DataWriter: Set
+                        .... .... .... .... .... ..0. .... .... = Participant State Detector: Not set
+                        .... .... .... .... .... ...0 .... .... = Participant State Announcer: Not set
+                        .... .... .... .... .... .... 0... .... = Participant Proxy Detector: Not set
+                        .... .... .... .... .... .... .0.. .... = Participant Proxy Announcer: Not set
+                        .... .... .... .... .... .... ..1. .... = Subscription Detector: Set
+                        .... .... .... .... .... .... ...1 .... = Subscription Announcer: Set
+                        .... .... .... .... .... .... .... 1... = Publication Detector: Set
+                        .... .... .... .... .... .... .... .1.. = Publication Announcer: Set
+                        .... .... .... .... .... .... .... ..1. = Participant Detector: Set
+                        .... .... .... .... .... .... .... ...1 = Participant Announcer: Set
+                PID_ENTITY_NAME
+                    parameterId: PID_ENTITY_NAME (0x0062)
+                    parameterLength: 20
+                    String length: 16
+                    entityName: RTPSParticipant
+                PID_PROPERTY_LIST (4 properties)
+                    parameterId: PID_PROPERTY_LIST (0x0059)
+                    parameterLength: 204
+                    Property List
+                        Property Name: PARTICIPANT_TYPE
+                            Value: SIMPLE
+                        Property Name: fastdds.physical_data.host
+                            Value: e80e60535dc9442cb10e7229108e15ff
+                        Property Name: fastdds.physical_data.user
+                            Value: root
+                        Property Name: fastdds.physical_data.process
+                            Value: 367618
+                PID_SENTINEL
+                    parameterId: PID_SENTINEL (0x0001)
+    submessageId: Vendor-specific (0x80)
+

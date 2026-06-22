@@ -1,0 +1,39 @@
+Frame 2: 94 bytes on wire (752 bits), 94 bytes captured (752 bits) on interface unknown, id 0
+Ethernet II, Src: 00:00:00_00:00:00 (00:00:00:00:00:00), Dst: 00:00:00_00:00:00 (00:00:00:00:00:00)
+Internet Protocol Version 4, Src: 203.0.113.10, Dst: 203.0.113.10
+User Datagram Protocol, Src Port: 47391, Dst Port: 32982
+Real-Time Publish-Subscribe Wire Protocol
+    Magic: RTPS
+    Protocol version: 2.5
+        major: 2
+        minor: 5
+    vendorId: 01.240 (Unknown)
+    guidPrefix: 91839248f19a0500c4541d96
+        hostId: 0x91839248
+        appId: 0xf19a0500
+        instanceId: 0xc4541d96
+    Default port mapping (Based on calculated domainId. Might not be accurate): domainId=102, participantIdx=36, nature=UNICAST_METATRAFFIC
+        [domain_id: 102]
+        [participant_idx: 36]
+        [traffic_nature: UNICAST_METATRAFFIC (0)]
+    submessageId: HEARTBEAT (0x07)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Liveliness flag: Not set
+            .... ..0. = Final flag: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 28
+        readerEntityId: 0x00000107 (Application-defined reader (with key): 0x000001)
+            readerEntityKey: 0x000001
+            readerEntityKind: Application-defined reader (with key) (0x07)
+        writerEntityId: 0x00000102 (Application-defined writer (with key): 0x000001)
+            writerEntityKey: 0x000001
+            writerEntityKind: Application-defined writer (with key) (0x02)
+        firstAvailableSeqNumber: 441
+        lastSeqNumber: 441
+        count: 441
+

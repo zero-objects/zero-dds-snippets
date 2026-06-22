@@ -1,0 +1,54 @@
+==========================================
+=== zerodds: SEDP publications DATA (wrEntityId 0x000003c2), ordered parameterId list ===
+==========================================
+parameterId: PID_PARTICIPANT_GUID (0x0050)
+parameterId: PID_ENDPOINT_GUID (0x005a)
+parameterId: PID_TOPIC_NAME (0x0005)
+parameterId: PID_TYPE_NAME (0x0007)
+parameterId: PID_DURABILITY (0x001d)
+parameterId: PID_RELIABILITY (0x001a)
+parameterId: PID_OWNERSHIP (0x001f)
+parameterId: PID_OWNERSHIP_STRENGTH (0x0006)
+parameterId: PID_LIVELINESS (0x001b)
+parameterId: PID_DEADLINE (0x0023)
+parameterId: PID_LIFESPAN (0x002b)
+parameterId: PID_DATA_REPRESENTATION (0x0073)
+parameterId: PID_UNICAST_LOCATOR (0x002f)
+parameterId: PID_SENTINEL (0x0001)
+
+==========================================
+=== cyclone: SEDP publications DATA (wrEntityId 0x000003c2), ordered parameterId list ===
+==========================================
+parameterId: PID_PARTICIPANT_GUID (0x0050)
+parameterId: PID_ENDPOINT_GUID (0x005a)
+parameterId: PID_TOPIC_NAME (0x0005)
+parameterId: PID_TYPE_NAME (0x0007)
+parameterId: PID_DURABILITY (0x001d)
+parameterId: PID_RELIABILITY (0x001a)
+parameterId: PID_OWNERSHIP (0x001f)
+parameterId: PID_OWNERSHIP_STRENGTH (0x0006)
+parameterId: PID_LIVELINESS (0x001b)
+parameterId: PID_DEADLINE (0x0023)
+parameterId: PID_LIFESPAN (0x002b)
+parameterId: PID_DATA_REPRESENTATION (0x0073)
+parameterId: PID_UNICAST_LOCATOR (0x002f)
+parameterId: PID_SENTINEL (0x0001)
+
+==========================================
+=== fastdds: SEDP publications DATA (wrEntityId 0x000003c2), ordered parameterId list ===
+==========================================
+parameterId: PID_PARTICIPANT_GUID (0x0050)
+parameterId: PID_ENDPOINT_GUID (0x005a)
+parameterId: PID_TOPIC_NAME (0x0005)
+parameterId: PID_TYPE_NAME (0x0007)
+parameterId: PID_DURABILITY (0x001d)
+parameterId: PID_RELIABILITY (0x001a)
+parameterId: PID_OWNERSHIP (0x001f)
+parameterId: PID_OWNERSHIP_STRENGTH (0x0006)
+parameterId: PID_LIVELINESS (0x001b)
+parameterId: PID_DEADLINE (0x0023)
+parameterId: PID_LIFESPAN (0x002b)
+parameterId: PID_DATA_REPRESENTATION (0x0073)
+parameterId: PID_UNICAST_LOCATOR (0x002f)
+parameterId: PID_SENTINEL (0x0001)
+

@@ -1,0 +1,51 @@
+Frame 2363: 63098 bytes on wire (504784 bits), 63098 bytes captured (504784 bits) on interface unknown, id 0
+Ethernet II, Src: 00:00:00_00:00:00 (00:00:00:00:00:00), Dst: 00:00:00_00:00:00 (00:00:00:00:00:00)
+Internet Protocol Version 4, Src: 203.0.113.10, Dst: 203.0.113.10
+User Datagram Protocol, Src Port: 34710, Dst Port: 58679
+Real-Time Publish-Subscribe Wire Protocol
+    Magic: RTPS
+    Protocol version: 2.5
+        major: 2
+        minor: 5
+    vendorId: 01.240 (Unknown)
+    guidPrefix: 91839248a4bc0500c1c4eb9b
+        hostId: 0x91839248
+        appId: 0xa4bc0500
+        instanceId: 0xc1c4eb9b
+    Default port mapping (Based on calculated domainId. Might not be accurate): domainId=205, participantIdx=9, nature=UNICAST_USERTRAFFIC
+        [domain_id: 205]
+        [participant_idx: 9]
+        [traffic_nature: UNICAST_USERTRAFFIC (3)]
+    submessageId: DATA_FRAG (0x16)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Serialized Key: Not set
+            .... ..0. = Inline QoS: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 63032
+        0000 0000 0000 0000 = Extra flags: 0x0000
+        Octets to inline QoS: 28
+        readerEntityId: 0x00000104 (Application-defined reader (no key): 0x000001)
+            readerEntityKey: 0x000001
+            readerEntityKind: Application-defined reader (no key) (0x04)
+        writerEntityId: 0x00000103 (Application-defined writer (no key): 0x000001)
+            writerEntityKey: 0x000001
+            writerEntityKind: Application-defined writer (no key) (0x03)
+        [Topic Information (from Discovery)]
+            [typeName: zerodds::LargeMsg]
+            [topic: rt/bigdata]
+            [DCPSPublicationData In: 367]
+        writerSeqNumber: 1
+        fragmentStartingNum: 1
+        fragmentsInSubmessage: 1
+        fragmentSize: 63000
+        sampleSize: 65544
+        fragment [0]
+            encapsulation kind: CDR2_LE (0x0007)
+            encapsulation options: 0x0000
+            serializedData […]: 00000100000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f60616263646566676
+

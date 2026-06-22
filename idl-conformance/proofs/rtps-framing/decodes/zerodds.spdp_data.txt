@@ -1,0 +1,125 @@
+Frame 1: 242 bytes on wire (1936 bits), 242 bytes captured (1936 bits) on interface unknown, id 0
+Ethernet II, Src: ProxmoxServe_4c:ce:07 (bc:24:11:4c:ce:07), Dst: IPv4mcast_7f:00:01 (01:00:5e:7f:00:01)
+Internet Protocol Version 4, Src: 203.0.113.10, Dst: 239.255.0.1
+User Datagram Protocol, Src Port: 46498, Dst Port: 7400
+Real-Time Publish-Subscribe Wire Protocol
+    Magic: RTPS
+    Protocol version: 2.5
+        major: 2
+        minor: 5
+    vendorId: 01.240 (Unknown)
+    guidPrefix: 91839248e99a050013ae755a
+        hostId: 0x91839248
+        appId: 0xe99a0500
+        instanceId: 0x13ae755a
+    Default port mapping: domainId=Unknown, participantIdx=120, nature=UNICAST_METATRAFFIC
+        [domain_id: 4294967295]
+        [participant_idx: 120]
+        [traffic_nature: UNICAST_METATRAFFIC (0)]
+    submessageId: DATA (0x15)
+        Flags: 0x05, Data present, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Serialized Key: Not set
+            .... .1.. = Data present: Set
+            .... ..0. = Inline QoS: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 176
+        0000 0000 0000 0000 = Extra flags: 0x0000
+        Octets to inline QoS: 16
+        readerEntityId: ENTITYID_BUILTIN_PARTICIPANT_READER (0x000100c7)
+            readerEntityKey: 0x000100
+            readerEntityKind: Built-in reader (with key) (0xc7)
+        writerEntityId: ENTITYID_BUILTIN_PARTICIPANT_WRITER (0x000100c2)
+            writerEntityKey: 0x000100
+            writerEntityKind: Built-in writer (with key) (0xc2)
+        writerSeqNumber: 1
+        serializedData
+            encapsulation kind: PL_CDR_LE (0x0003)
+            encapsulation options: 0x0000
+            serializedData:
+                PID_PROTOCOL_VERSION
+                    parameterId: PID_PROTOCOL_VERSION (0x0015)
+                    parameterLength: 4
+                    Protocol version: 2.5
+                        major: 2
+                        minor: 5
+                PID_VENDOR_ID
+                    parameterId: PID_VENDOR_ID (0x0016)
+                    parameterLength: 4
+                    vendorId: 01.240 (Unknown)
+                PID_PARTICIPANT_GUID
+                    parameterId: PID_PARTICIPANT_GUID (0x0050)
+                    parameterLength: 16
+                    Participant GUID: 91839248 e99a0500 13ae755a 000001c1
+                        hostId: 0x91839248
+                        appId: 0xe99a0500
+                        instanceId: 0x13ae755a
+                        entityId: ENTITYID_PARTICIPANT (0x000001c1)
+                            entityKey: 0x000001
+                            entityKind: Built-in participant (0xc1)
+                PID_DEFAULT_UNICAST_LOCATOR (LOCATOR_KIND_UDPV4, 203.0.113.10:32982)
+                    parameterId: PID_DEFAULT_UNICAST_LOCATOR (0x0031)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 32982
+                        Address: 203.0.113.10
+                PID_METATRAFFIC_UNICAST_LOCATOR (LOCATOR_KIND_UDPV4, 203.0.113.10:7410)
+                    parameterId: PID_METATRAFFIC_UNICAST_LOCATOR (0x0032)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 7410
+                        Address: 203.0.113.10
+                PID_METATRAFFIC_MULTICAST_LOCATOR (LOCATOR_KIND_UDPV4, 239.255.0.1:7400)
+                    parameterId: PID_METATRAFFIC_MULTICAST_LOCATOR (0x0033)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 7400
+                        Address: 239.255.0.1
+                PID_DOMAIN_ID
+                    parameterId: PID_DOMAIN_ID (0x000f)
+                    parameterLength: 4
+                    parameterData: 00000000
+                PID_BUILTIN_ENDPOINT_SET
+                    parameterId: PID_BUILTIN_ENDPOINT_SET (0x0058)
+                    parameterLength: 4
+                    Flags: 0x00003c3f, Reserved, Participant Message DataReader, Participant Message DataWriter, Subscription Detector, Subscription Announcer, Publication Detector, Publication Announcer, Participant Detector, Participant Announcer
+                        .... 0... .... .... .... .... .... .... = Participant Secure Reader: Not set
+                        .... .0.. .... .... .... .... .... .... = Participant Secure Writer: Not set
+                        .... ..0. .... .... .... .... .... .... = Secure Participant Volatile Message Reader: Not set
+                        .... ...0 .... .... .... .... .... .... = Secure Participant Volatile Message Writer: Not set
+                        .... .... 0... .... .... .... .... .... = Participant Stateless Message Reader: Not set
+                        .... .... .0.. .... .... .... .... .... = Participant Stateless Message Writer: Not set
+                        .... .... ..0. .... .... .... .... .... = Secure Participant Message Reader: Not set
+                        .... .... ...0 .... .... .... .... .... = Secure Participant Message Writer: Not set
+                        .... .... .... 0... .... .... .... .... = Secure Subscription Reader: Not set
+                        .... .... .... .0.. .... .... .... .... = Secure Subscription Writer: Not set
+                        .... .... .... ..0. .... .... .... .... = Secure Publication Reader: Not set
+                        .... .... .... ...0 .... .... .... .... = Secure Publication Writer: Not set
+                        .... .... .... .... 0011 .... .... .... = Reserved: Set
+                        .... .... .... .... .... 1... .... .... = Participant Message DataReader: Set
+                        .... .... .... .... .... .1.. .... .... = Participant Message DataWriter: Set
+                        .... .... .... .... .... ..0. .... .... = Participant State Detector: Not set
+                        .... .... .... .... .... ...0 .... .... = Participant State Announcer: Not set
+                        .... .... .... .... .... .... 0... .... = Participant Proxy Detector: Not set
+                        .... .... .... .... .... .... .0.. .... = Participant Proxy Announcer: Not set
+                        .... .... .... .... .... .... ..1. .... = Subscription Detector: Set
+                        .... .... .... .... .... .... ...1 .... = Subscription Announcer: Set
+                        .... .... .... .... .... .... .... 1... = Publication Detector: Set
+                        .... .... .... .... .... .... .... .1.. = Publication Announcer: Set
+                        .... .... .... .... .... .... .... ..1. = Participant Detector: Set
+                        .... .... .... .... .... .... .... ...1 = Participant Announcer: Set
+                PID_PARTICIPANT_LEASE_DURATION
+                    parameterId: PID_PARTICIPANT_LEASE_DURATION (0x0002)
+                    parameterLength: 8
+                    lease_duration: 100.000000 sec (100s + 0x00000000)
+                        seconds: 100
+                        fraction: 0
+                PID_SENTINEL
+                    parameterId: PID_SENTINEL (0x0001)
+

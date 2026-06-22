@@ -1,0 +1,182 @@
+Frame 71: 490 bytes on wire (3920 bits), 490 bytes captured (3920 bits) on interface unknown, id 0
+Ethernet II, Src: 00:00:00_00:00:00 (00:00:00:00:00:00), Dst: 00:00:00_00:00:00 (00:00:00:00:00:00)
+Internet Protocol Version 4, Src: 127.0.0.1, Dst: 239.255.0.1
+User Datagram Protocol, Src Port: 47134, Dst Port: 7400
+Real-Time Publish-Subscribe Wire Protocol
+    Magic: RTPS
+    Protocol version: 2.5
+        major: 2
+        minor: 5
+    vendorId: 01.16 (Eclipse Foundation - Cyclone DDS)
+    guidPrefix: 011021f0e76e92213cc5b5d4
+        hostId: 0x011021f0
+        appId: 0xe76e9221
+        instanceId: 0x3cc5b5d4
+    Default port mapping: domainId=Unknown, participantIdx=120, nature=UNICAST_METATRAFFIC
+        [domain_id: 4294967295]
+        [participant_idx: 120]
+        [traffic_nature: UNICAST_METATRAFFIC (0)]
+    submessageId: INFO_DST (0x0e)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Reserved: Not set
+            .... ..0. = Reserved: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 12
+        guidPrefix: 000000000000000000000000
+            hostId: 0x00000000
+            appId: 0x00000000
+            instanceId: 0x00000000
+    submessageId: INFO_TS (0x09)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Reserved: Not set
+            .... ..0. = Timestamp flag: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 8
+        Timestamp: Jun 22, 2026 08:33:31.397944539 UTC
+    submessageId: DATA (0x15)
+        Flags: 0x05, Data present, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Serialized Key: Not set
+            .... .1.. = Data present: Set
+            .... ..0. = Inline QoS: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 396
+        0000 0000 0000 0000 = Extra flags: 0x0000
+        Octets to inline QoS: 16
+        readerEntityId: ENTITYID_UNKNOWN (0x00000000)
+            readerEntityKey: 0x000000
+            readerEntityKind: Application-defined unknown kind (0x00)
+        writerEntityId: ENTITYID_BUILTIN_PARTICIPANT_WRITER (0x000100c2)
+            writerEntityKey: 0x000100
+            writerEntityKind: Built-in writer (with key) (0xc2)
+        writerSeqNumber: 1
+        serializedData
+            encapsulation kind: PL_CDR_LE (0x0003)
+            encapsulation options: 0x0000
+            serializedData:
+                PID_USER_DATA
+                    parameterId: PID_USER_DATA (0x002c)
+                    parameterLength: 28
+                    sequenceSize: 24 octets
+                    userData: 444453506572663a313a3336373531363a636f6465706974
+                PID_PARTICIPANT_LEASE_DURATION
+                    parameterId: PID_PARTICIPANT_LEASE_DURATION (0x0002)
+                    parameterLength: 8
+                    lease_duration: 10.000000 sec (10s + 0x00000000)
+                        seconds: 10
+                        fraction: 0
+                PID_PROPERTY_LIST (3 properties)
+                    parameterId: PID_PROPERTY_LIST (0x0059)
+                    parameterLength: 92
+                    Property List
+                        Property Name: __ProcessName
+                            Value: ddsperf
+                        Property Name: __Pid
+                            Value: 367516
+                        Property Name: __Hostname
+                            Value: host
+                PID_PROTOCOL_VERSION
+                    parameterId: PID_PROTOCOL_VERSION (0x0015)
+                    parameterLength: 4
+                    Protocol version: 2.5
+                        major: 2
+                        minor: 5
+                PID_VENDOR_ID
+                    parameterId: PID_VENDOR_ID (0x0016)
+                    parameterLength: 4
+                    vendorId: 01.16 (Eclipse Foundation - Cyclone DDS)
+                PID_PARTICIPANT_GUID
+                    parameterId: PID_PARTICIPANT_GUID (0x0050)
+                    parameterLength: 16
+                    Participant GUID: 011021f0 e76e9221 3cc5b5d4 000001c1
+                        hostId: 0x011021f0
+                        appId: 0xe76e9221
+                        instanceId: 0x3cc5b5d4
+                        entityId: ENTITYID_PARTICIPANT (0x000001c1)
+                            entityKey: 0x000001
+                            entityKind: Built-in participant (0xc1)
+                PID_BUILTIN_ENDPOINT_SET
+                    parameterId: PID_BUILTIN_ENDPOINT_SET (0x0058)
+                    parameterLength: 4
+                    Flags: 0x0000fc3f, Reserved, Participant Message DataReader, Participant Message DataWriter, Subscription Detector, Subscription Announcer, Publication Detector, Publication Announcer, Participant Detector, Participant Announcer
+                        .... 0... .... .... .... .... .... .... = Participant Secure Reader: Not set
+                        .... .0.. .... .... .... .... .... .... = Participant Secure Writer: Not set
+                        .... ..0. .... .... .... .... .... .... = Secure Participant Volatile Message Reader: Not set
+                        .... ...0 .... .... .... .... .... .... = Secure Participant Volatile Message Writer: Not set
+                        .... .... 0... .... .... .... .... .... = Participant Stateless Message Reader: Not set
+                        .... .... .0.. .... .... .... .... .... = Participant Stateless Message Writer: Not set
+                        .... .... ..0. .... .... .... .... .... = Secure Participant Message Reader: Not set
+                        .... .... ...0 .... .... .... .... .... = Secure Participant Message Writer: Not set
+                        .... .... .... 0... .... .... .... .... = Secure Subscription Reader: Not set
+                        .... .... .... .0.. .... .... .... .... = Secure Subscription Writer: Not set
+                        .... .... .... ..0. .... .... .... .... = Secure Publication Reader: Not set
+                        .... .... .... ...0 .... .... .... .... = Secure Publication Writer: Not set
+                        .... .... .... .... 1111 .... .... .... = Reserved: Set
+                        .... .... .... .... .... 1... .... .... = Participant Message DataReader: Set
+                        .... .... .... .... .... .1.. .... .... = Participant Message DataWriter: Set
+                        .... .... .... .... .... ..0. .... .... = Participant State Detector: Not set
+                        .... .... .... .... .... ...0 .... .... = Participant State Announcer: Not set
+                        .... .... .... .... .... .... 0... .... = Participant Proxy Detector: Not set
+                        .... .... .... .... .... .... .0.. .... = Participant Proxy Announcer: Not set
+                        .... .... .... .... .... .... ..1. .... = Subscription Detector: Set
+                        .... .... .... .... .... .... ...1 .... = Subscription Announcer: Set
+                        .... .... .... .... .... .... .... 1... = Publication Detector: Set
+                        .... .... .... .... .... .... .... .1.. = Publication Announcer: Set
+                        .... .... .... .... .... .... .... ..1. = Participant Detector: Set
+                        .... .... .... .... .... .... .... ...1 = Participant Announcer: Set
+                PID_DOMAIN_ID
+                    parameterId: PID_DOMAIN_ID (0x000f)
+                    parameterLength: 4
+                    parameterData: 00000000
+                PID_DEFAULT_UNICAST_LOCATOR (LOCATOR_KIND_UDPV4, 127.0.0.1:48250)
+                    parameterId: PID_DEFAULT_UNICAST_LOCATOR (0x0031)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 48250
+                        Address: 127.0.0.1
+                PID_DEFAULT_MULTICAST_LOCATOR (LOCATOR_KIND_UDPV4, 239.255.0.1:7401)
+                    parameterId: PID_DEFAULT_MULTICAST_LOCATOR (0x0048)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 7401
+                        Address: 239.255.0.1
+                PID_METATRAFFIC_UNICAST_LOCATOR (LOCATOR_KIND_UDPV4, 127.0.0.1:48250)
+                    parameterId: PID_METATRAFFIC_UNICAST_LOCATOR (0x0032)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 48250
+                        Address: 127.0.0.1
+                PID_METATRAFFIC_MULTICAST_LOCATOR (LOCATOR_KIND_UDPV4, 239.255.0.1:7400)
+                    parameterId: PID_METATRAFFIC_MULTICAST_LOCATOR (0x0033)
+                    parameterLength: 24
+                    locator
+                        Kind: LOCATOR_KIND_UDPV4 (0x00000001)
+                        Port: 7400
+                        Address: 239.255.0.1
+                Unknown (0x8007)
+                    parameterId: Unknown (0x8007)
+                    parameterLength: 52
+                    parameterData: 00000000000000000000000000000000000000001b000000636f64657069742f31312e302e312f4c696e75782f4c696e75780000
+                Unknown (0x8019)
+                    parameterId: Unknown (0x8019)
+                    parameterLength: 4
+                    parameterData: 00800600
+                PID_SENTINEL
+                    parameterId: PID_SENTINEL (0x0001)
+

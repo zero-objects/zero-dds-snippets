@@ -1,0 +1,61 @@
+RTPS FRAMING NOTES — zerodds vs cyclone vs fastdds (domain 0, tshark 4.4.15)
+Generated 2026-06-22T08:45:09Z on host
+
+## 1. user-DATA serializedData encapsulation kind
+  zerodds:  encapsulation kind: CDR2_LE (0x0007)
+  cyclone:  encapsulation kind: CDR2_LE (0x0007)
+  fastdds:  encapsulation kind: CDR2_LE (0x0007)
+
+## 2. Inline QoS (Q) flag — does ANY DATA submessage set it?
+  zerodds:  Inline QoS Set=0  Not-set=150
+  cyclone:  Inline QoS Set=39  Not-set=500
+  fastdds:  Inline QoS Set=0  Not-set=422
+
+## 3. Malformed / Expert-Info / Unknown markers in full per-vendor decode
+  zerodds:  Malformed=0  Expert-Info=0  Unknown(any)=1832
+  cyclone:  Malformed=0  Expert-Info=0  Unknown(any)=6169
+  fastdds:  Malformed=0  Expert-Info=0  Unknown(any)=5570
+
+  Note: Unknown count includes vendor-specific PIDs (e.g. Cyclone 0x8007/0x8019)
+  and is NOT a malformed-packet indicator. Malformed=0 is the conformance signal.
+
+## 4. octetsToNextHeader — first instance of EACH submessage (its own header, not a prefix)
+  vendor    SPDP-DATA    HEARTBEAT    ACKNACK      INFO_DST    
+  zerodds   176          28           24           12          
+  cyclone   396          28           24           12          
+  fastdds   176          28           24           12          
+
+  Note: in these captures cyclone prefixes its SPDP DATA with INFO_DST(12)+INFO_TS(8);
+  every vendor prefixes ACKNACK with INFO_DST(12). The numbers above are each
+  submessage type's OWN octetsToNextHeader, not the preceding prefix submessage.
+
+## 5. Submessage types ABSENT per vendor
+  GAP(0x08):     absent in all three (zerodds, cyclone, fastdds)
+  INFO_TS(0x09): absent in zerodds; present in cyclone + fastdds
+  INFO_SRC(0x0a):absent in all three
+  DATA_FRAG(0x16):absent in all three
+
+## 6. Non-standard submessage IDs observed
+  fastdds: 0x80 x716 — vendor-specific submessage id (eProsima); not in the
+           standard set; tshark does not decode a name for it.
+
+## 7. Provenance
+  ZeroDDS commit: 48f212f8d71285f534fa20383baa6fd9008424c6 (main, debug build)
+  Cyclone DDS 11.0.1 (ddsperf), Fast-DDS 3.6.1 (scripts/fastdds_hello.cpp)
+  Host: host, Debian 13, Linux 6.17, tshark 4.4.15
+
+## 8. Exact extraction recipe (per submessage)
+  # submessage distribution
+  tshark -r <pcap> -Y rtps -T fields -e rtps.sm.id | tr ',\t' '\n\n' | sort | uniq -c
+  # representative frame of a submessage type (filter by sm.id + writer entity)
+  #   SPDP DATA      : rtps.sm.wrEntityId==0x000100c2 && rtps.sm.id==0x15
+  #   SEDP pub DATA  : rtps.sm.wrEntityId==0x000003c2 && rtps.sm.id==0x15
+  #   user DATA      : rtps.sm.wrEntityId==0x00000102 && rtps.sm.id==0x15
+  #   HEARTBEAT/ACKNACK/GAP/INFO_TS/INFO_DST/DATA_FRAG: rtps.sm.id==0x07/06/08/09/0e/16
+  # NOTE: `tshark -c 1` + display filter returns EMPTY on these captures (known
+  #       caveat). Resolve frame.number first, then filter on it:
+  fn=$(tshark -r <pcap> -Y '<filter>' -T fields -e frame.number | head -1)
+  tshark -r <pcap> -Y "frame.number==$fn" -O rtps -V   # field tree
+  tshark -r <pcap> -Y "frame.number==$fn" -x           # raw hex
+  # SPDP/SEDP PID order
+  tshark -r <pcap> -Y 'rtps.sm.wrEntityId==0x000100c2' -O rtps -V -c 1 | grep -E 'parameterId|PID_'

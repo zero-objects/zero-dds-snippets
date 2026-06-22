@@ -1,0 +1,105 @@
+Frame 1511: 13578 bytes on wire (108624 bits), 13578 bytes captured (108624 bits)
+Ethernet II, Src: 00:00:00_00:00:00 (00:00:00:00:00:00), Dst: 00:00:00_00:00:00 (00:00:00:00:00:00)
+Internet Protocol Version 4, Src: 127.0.0.1, Dst: 127.0.0.1
+User Datagram Protocol, Src Port: 45199, Dst Port: 55905
+Real-Time Publish-Subscribe Wire Protocol
+    Magic: RTPS
+    Protocol version: 2.5
+        major: 2
+        minor: 5
+    vendorId: 01.16 (Eclipse Foundation - Cyclone DDS)
+    guidPrefix: 0110db6956be8657390c32f4
+        hostId: 0x0110db69
+        appId: 0x56be8657
+        instanceId: 0x390c32f4
+    Default port mapping (Based on calculated domainId. Might not be accurate): domainId=194, participantIdx=-2, nature=UNICAST_USERTRAFFIC
+        [domain_id: 194]
+        [participant_idx: 4294967294]
+        [traffic_nature: UNICAST_USERTRAFFIC (3)]
+    submessageId: INFO_TS (0x09)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Reserved: Not set
+            .... ..0. = Timestamp flag: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 8
+        Timestamp: Jan 26, 1970 00:29:14.778710494 UTC
+    submessageId: DATA_FRAG (0x16)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Serialized Key: Not set
+            .... ..0. = Inline QoS: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 13472
+        0000 0000 0000 0000 = Extra flags: 0x0000
+        Octets to inline QoS: 28
+        readerEntityId: ENTITYID_UNKNOWN (0x00000000)
+            readerEntityKey: 0x000000
+            readerEntityKind: Application-defined unknown kind (0x00)
+        writerEntityId: 0x00000c02 (Application-defined writer (with key): 0x00000c)
+            writerEntityKey: 0x00000c
+            writerEntityKind: Application-defined writer (with key) (0x02)
+        [Topic Information (from Discovery)]
+            [typeName: KeyedSeq]
+            [topic: DDSPerfRDataKS]
+            [DCPSPublicationData In: 670]
+        writerSeqNumber: 2
+        fragmentStartingNum: 1
+        fragmentsInSubmessage: 10
+        fragmentSize: 1344
+        sampleSize: 65540
+        fragment [0]
+            encapsulation kind: CDR_LE (0x0001)
+            encapsulation options: 0x0000
+            serializedData […]: 0100000000000000f4ff0000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [1]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [2]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [3]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [4]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [5]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [6]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [7]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [8]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+        fragment [9]
+            serializedData […]: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+    submessageId: HEARTBEAT_FRAG (0x13)
+        Flags: 0x01, Endianness
+            0... .... = Reserved: Not set
+            .0.. .... = Reserved: Not set
+            ..0. .... = Reserved: Not set
+            ...0 .... = Reserved: Not set
+            .... 0... = Reserved: Not set
+            .... .0.. = Reserved: Not set
+            .... ..0. = Reserved: Not set
+            .... ...1 = Endianness: Little-Endian
+        octetsToNextHeader: 24
+        readerEntityId: ENTITYID_UNKNOWN (0x00000000)
+            readerEntityKey: 0x000000
+            readerEntityKind: Application-defined unknown kind (0x00)
+        writerEntityId: 0x00000c02 (Application-defined writer (with key): 0x00000c)
+            writerEntityKey: 0x00000c
+            writerEntityKind: Application-defined writer (with key) (0x02)
+        [Topic Information (from Discovery)]
+            [typeName: KeyedSeq]
+            [topic: DDSPerfRDataKS]
+            [DCPSPublicationData In: 670]
+        writerSeqNumber: 2
+        lastFragmentNum: 10
+        Count: 1
+
