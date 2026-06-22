@@ -54,10 +54,37 @@ Member/type names are load-bearing (Minimal hashes the member name; Complete
 carries it verbatim), so the IDL is shared verbatim across all four
 implementations.
 
-## Result — 14-byte hash table (ZeroDDS vs vendors)
+## Status — after the conformance fix (2026-06-14)
+
+The original audit below found ZeroDDS matched **none** of the vendors. That
+audit drove a fix in `crates/types` + `crates/idl` (TypeKind octets, XCDR2
+per-type @appendable DHEADER framing, 0-based member ids, DISCARD member flags,
+PlainCollection `EK_BOTH` + DISCARD element flags). ZeroDDS now produces the
+**byte-identical MINIMAL TypeObject and consensus MINIMAL hash**:
+
+| case | ZeroDDS MIN hash | matches |
+|------|------------------|---------|
+| plain        | `deb922f0…` | CycloneDDS + Fast DDS |
+| appendable   | `3c916131…` | CycloneDDS + Fast DDS |
+| mutable      | `81e76ce1…` | CycloneDDS + Fast DDS |
+| inner        | `0c380bda…` | CycloneDDS + Fast DDS |
+| color_enum   | `8dd1306b…` | Fast DDS (no Cyclone golden) |
+| choice_union | `23e44a25…` | CycloneDDS |
+
+`choice_union` matches CycloneDDS but not Fast DDS, because the two vendors
+disagree (Fast DDS uses 1-based union member ids and drops IS_MUST_UNDERSTAND
+on the discriminator); ZeroDDS follows Cyclone + spec §7.2.2.4.9. `nested` and
+`long_seq4_alias` likewise sit on genuine Cyclone↔Fast DDS divergences (enum
+literal framing, collection element flags, alias element encoding) — ZeroDDS is
+byte-identical to one vendor and 1 byte off the other. The **COMPLETE**
+TypeObject framing is the remaining open item. Run `cargo run -- --check` for
+the live MATCH/DIFF table.
+
+## Result — 14-byte hash table (original audit, ZeroDDS vs vendors)
 
 `CONSENSUS` = the vendors agree with one another (≥2 vendors, identical hash).
-ZeroDDS matches **none** of them on **any** case.
+At the time of the audit ZeroDDS matched **none** of them on **any** case
+(now fixed for MINIMAL — see the status section above).
 
 | case | kind | ZeroDDS | CycloneDDS 11.0.1 | Fast DDS 3.6.1 | RTI 7.7.0 | vendor agreement |
 |------|------|---------|----------|---------|-----|------|

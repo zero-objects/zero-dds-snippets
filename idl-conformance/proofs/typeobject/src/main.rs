@@ -45,23 +45,18 @@ fn dir(sub: &str) -> PathBuf {
 // ---------------------------------------------------------------------------
 // Serialized-TypeObject bytes that go INTO the MD5 (i.e. what gets hashed).
 //
-// `compute_minimal_hash` / `compute_complete_hash` write the EquivalenceKind
-// discriminator (0xF1 / 0xF2) and then the TypeObject body, then MD5 it. We
-// reproduce that exact framing here so the printed bytes ARE the hash input.
+// These are the EXACT bytes `compute_minimal_hash`/`compute_complete_hash`
+// feed to MD5 — the XCDR2 stream (DHEADER + EK discriminator + body), via the
+// public `hash::{minimal,complete}_hash_input`. So the printed/compared bytes
+// ARE the hash input (no separate reproduction that could drift).
 // ---------------------------------------------------------------------------
 
 fn minimal_to_bytes(t: &MinimalTypeObject) -> Vec<u8> {
-    use zerodds_types::type_object::TypeObject;
-    TypeObject::Minimal(t.clone())
-        .to_bytes_le()
-        .expect("encode minimal")
+    zerodds_types::hash::minimal_hash_input(t).expect("encode minimal hash input")
 }
 
 fn complete_to_bytes(t: &CompleteTypeObject) -> Vec<u8> {
-    use zerodds_types::type_object::TypeObject;
-    TypeObject::Complete(t.clone())
-        .to_bytes_le()
-        .expect("encode complete")
+    zerodds_types::hash::complete_hash_input(t).expect("encode complete hash input")
 }
 
 // ---------------------------------------------------------------------------
@@ -120,10 +115,9 @@ fn long_seq4_alias() -> (MinimalTypeObject, CompleteTypeObject) {
     // typedef sequence<long,4> LongSeq4;
     let elem = TypeIdentifier::Primitive(PrimitiveKind::Int32);
     let seq_ti = TypeIdentifier::PlainSequenceSmall {
-        header: zerodds_types::PlainCollectionHeader {
-            equiv_kind: 0x00, // EK_BOTH for a fully-descriptive element
-            element_flags: zerodds_types::type_identifier::CollectionElementFlag(0),
-        },
+        // EK_BOTH (0xF3) + DISCARD element flags for the fully-descriptive
+        // primitive element — byte-verified against Cyclone + FastDDS.
+        header: zerodds_types::PlainCollectionHeader::for_element(0xF3),
         bound: 4,
         element: Box::new(elem),
     };
@@ -154,10 +148,8 @@ fn nested(
     color_cmp_hash: EquivalenceHash,
 ) -> (MinimalTypeObject, CompleteTypeObject) {
     let seq_long8 = TypeIdentifier::PlainSequenceSmall {
-        header: zerodds_types::PlainCollectionHeader {
-            equiv_kind: 0x00,
-            element_flags: zerodds_types::type_identifier::CollectionElementFlag(0),
-        },
+        // EK_BOTH (0xF3) + DISCARD element flags — byte-verified.
+        header: zerodds_types::PlainCollectionHeader::for_element(0xF3),
         bound: 8,
         element: Box::new(TypeIdentifier::Primitive(PrimitiveKind::Int32)),
     };
