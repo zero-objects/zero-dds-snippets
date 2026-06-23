@@ -80,5 +80,19 @@ int main() {
     s.f32(3.5f); s.f64(-1234.5); s.b(true); s.o(0xAB); s.ch('Z');
     emit("prim", s);
   }
+  // mapenum: @bit_bound(16) enum + map<long,Pt> + sequence<Sel>
+  {
+    feat::MapEnum s;
+    s.h(feat::Hue::H_BLUE);
+    std::map<int32_t, feat::Pt> m;
+    feat::Pt p; p.x(11); p.y(12);
+    m[3] = p;
+    s.m(m);
+    std::vector<feat::Sel> v;
+    feat::Sel sel; sel.n(9);   // case 2 — the setter also sets the discriminator
+    v.push_back(sel);
+    s.sels(v);
+    emit("mapenum", s);
+  }
   return 0;
 }

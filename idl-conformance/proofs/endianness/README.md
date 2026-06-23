@@ -43,7 +43,7 @@ is over the payload only.)
 
 ## The samples
 
-Six topic types from `features.idl` (identical values to
+Seven topic types from `features.idl` (identical values to
 `../../_interop/CANONICAL.md`):
 
 * `wstr`  — bounded + unbounded `wstring` (UTF-16; includes an astral 🎉).
@@ -53,6 +53,11 @@ Six topic types from `features.idl` (identical values to
 * `arr`   — multi-dim array + array-of-struct.
 * `prim`  — every integer type at min/max + exact floats (the 64-bit alignment
             probe).
+* `mapenum` — `@bit_bound(16)` enum + `map<long,Pt>` (map-of-struct) +
+            `sequence<Sel>` (sequence-of-`@appendable`-union). Probes collection
+            DHEADER alignment after a sub-4-byte member, and the narrow-enum
+            width on the wire (see ⁷). Cyclone can't parse `map`, so it is
+            FastDDS-anchored only.
 
 ## Result table (repr × vendor)
 
@@ -63,10 +68,11 @@ Six topic types from `features.idl` (identical values to
 |---------|----------|----------|----------|----------|------------|------------|
 | prim    | ✓ ✓      | ✓ ✓      | ✓ ✓      | ✓ ✓      | **MATCH (4/4)** | **MATCH (4/4)** |
 | bits    | ✓        | ✓        | ✓        | ✓        | n/a        | **MATCH (4/4)** |
-| arr     | ✓        | ✓        | ✓        | ✓        | **MATCH (4/4)** | MATCH xcdr1; DIFF xcdr2¹ |
+| arr     | ✓        | ✓        | ✓        | ✓        | MATCH xcdr1; DIFF xcdr2¹ | **MATCH (4/4)**¹ |
 | mut     | ✓        | ✓        | ✓        | ✓        | n/a        | MATCH xcdr2; DIFF xcdr1² |
 | wstr    | ✓        | ✓        | ✓        | ✓        | MATCH LE; DIFF BE³ | DIFF (count)⁴ |
 | tree    | ✓        | ✓        | ✓        | ✓        | n/a⁵       | n/a⁵       |
+| mapenum | ✓        | ✓        | ✓        | ✓        | n/a⁶       | MATCH LE; DIFF BE⁷ |
 
 The `✓` columns mean *the ZeroDDS Rust reference produced that representation
 through the same codec the DataWriter uses, and it round-trips back to the
@@ -74,12 +80,16 @@ canonical value* (except the two decode gaps noted in `FINDINGS.md`, which are
 encode-correct). The XCDR2-LE column is additionally byte-identical to all seven
 ZeroDDS language backends (see `../../_interop/goldens/`).
 
-¹ `arr`/xcdr2 vs FastDDS — **extensibility-default mismatch**, not an
-  endianness/alignment bug. `struct Pt` is unannotated; ZeroDDS codegen defaults
-  it to `@final`, fastddsgen defaults it to `@appendable`, so FastDDS wraps each
-  array element in its own DHEADER. Regenerating the FastDDS type with
-  `fastddsgen -de final` makes it byte-identical to ZeroDDS. Cyclone (Pt final)
-  matches ZeroDDS in all four reprs.
+¹ `arr`/xcdr2 — **extensibility-default**, not an endianness/alignment bug.
+  `struct Pt` is unannotated, so its extensibility is the compiler default. Per
+  XTypes §7.3.1.2.1 that default is `@appendable`; ZeroDDS now follows the spec
+  (and fastddsgen), wrapping each `shape[2]` array element in its own DHEADER →
+  56 bytes, **byte-identical to FastDDS in all four reprs**. CycloneDDS instead
+  defaults an unannotated struct to `@final` (no per-element DHEADER → 48 bytes),
+  so it diverges on xcdr2 only (xcdr1 has no DHEADER either way → MATCH). The two
+  vendor camps are bridged by configuration: `idlc --default-extensibility final`
+  (alias `-de final`) makes ZeroDDS emit Cyclone's 48-byte form. (This inverts an
+  earlier revision of this proof, when ZeroDDS still defaulted to `@final`.)
 
 ² `mut`/xcdr1 vs FastDDS — **ZeroDDS gap**: the `@mutable` XCDR1 path emits the
   members *plain-positionally* instead of as a `PL_CDR` PID parameter list. See
@@ -101,6 +111,23 @@ ZeroDDS language backends (see `../../_interop/goldens/`).
   files). ZeroDDS encodes it and round-trips it in all four reprs, and all seven
   ZeroDDS backends agree on the XCDR2-LE bytes, but there is no DDS-vendor oracle
   to byte-compare against, for a structural reason on the vendor side.
+
+⁶ `mapenum` vs Cyclone — **n/a**: Cyclone's `idlc` rejects `map<K,V>` (an XTypes
+  extension it does not parse), so there is no Cyclone oracle for this type. The
+  full structural framing is anchored against FastDDS instead.
+
+⁷ `mapenum` vs FastDDS — the map-of-struct DHEADER alignment, the `@appendable`
+  `Pt` value DHEADER, and the `@appendable` `Sel` union element DHEADER are all
+  **byte-identical to FastDDS** (the structural framing this proof exists to
+  pin). The xcdr2-**le** and xcdr1-**le** forms MATCH outright; the two **be**
+  forms differ at exactly one place — the `@bit_bound(16) enum Hue` member.
+  ZeroDDS emits it as a **2-byte** holder (the §7.4.5.1 narrow-bound width, which
+  CycloneDDS also uses); FastDDS emits it as a **4-byte** int32 regardless of the
+  bit-bound. The little-endian reprs hide this (the low two bytes coincide and
+  the following member is 4-aligned either way); big-endian exposes it. This is
+  the same `@bit_bound`-enum-width decision already recorded for `bits`/enums —
+  ZeroDDS is on the spec/Cyclone side. Total length is 52 / 32 bytes on both
+  sides; only the enum's two extra bytes move.
 
 ## Vendor versions & how they were configured
 
@@ -146,10 +173,11 @@ python3 compare.py
 The committed `goldens/`, `vendor-cyclone/`, and `vendor-fastcdr/` directories
 are the captured proof; `compare.py` reproduces the table from them offline.
 
-### Known round-trip gaps (`make roundtrip` = 18/24 OK)
+### Known round-trip gaps (`make roundtrip` = 22/28 OK)
 
 `make roundtrip` re-decodes each freshly-encoded buffer through the
-`CdrDecode` trait and asserts equality. 18 of 24 pass; six fail, and all six are
+`CdrDecode` trait and asserts equality. 22 of 28 pass (all four `mapenum` reprs
+round-trip cleanly); six fail, and all six are
 **encode-correct** (the bytes match the vendors / the `DdsType` goldens) — the
 failure is on the low-level `CdrDecode` *companion* trait:
 

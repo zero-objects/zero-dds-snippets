@@ -30,7 +30,7 @@ use zerodds_cdr::{BufferReader, BufferWriter, CdrDecode, CdrEncode, Endianness};
 #[path = "../generated/features.rs"]
 mod generated;
 
-use generated::feat::{Arr, Bits, Flags, Mut, Perm, Prim, Pt, Tree, WStr};
+use generated::feat::{Arr, Bits, Flags, Hue, MapEnum, Mut, Perm, Prim, Pt, Sel, Tree, WStr};
 
 const DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../goldens");
 
@@ -93,6 +93,12 @@ fn canonical_prim() -> Prim {
         i64: -9_223_372_036_854_775_808, u64: 18_446_744_073_709_551_615,
         f32: 3.5, f64: -1234.5, b: true, o: 0xAB, ch: 0x5A,
     }
+}
+
+fn canonical_mapenum() -> MapEnum {
+    let mut m = ::std::collections::BTreeMap::new();
+    m.insert(3, Pt { x: 11, y: 12 });
+    MapEnum { h: Hue::H_BLUE, m, sels: vec![Sel::N(9)] }
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -173,6 +179,7 @@ macro_rules! for_all {
         ok &= $f("tree", &canonical_tree());
         ok &= $f("arr", &canonical_arr());
         ok &= $f("prim", &canonical_prim());
+        ok &= $f("mapenum", &canonical_mapenum());
         ok
     }};
 }

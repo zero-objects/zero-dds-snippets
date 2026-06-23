@@ -4,3 +4,16 @@ FastDDS: 3.6.1.0
 fastddsgen: v4.3.0
 g++ (Debian 14.2.0-19) 14.2.0
 gcc (Debian 14.2.0-19) 14.2.0
+
+FastDDS oracle build recipe (reproduces vendor-fastcdr/*.fastdds.bin):
+  # fastddsgen cannot generate the self-recursive `sequence<Tree>`, so the
+  # oracle is built from a Tree-stripped copy of features.idl:
+  awk '/struct Tree \{/{s=1} s&&/\};/{s=0;next} !s' features.idl > features_no_tree.idl
+  fastddsgen -replace -d gen features_no_tree.idl
+  # The generated free serialize<T>() live in *CdrAux.ipp (header-only); force-
+  # include it, and DO NOT link *TypeObjectSupport.cxx (it pulls in full FastDDS):
+  g++ -std=c++17 -I gen -I /opt/fastdds/include \
+      -include gen/features_no_treeCdrAux.ipp \
+      fastdds_oracle.cpp -L /opt/fastdds/lib -lfastcdr \
+      -Wl,-rpath,/opt/fastdds/lib -o oracle
+  LD_LIBRARY_PATH=/opt/fastdds/lib ./oracle   # writes out/<feat>.<repr>.fastdds.bin

@@ -20,7 +20,7 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FEATS = ["wstr", "mut", "bits", "tree", "arr", "prim"]
+FEATS = ["wstr", "mut", "bits", "tree", "arr", "prim", "mapenum"]
 REPRS = ["xcdr2-le", "xcdr2-be", "xcdr1-le", "xcdr1-be"]
 
 

@@ -64,4 +64,26 @@ module feat {
     octet    o;
     char     ch;
   };
+
+  // --- @bit_bound enum + map-of-struct + sequence-of-union ---
+  // Exercises three constructs the other six features miss, in all four reprs:
+  //   * a sub-4-byte (@bit_bound(16)) member directly before a collection,
+  //     which forces the collection's length/DHEADER alignment (the map-align
+  //     bug class), and
+  //   * a map whose VALUE is a struct, and
+  //   * a sequence whose ELEMENT is an (@appendable) union.
+  @bit_bound(16)
+  enum Hue { H_RED, H_GREEN, H_BLUE };
+  @appendable
+  union Sel switch (long) {
+    case 1: Pt     p;
+    case 2: long   n;
+    default: octet z;
+  };
+  @appendable
+  struct MapEnum {
+    Hue              h;
+    map<long, Pt>    m;
+    sequence<Sel>    sels;
+  };
 };
