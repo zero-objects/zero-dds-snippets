@@ -988,7 +988,7 @@ static const zerodds_typesupport_t feat_Pt_typesupport = {
     .type_hash = {0},
     .type_name = feat_Pt_type_name,
     .is_keyed = 0,
-    .extensibility = 0,
+    .extensibility = 1,
     ._reserved = {0},
     .encode = feat_Pt_encode,
     .decode = feat_Pt_decode,
@@ -1004,8 +1004,14 @@ static int feat_Pt_encode(const void* sample, uint8_t* out_buf, size_t out_cap, 
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t dheader_pos = w_len;
+    w_len += 4;
+    size_t body_start = w_len;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->x) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->y) != 0) goto fail;
+    uint32_t dheader_len = (uint32_t)(w_len - body_start);
+    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -1019,8 +1025,13 @@ fail:
 static int feat_Pt_decode(const uint8_t* buf, size_t len, void* out_sample) {
     feat_Pt_t* s = (feat_Pt_t*)out_sample;
     size_t pos = 0;
+    uint32_t dheader = 0;
+    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader) != 0) return -7;
+    size_t body_end = pos + dheader;
+    if (body_end > len) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->x)) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->y)) != 0) return -7;
+    pos = body_end;
     (void)s;
     return 0;
 }
@@ -1071,8 +1082,16 @@ static int feat_Arr_encode(const void* sample, uint8_t* out_buf, size_t out_cap,
     w_len += 4;
     size_t arr_body_start = w_len;
     for (uint32_t ai0 = 0; ai0 < 2; ++ai0) {
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t nst_dheader_pos = w_len;
+    w_len += 4;
+    size_t nst_body_start = w_len;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->shape[ai0]).x) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->shape[ai0]).y) != 0) goto fail;
+    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    }
     }
     { uint32_t arr_dheader_len = (uint32_t)(w_len - arr_body_start);
       zerodds_xcdr2_c_put_u32_at(w_buf, arr_dheader_pos, arr_dheader_len); }
@@ -1103,8 +1122,15 @@ static int feat_Arr_decode(const uint8_t* buf, size_t len, void* out_sample) {
     }
     { uint32_t arr_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &arr_dheader) != 0) return -7; (void)arr_dheader; }
     for (uint32_t ri0 = 0; ri0 < 2; ++ri0) {
+    {
+        uint32_t nst_dheader0 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader0) != 0) return -7;
+        size_t nst_end0 = pos + nst_dheader0;
+        if (nst_end0 > len) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->shape[ri0]).x)) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->shape[ri0]).y)) != 0) return -7;
+        pos = nst_end0;
+    }
     }
     pos = body_end;
     (void)s;

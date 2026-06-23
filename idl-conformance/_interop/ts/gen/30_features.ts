@@ -918,7 +918,7 @@ export function isPt(v: unknown): v is Pt {
 export const PtType: DdsTypeDescriptor<Pt> = {
     kind: "struct",
     name: "Pt",
-    extensibility: "final",
+    extensibility: "appendable",
     nested: false,
     fields: [
         {
@@ -945,10 +945,12 @@ registerType(PtType);
 export const PtTypeSupport: DdsTopicType<Pt> = {
     typeName: "feat::Pt",
     isKeyed: false,
-    extensibility: "final",
+    extensibility: "appendable",
     encodeInto(w: Xcdr2Writer, s: Pt): void {
+        const _tok = w.beginAppendable();
         w.writeInt32(s.x);
         w.writeInt32(s.y);
+        w.endAppendable(_tok);
     },
     encode(s: Pt, endian: EndianMode = "le"): Uint8Array {
         const w = new Xcdr2Writer(endian);
@@ -956,8 +958,10 @@ export const PtTypeSupport: DdsTopicType<Pt> = {
         return w.toBytes();
     },
     decodeFrom(r: Xcdr2Reader): Pt {
+        const _tok = r.beginAppendable();
         const _f_x: number = r.readInt32();
         const _f_y: number = r.readInt32();
+        r.endAppendable(_tok);
         return {
             x: _f_x,
             y: _f_y,

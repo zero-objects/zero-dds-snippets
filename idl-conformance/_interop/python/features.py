@@ -72,7 +72,7 @@ class feat_Tree:
     value: Int32
     kids: List[feat_Tree]
 
-@idl_struct(typename="feat::Pt")
+@idl_struct(typename="feat::Pt", extensibility="appendable")
 @dataclass
 class feat_Pt:
     x: Int32

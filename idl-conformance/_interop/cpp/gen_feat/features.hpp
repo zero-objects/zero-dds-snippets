@@ -420,7 +420,7 @@ template <>
 struct topic_type_support<::feat::Pt> {
     static const char* type_name() { return "feat::Pt"; }
     static constexpr bool is_keyed() { return false; }
-    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::FINAL; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE; }
     static std::vector<uint8_t> encode(const ::feat::Pt& zd_v);
     static std::vector<uint8_t> encode(const ::feat::Pt& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
     static std::vector<uint8_t> encode_be(const ::feat::Pt& zd_v);
@@ -1034,19 +1034,23 @@ inline std::vector<uint8_t> topic_type_support<::feat::Pt>::encode(const ::feat:
         (void)zd_v;
         const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
         (void)zd_max_align;
-        const size_t zd_origin = 0;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
         (void)zd_origin;
         ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.x(), zd_max_align);
         ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.y(), zd_max_align);
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
         return zd_out;
     }
 inline std::vector<uint8_t> topic_type_support<::feat::Pt>::encode_be(const ::feat::Pt& zd_v) {
         std::vector<uint8_t> zd_out;
         (void)zd_v;
-        const size_t zd_origin = 0;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
         (void)zd_origin;
         ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.x());
         ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.y());
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
         return zd_out;
     }
 inline ::feat::Pt topic_type_support<::feat::Pt>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
@@ -1054,10 +1058,13 @@ inline ::feat::Pt topic_type_support<::feat::Pt>::decode(const uint8_t* zd_buf, 
         ::feat::Pt zd_v;
         const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
         (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
-        const size_t zd_origin = 0;
-        (void)zd_origin;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        (void)zd_end;
         zd_v.x(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
         zd_v.y(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        if (zd_pos < zd_end) zd_pos = zd_end;
         return zd_v;
     }
 inline std::array<uint8_t, 16> topic_type_support<::feat::Pt>::key_hash(const ::feat::Pt& zd_v) {
@@ -1084,8 +1091,11 @@ inline std::vector<uint8_t> topic_type_support<::feat::Arr>::encode(const ::feat
         {
         const auto zd_arr_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         for (const auto& zd_a0 : zd_v.shape()) {
-                    ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_a0.x(), zd_max_align);
-                    ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_a0.y(), zd_max_align);
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb10 = ::dds::topic::topic_type_support<::feat::Pt>::encode(zd_a0, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nsb10.begin(), zd_nsb10.end());
+                }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_arr_dh);
         }
@@ -1106,8 +1116,11 @@ inline std::vector<uint8_t> topic_type_support<::feat::Arr>::encode_be(const ::f
         {
         const auto zd_arr_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         for (const auto& zd_a0 : zd_v.shape()) {
-                    ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_a0.x());
-                    ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_a0.y());
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb11 = ::dds::topic::topic_type_support<::feat::Pt>::encode_be(zd_a0);
+                    zd_out.insert(zd_out.end(), zd_nsb11.begin(), zd_nsb11.end());
+                }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_arr_dh);
         }
@@ -1137,10 +1150,14 @@ inline ::feat::Arr topic_type_support<::feat::Arr>::decode(const uint8_t* zd_buf
         auto zd_arr = zd_v.shape();
         for (auto& zd_a0 : zd_arr) {
             {
-                ::feat::Pt zd_ns10{};
-                zd_ns10.x(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
-                zd_ns10.y(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
-                zd_a0 =(zd_ns10);
+                ::feat::Pt zd_ns12{};
+                ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+                const size_t zd_nss12 = zd_pos;
+                size_t zd_npk12 = zd_pos;
+                const uint32_t zd_nl12 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk12, zd_len);
+                zd_ns12 = ::dds::topic::topic_type_support<::feat::Pt>::decode(zd_buf + zd_nss12, 4u + zd_nl12, zd_repr);
+                zd_pos = zd_nss12 + 4u + zd_nl12;
+                zd_a0 =(zd_ns12);
             }
         }
         zd_v.shape(zd_arr);

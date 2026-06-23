@@ -20,7 +20,7 @@ pub mod feat {
     impl zerodds_dcps::DdsType for WStr {
         const TYPE_NAME: &'static str = "feat::WStr";
         const EXTENSIBILITY: zerodds_dcps::Extensibility = zerodds_dcps::Extensibility::Appendable;
-        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0xc7, 0x90, 0x0a, 0xf6, 0x37, 0x3a, 0x16, 0x7b, 0x30, 0xb3, 0x87, 0x57, 0x40, 0xef]));
+        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0xc4, 0x4f, 0x04, 0x34, 0xf7, 0x9a, 0x01, 0x9d, 0xc8, 0x45, 0x79, 0x34, 0xc3, 0x3d]));
 
         fn encode(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
             let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();
@@ -103,7 +103,7 @@ pub mod feat {
     impl zerodds_dcps::DdsType for Mut {
         const TYPE_NAME: &'static str = "feat::Mut";
         const EXTENSIBILITY: zerodds_dcps::Extensibility = zerodds_dcps::Extensibility::Mutable;
-        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0xcc, 0x1f, 0xfd, 0xed, 0x7b, 0x16, 0x5f, 0x8c, 0xbb, 0x91, 0xf3, 0x31, 0xe0, 0xe0]));
+        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0xc7, 0xe7, 0x64, 0x7e, 0x9a, 0x0f, 0x29, 0x88, 0x8e, 0xd5, 0xb2, 0x11, 0xf6, 0x6c]));
 
         fn encode(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
             let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();
@@ -284,7 +284,7 @@ pub mod feat {
     impl zerodds_dcps::DdsType for MutLeaf {
         const TYPE_NAME: &'static str = "feat::MutLeaf";
         const EXTENSIBILITY: zerodds_dcps::Extensibility = zerodds_dcps::Extensibility::Mutable;
-        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0x83, 0xf3, 0x9e, 0xde, 0x6a, 0x14, 0x67, 0xd3, 0x41, 0x3f, 0xfd, 0x73, 0xc4, 0x7d]));
+        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0xbc, 0x5f, 0xa5, 0x8f, 0x3f, 0xc7, 0x8b, 0xb5, 0x7e, 0xbc, 0x1a, 0x3c, 0x2b, 0xc4]));
 
         fn encode(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
             let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();
@@ -627,7 +627,7 @@ pub mod feat {
         const HAS_KEY: bool = true;
         const KEY_HOLDER_MAX_SIZE: ::core::option::Option<usize> = ::core::option::Option::Some(8);
         const IS_NESTED: bool = true;
-        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0x00, 0xf2, 0x03, 0xc4, 0xe4, 0xea, 0x05, 0x4c, 0xe4, 0xa2, 0x29, 0x4b, 0x0d, 0x65]));
+        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0x91, 0x4d, 0x76, 0xee, 0x29, 0xb3, 0x98, 0x5c, 0x7c, 0x98, 0xc8, 0x97, 0xa4, 0x4d]));
 
         fn encode(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
             let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();
@@ -1043,25 +1043,30 @@ pub mod feat {
 
     impl zerodds_dcps::DdsType for Pt {
         const TYPE_NAME: &'static str = "feat::Pt";
-        const EXTENSIBILITY: zerodds_dcps::Extensibility = zerodds_dcps::Extensibility::Final;
-        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0xe3, 0x17, 0x6e, 0x58, 0xa0, 0xcd, 0xd3, 0x79, 0xf4, 0x01, 0x8e, 0xe7, 0x4d, 0x76]));
+        const EXTENSIBILITY: zerodds_dcps::Extensibility = zerodds_dcps::Extensibility::Appendable;
+        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0x9f, 0xa0, 0x7c, 0x41, 0xfd, 0xad, 0x9a, 0x68, 0x57, 0x71, 0x52, 0xef, 0x30, 0x50]));
 
         fn encode(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
             let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();
-            <_ as zerodds_cdr::CdrEncode>::encode(&self.x, &mut writer)?;
-            <_ as zerodds_cdr::CdrEncode>::encode(&self.y, &mut writer)?;
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.x, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.y, w)?;
+                Ok(())
+            })?;
             out.extend_from_slice(&writer.into_bytes());
             Ok(())
         }
 
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
-            let x = <i32 as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
-            let y = <i32 as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
-            Ok(Self {
-                x,
-                y,
-            })
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let x = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let y = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    x,
+                    y,
+                })
+            }).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -1075,20 +1080,39 @@ pub mod feat {
 
     impl zerodds_cdr::CdrEncode for Pt {
         fn encode(&self, writer: &mut zerodds_cdr::BufferWriter) -> ::core::result::Result<(), zerodds_cdr::EncodeError> {
-            <_ as zerodds_cdr::CdrEncode>::encode(&self.x, writer)?;
-            <_ as zerodds_cdr::CdrEncode>::encode(&self.y, writer)?;
+            if writer.max_alignment() == 4 {
+                zerodds_cdr::struct_enc::encode_appendable(writer, |w| {
+                    <_ as zerodds_cdr::CdrEncode>::encode(&self.x, w)?;
+                    <_ as zerodds_cdr::CdrEncode>::encode(&self.y, w)?;
+                    Ok(())
+                })?;
+            } else {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.x, writer)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.y, writer)?;
+            }
             ::core::result::Result::Ok(())
         }
     }
 
     impl zerodds_cdr::CdrDecode for Pt {
         fn decode(reader: &mut zerodds_cdr::BufferReader<'_>) -> ::core::result::Result<Self, zerodds_cdr::DecodeError> {
-            let x = <i32 as zerodds_cdr::CdrDecode>::decode(reader)?;
-            let y = <i32 as zerodds_cdr::CdrDecode>::decode(reader)?;
-            ::core::result::Result::Ok(Self {
-                x,
-                y,
-            })
+            if reader.max_alignment() == 4 {
+                zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
+                    let x = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                    let y = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                    ::core::result::Result::Ok(Self {
+                        x,
+                        y,
+                    })
+                })
+            } else {
+                let x = <i32 as zerodds_cdr::CdrDecode>::decode(reader)?;
+                let y = <i32 as zerodds_cdr::CdrDecode>::decode(reader)?;
+                ::core::result::Result::Ok(Self {
+                    x,
+                    y,
+                })
+            }
         }
     }
 
@@ -1193,7 +1217,7 @@ pub mod feat {
     impl zerodds_dcps::DdsType for Prim {
         const TYPE_NAME: &'static str = "feat::Prim";
         const EXTENSIBILITY: zerodds_dcps::Extensibility = zerodds_dcps::Extensibility::Appendable;
-        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0x00, 0x5f, 0x61, 0xca, 0xc8, 0x62, 0xc9, 0x26, 0x62, 0x7b, 0xea, 0x22, 0x34, 0x2d]));
+        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::EquivalenceHashComplete(zerodds_types::EquivalenceHash([0x87, 0xd8, 0xe2, 0x79, 0x66, 0xd7, 0xb6, 0x22, 0x18, 0xf8, 0xb6, 0x63, 0xf2, 0xf9]));
 
         fn encode(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
             let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();

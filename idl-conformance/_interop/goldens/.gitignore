@@ -1,0 +1,20 @@
+# Per-language encoder outputs are EPHEMERAL verification artifacts, regenerated
+# by each PSM's runner and diffed against the single source of truth (*.golden.bin)
+# by verify.sh. The WIRE is the wire: there is ONE golden per (feature, repr), not
+# one per language. See CANONICAL.md.
+*.rust.bin
+*.cpp.bin
+*.python.bin
+*.java.bin
+*.ts.bin
+*.c.bin
+*.csharp.bin
+
+# combo::Telemetry per-language outputs (no feature prefix) — same ephemeral rule
+/rust.bin
+/cpp.bin
+/python.bin
+/java.bin
+/ts.bin
+/c.bin
+/csharp.bin

@@ -1,0 +1,8 @@
+module feat {
+  struct Pt { long x; long y; };
+  @appendable
+  struct Arr {
+    long grid[2][3];
+    Pt   shape[2];
+  };
+};

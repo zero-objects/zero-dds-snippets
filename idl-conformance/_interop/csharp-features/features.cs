@@ -671,6 +671,7 @@ namespace feat
         }
     }
 
+    [Extensibility(ExtensibilityKind.Appendable)]
     public partial record class Pt : ITopicType<Pt>
     {
         public int X { get; init; } = default!;
@@ -683,7 +684,7 @@ namespace feat
 
         public string TypeName => "feat::Pt";
         public bool IsKeyed => false;
-        public ExtensibilityKind Extensibility => ExtensibilityKind.Final;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
 
         public byte[] Encode(Pt sample) => Encode(sample, EndianMode.LittleEndian);
 
@@ -696,8 +697,11 @@ namespace feat
 
         public void EncodeInto(Xcdr2Writer w, Pt sample)
         {
-            w.WriteInt32(sample.X);
-            w.WriteInt32(sample.Y);
+            using (var __scope = w.BeginAppendable())
+            {
+                w.WriteInt32(sample.X);
+                w.WriteInt32(sample.Y);
+            }
         }
 
         public Pt Decode(ReadOnlySpan<byte> bytes)
@@ -708,10 +712,12 @@ namespace feat
 
         public Pt DecodeFrom(ref Xcdr2Reader r)
         {
+            var __scope = r.BeginDHeader();
             int __m0 = default!;
             __m0 = r.ReadInt32();
             int __m1 = default!;
             __m1 = r.ReadInt32();
+            r.EndDHeader(__scope);
             return new Pt
             {
                 X = __m0!,

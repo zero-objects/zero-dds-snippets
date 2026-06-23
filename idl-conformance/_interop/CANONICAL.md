@@ -1,10 +1,30 @@
 # Cross-PSM interop — canonical samples (exact values; identical across all PSMs)
 
-Each PSM encodes these EXACT values for `features.idl` (XCDR2-LE, default repr).
-The encoded bytes must be byte-identical across all 7 languages; each PSM must
-also decode every other PSM's golden. Goldens: `goldens/<feature>.<lang>.bin`.
+**The wire is the wire: there is ONE golden per (feature, representation), not one
+per language.** Two tiers:
 
-`combo` (combo::Telemetry, the existing one) stays as is (golden `<lang>.bin`).
+* **Tier 1 — cross-vendor (the wire truth + policy):** run `features.idl` through
+  every implementation (Cyclone, RTI, FastDDS, OpenDDS, ZeroDDS), document where
+  they diverge, and from that decide ZeroDDS's *default* wire (its default feature
+  set). Vendors genuinely disagree on some constructs — see
+  `proofs/endianness/vendor-{cyclone,fastcdr,rti}/` and
+  `internal/idl-codegen/sx2-vendor-extensibility-divergence.md` (e.g. unannotated
+  nested-struct default extensibility: Cyclone=final/48 B, RTI=52 B, FastDDS=56 B;
+  ZeroDDS default = appendable/56 B = FastDDS, `--default-extensibility final` = 48 B
+  = Cyclone).
+
+* **Tier 2 — intra-ZeroDDS (language conformance):** ONE golden = ZeroDDS's chosen
+  default wire, `goldens/<feature>.golden.bin`. **Every** ZeroDDS language binding
+  (rust/cpp/python/java/ts/c/csharp) must (a) encode these exact values to bytes
+  **byte-identical to the golden**, and (b) decode the golden back to the exact
+  values. The languages *follow* the golden; they do not each own one.
+
+  The per-language encoder outputs (`<feature>.<lang>.bin`) are **ephemeral**
+  verification artifacts (git-ignored), produced by `verify.sh` and `cmp`'d against
+  the golden. `goldens/combo.golden.bin` is the same model for `combo::Telemetry`.
+
+The golden wire is XCDR2-LE, default representation; the rust PSM (running through
+the cross-vendor-validated `zerodds-cdr` core) regenerates it.
 
 ## feat::WStr  (golden `wstr.<lang>.bin`)
 - label (wstring<16>) = `"café"`  → the 4 code points c, a, f, é (U+00E9)
@@ -54,7 +74,10 @@ also decode every other PSM's golden. Goldens: `goldens/<feature>.<lang>.bin`.
 - i64=-9223372036854775808, u64=18446744073709551615,
 - f32=3.5 (exact), f64=-1234.5 (exact), b=true(1), o=0xAB, ch='Z' (0x5A)
 
-## Convergence criterion (per feature)
-all 7 `goldens/<feature>.*.bin` share one SHA-256 AND every PSM decodes every
-other PSM's golden for that feature. Reference = the rust golden (runs through
-the cross-vendor-validated `zerodds-cdr` core); the other 6 conform to it.
+## Conformance criterion (per feature, per language)
+For every feature F and every language L in {rust,cpp,python,java,ts,c,csharp}:
+1. `L.encode(canonical(F))` is **byte-identical** to `goldens/F.golden.bin`.
+2. `L.decode(goldens/F.golden.bin)` reconstructs `canonical(F)` exactly.
+`verify.sh` runs all 7 languages and checks both directions against the single
+golden. There is no per-language golden to drift; a language that regresses fails
+(1) against the golden directly.
