@@ -170,8 +170,25 @@ static void verify_outerkey(const feat::OuterKey& g, const feat::OuterKey& w) {
     chk("payload", g.payload(), w.payload());
 }
 
+// Big-endian DECODE: read the ZeroDDS-Rust reference big-endian wire (the
+// `proofs/endianness` BE golden — an INDEPENDENT, vendor-anchored encoder) and
+// decode it with zd_be=true, asserting every field == the canonical sample.
+// This proves the generated C++ decoder reads big-endian end to end, without
+// depending on the C++ BE *encoder* (whose @mutable/appendable DHEADER+EMHEADER
+// are still little-endian-hardcoded — a separate, pre-existing encode gap).
+template <class T, class V>
+static void be_rt(const char* name, const T& canon, V verify) {
+    std::string path = std::string("../../proofs/endianness/goldens/") + name + ".xcdr2-be.rust.bin";
+    auto buf = readfile(path.c_str());
+    if (buf.empty()) { std::cout << "  " << name << " be: SKIP (no golden)\n"; return; }
+    auto back = TS<T>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2, /*zd_be=*/true);
+    int before = g_fail;
+    verify(back, canon);
+    std::cout << "  " << name << " be: " << (g_fail == before ? "OK" : "FAIL") << "\n";
+}
+
 int main(int argc, char** argv) {
-    if (argc < 3) { std::cerr << "usage: <feature> ENCODE|DECODE <file>\n"; return 2; }
+    if (argc < 3) { std::cerr << "usage: <feature> ENCODE|DECODE|BE <file>\n"; return 2; }
     std::string feat = argv[1], mode = argv[2];
     const char* file = argc > 3 ? argv[3] : nullptr;
 
@@ -200,6 +217,24 @@ int main(int argc, char** argv) {
         else { std::cerr << "unknown feature\n"; return 2; }
         if (g_fail == 0) { std::cout << "DECODE OK: " << feat << "\n"; return 0; }
         std::cout << "DECODE FAILED: " << g_fail << " mismatch(es)\n"; return 1;
+    } else if (mode == "BE") {
+        be_rt("wstr", canon_wstr(), verify_wstr);
+        be_rt("mut", canon_mut(), verify_mut);
+        be_rt("bits", canon_bits(), verify_bits);
+        be_rt("tree", canon_tree(), verify_tree);
+        be_rt("arr", canon_arr(), verify_arr);
+        be_rt("prim", canon_prim(), verify_prim);
+        be_rt("mutnest", canon_mutnest(), verify_mutnest);
+        be_rt("outerkey", canon_outerkey(), verify_outerkey);
+        be_rt("mapenum", canon_mapenum(), [](const feat::MapEnum& g, const feat::MapEnum& w) {
+            chk("mapenum.h", int32_t(g.h()), int32_t(w.h()));
+            chk("mapenum.m.size", g.m().size(), w.m().size());
+            chk("mapenum.sels.size", g.sels().size(), w.sels().size());
+            if (!g.sels().empty() && !w.sels().empty())
+                chk("mapenum.sel0._d", g.sels()[0]._d(), w.sels()[0]._d());
+        });
+        if (g_fail == 0) { std::cout << "BE/LE roundtrip PASS\n"; return 0; }
+        std::cout << "BE FAILED: " << g_fail << " mismatch(es)\n"; return 1;
     }
     std::cerr << "bad args\n"; return 2;
 }
