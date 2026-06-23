@@ -86,8 +86,8 @@ export const WStrTypeSupport: DdsTopicType<WStr> = {
             text: _f_text,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): WStr {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): WStr {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: WStr): Uint8Array {
@@ -192,6 +192,30 @@ export const MutTypeSupport: DdsTopicType<Mut> = {
         let _f_a: number | undefined = 0;
         let _f_b: number | undefined = 0 as unknown as undefined;
         let _f_c: string | undefined = "";
+        if (r.isXcdr1) {
+            let _plm: { memberId: number; bodyEnd: number } | null;
+            while ((_plm = r.beginPlCdr1Member()) !== null) {
+                switch (_plm.memberId) {
+                case 10: {
+                    const _v: number = r.readInt32();
+                    _f_a = _v;
+                    break;
+                }
+                case 20: {
+                    const _v: number = r.readFloat64();
+                    _f_b = _v;
+                    break;
+                }
+                case 30: {
+                    const _v: string = r.readString();
+                    _f_c = _v;
+                    break;
+                }
+                default: break;
+                }
+                r.endPlCdr1Member(_plm);
+            }
+        } else {
         const _tok = r.beginMutable();
         while (r.pos < _tok.bodyEnd) {
             const _emh = r.readEmHeader();
@@ -222,14 +246,15 @@ export const MutTypeSupport: DdsTopicType<Mut> = {
             }
         }
         r.endMutable(_tok);
+        }
         return {
             a: _f_a as number,
             b: _f_b as number,
             c: _f_c as string,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): Mut {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Mut {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: Mut): Uint8Array {
@@ -311,6 +336,25 @@ export const MutLeafTypeSupport: DdsTopicType<MutLeaf> = {
     decodeFrom(r: Xcdr2Reader): MutLeaf {
         let _f_u: number | undefined = 0;
         let _f_v: number | undefined = 0 as unknown as undefined;
+        if (r.isXcdr1) {
+            let _plm: { memberId: number; bodyEnd: number } | null;
+            while ((_plm = r.beginPlCdr1Member()) !== null) {
+                switch (_plm.memberId) {
+                case 1: {
+                    const _v: number = r.readInt32();
+                    _f_u = _v;
+                    break;
+                }
+                case 2: {
+                    const _v: number = r.readFloat64();
+                    _f_v = _v;
+                    break;
+                }
+                default: break;
+                }
+                r.endPlCdr1Member(_plm);
+            }
+        } else {
         const _tok = r.beginMutable();
         while (r.pos < _tok.bodyEnd) {
             const _emh = r.readEmHeader();
@@ -335,13 +379,14 @@ export const MutLeafTypeSupport: DdsTopicType<MutLeaf> = {
             }
         }
         r.endMutable(_tok);
+        }
         return {
             u: _f_u as number,
             v: _f_v as number,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): MutLeaf {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): MutLeaf {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: MutLeaf): Uint8Array {
@@ -446,6 +491,30 @@ export const MutNestTypeSupport: DdsTopicType<MutNest> = {
         let _f_tag: number | undefined = 0;
         let _f_leaf: MutLeaf | undefined = undefined;
         let _f_list: Array<MutLeaf> | undefined = [] as unknown as undefined;
+        if (r.isXcdr1) {
+            let _plm: { memberId: number; bodyEnd: number } | null;
+            while ((_plm = r.beginPlCdr1Member()) !== null) {
+                switch (_plm.memberId) {
+                case 10: {
+                    const _v: number = r.readInt32();
+                    _f_tag = _v;
+                    break;
+                }
+                case 20: {
+                    const _v: MutLeaf = MutLeafTypeSupport.decodeFrom(r);
+                    _f_leaf = _v;
+                    break;
+                }
+                case 30: {
+                    const _v: Array<MutLeaf> = ((): Array<MutLeaf> => { const _t = r.beginAppendable(); const _n = r.readUint32(); const _o: Array<MutLeaf> = []; for (let _i = 0; _i < _n; _i++) { _o.push(MutLeafTypeSupport.decodeFrom(r)); } r.endAppendable(_t); return _o; })();
+                    _f_list = _v;
+                    break;
+                }
+                default: break;
+                }
+                r.endPlCdr1Member(_plm);
+            }
+        } else {
         const _tok = r.beginMutable();
         while (r.pos < _tok.bodyEnd) {
             const _emh = r.readEmHeader();
@@ -477,14 +546,15 @@ export const MutNestTypeSupport: DdsTopicType<MutNest> = {
             }
         }
         r.endMutable(_tok);
+        }
         return {
             tag: _f_tag as number,
             leaf: _f_leaf as MutLeaf,
             list: _f_list as Array<MutLeaf>,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): MutNest {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): MutNest {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: MutNest): Uint8Array {
@@ -559,8 +629,8 @@ export const NestedKeyTypeSupport: DdsTopicType<NestedKey> = {
             lo: _f_lo,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): NestedKey {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): NestedKey {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: NestedKey): Uint8Array {
@@ -640,8 +710,8 @@ export const OuterKeyTypeSupport: DdsTopicType<OuterKey> = {
             payload: _f_payload,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): OuterKey {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): OuterKey {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: OuterKey): Uint8Array {
@@ -815,8 +885,8 @@ export const BitsTypeSupport: DdsTopicType<Bits> = {
             flags: _f_flags,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): Bits {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Bits {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: Bits): Uint8Array {
@@ -893,8 +963,8 @@ export const TreeTypeSupport: DdsTopicType<Tree> = {
             kids: _f_kids,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): Tree {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Tree {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: Tree): Uint8Array {
@@ -967,8 +1037,8 @@ export const PtTypeSupport: DdsTopicType<Pt> = {
             y: _f_y,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): Pt {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Pt {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: Pt): Uint8Array {
@@ -1053,8 +1123,8 @@ export const ArrTypeSupport: DdsTopicType<Arr> = {
             shape: _f_shape,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): Arr {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Arr {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: Arr): Uint8Array {
@@ -1161,8 +1231,8 @@ export const SelTypeSupport: DdsTopicType<Sel> = {
         r.endAppendable(_tok);
         return _result;
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): Sel {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Sel {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: Sel): Uint8Array {
@@ -1319,8 +1389,8 @@ export const MapEnumTypeSupport: DdsTopicType<MapEnum> = {
             sels: _f_sels,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): MapEnum {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): MapEnum {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: MapEnum): Uint8Array {
@@ -1536,8 +1606,8 @@ export const PrimTypeSupport: DdsTopicType<Prim> = {
             ch: _f_ch,
         };
     },
-    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le"): Prim {
-        const r = new Xcdr2Reader(bytes, offset, length, endian);
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Prim {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
         return this.decodeFrom(r);
     },
     keyHash(s: Prim): Uint8Array {
