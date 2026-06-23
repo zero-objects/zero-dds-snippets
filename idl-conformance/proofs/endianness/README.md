@@ -191,8 +191,30 @@ two generated paths:
 Both were fixed in the Rust IDL backend (`crates/idl-rust`, commit
 *@mutable + wstring decoders must honor the stream byte order*) and are now
 gated by an `edge_roundtrip` test that round-trips both constructs in both byte
-orders. **Caveat:** this proof's only decoder is the ZeroDDS Rust reference; the
-analogous big-endian decode paths in the other six language backends are
-exercised by the cross-PSM corpus at **XCDR2-LE only** (`../../_interop/`), so a
-hardcoded-LE decode there would still be latent — an open edge tracked
-separately, not closed by this proof.
+orders.
+
+### Big-endian support across the seven backends (audited)
+
+This proof exercises BE through the ZeroDDS **Rust** PSM only. Auditing the other
+backends' codecs shows BE *decode* is a **deliberate design boundary, not a bug
+cluster** — the typed `decode(bytes)` entry point is little-endian-only almost
+everywhere, because the bare CDR body carries no byte-order mark and the
+encapsulation header (which does) is stripped above this layer:
+
+| backend | BE encode | BE decode (typed entry) | note |
+|---------|-----------|-------------------------|------|
+| Rust `CdrEncode`/`CdrDecode` trait | ✓ | ✓ | reader carries the byte order; the two bugs above were here, now fixed + gated |
+| Rust `DdsType` (DCPS-facing) | LE | LE | `decode(bytes)` builds an LE reader |
+| C++ | partial (`write_be` helpers) | LE | `read_le_origin` |
+| C# | ✓ (`Encode(.., EndianMode)`) | LE | `Decode(bytes)` hardcodes an LE `Xcdr2Reader`; the reader itself is endian-complete |
+| TypeScript | ✓ (`encode(.., endian)`) | LE | `decode(bytes)` takes no endian arg |
+| Python | LE-only | LE-only | `cdr.py` is an explicit little-endian codec |
+| Java | LE-only | LE-only | `ByteBuffer.order(LITTLE_ENDIAN)` |
+
+So the only genuine BE *bug* was the Rust `CdrDecode` sub-structure path ignoring
+the byte order its reader already carried; that is fixed. Wiring BE **decode**
+end-to-end through every typed entry point (parse the encapsulation byte-order
+bit → thread it into the generated decoder of all seven backends) is a real but
+**unwired feature**, not a latent defect — no big-endian DDS peer exists on
+current hardware to exercise it. It is recorded here as a known boundary, not
+silently implied as covered.
