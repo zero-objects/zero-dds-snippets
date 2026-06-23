@@ -1,0 +1,9 @@
+# OPC-UA UADP NetworkMessage — open62541 1.5.4 reference encoding.
+# Format: <vector> <byte-len> <hex>. ZeroDDS (zerodds-opcua-pubsub) produces
+# byte-identical output for the same logical message — see the conformance gate
+# crates/opcua-pubsub/src/uadp/network_message.rs::uadp_byte_identical_to_open62541.
+V1 25 f1012a00090700630001010001020007443322110788776655
+V2 27 7109090700630001010001030001010b000000000000f83f04f9ff
+V3 22 f1012a0009070063000101000101000c020000006869
+V4 34 f1012a000907006300020100020008000800010100074433221101010006fbffffff
+V5 22 f1012a000907006300010100090500010007efbeadde

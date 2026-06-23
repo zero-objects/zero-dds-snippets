@@ -1,0 +1,7 @@
+open62541: v1.5.4 (PubSub enabled: UA_ENABLE_PUBSUB)
+gcc (Debian 14.2.0-19) 14.2.0
+
+Build + run the oracle (on a host with open62541 1.5 built with PubSub):
+  gcc uadp_oracle.c -I<o62541>/include -I<o62541>/build/src_generated \
+      -L<o62541>/build/bin -lopen62541 -o uadp_oracle
+  ./uadp_oracle
