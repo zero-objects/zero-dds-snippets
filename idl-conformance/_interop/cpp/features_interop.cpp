@@ -173,9 +173,7 @@ static void verify_outerkey(const feat::OuterKey& g, const feat::OuterKey& w) {
 // Big-endian DECODE: read the ZeroDDS-Rust reference big-endian wire (the
 // `proofs/endianness` BE golden — an INDEPENDENT, vendor-anchored encoder) and
 // decode it with zd_be=true, asserting every field == the canonical sample.
-// This proves the generated C++ decoder reads big-endian end to end, without
-// depending on the C++ BE *encoder* (whose @mutable/appendable DHEADER+EMHEADER
-// are still little-endian-hardcoded — a separate, pre-existing encode gap).
+// This proves the generated C++ decoder reads big-endian end to end.
 template <class T, class V>
 static void be_rt(const char* name, const T& canon, V verify) {
     std::string path = std::string("../../proofs/endianness/goldens/") + name + ".xcdr2-be.rust.bin";
@@ -185,6 +183,23 @@ static void be_rt(const char* name, const T& canon, V verify) {
     int before = g_fail;
     verify(back, canon);
     std::cout << "  " << name << " be: " << (g_fail == before ? "OK" : "FAIL") << "\n";
+}
+
+// Big-endian ENCODE: `encode_be(canon)` must be byte-for-byte identical to the
+// same independent, vendor-anchored Rust BE golden the decoder is checked
+// against. This proves the generated C++ encoder emits the DHEADER / EMHEADER1
+// / NEXTINT framing words in big-endian (ambient stream order, XTypes §7.4.3.4)
+// — the @mutable/@appendable framing that used to be little-endian-hardcoded.
+template <class T>
+static void be_enc(const char* name, const T& canon) {
+    std::string path = std::string("../../proofs/endianness/goldens/") + name + ".xcdr2-be.rust.bin";
+    auto golden = readfile(path.c_str());
+    if (golden.empty()) { std::cout << "  " << name << " be-enc: SKIP (no golden)\n"; return; }
+    auto wire = TS<T>::encode_be(canon);
+    bool ok = (wire == golden);
+    if (!ok) g_fail++;
+    std::cout << "  " << name << " be-enc: " << (ok ? "OK" : "FAIL")
+              << " (" << wire.size() << "B vs " << golden.size() << "B golden)\n";
 }
 
 int main(int argc, char** argv) {
@@ -235,6 +250,18 @@ int main(int argc, char** argv) {
         });
         if (g_fail == 0) { std::cout << "BE/LE roundtrip PASS\n"; return 0; }
         std::cout << "BE FAILED: " << g_fail << " mismatch(es)\n"; return 1;
+    } else if (mode == "BEENC") {
+        be_enc("wstr", canon_wstr());
+        be_enc("mut", canon_mut());
+        be_enc("bits", canon_bits());
+        be_enc("tree", canon_tree());
+        be_enc("arr", canon_arr());
+        be_enc("prim", canon_prim());
+        be_enc("mutnest", canon_mutnest());
+        be_enc("outerkey", canon_outerkey());
+        be_enc("mapenum", canon_mapenum());
+        if (g_fail == 0) { std::cout << "BE-ENCODE PASS\n"; return 0; }
+        std::cout << "BE-ENCODE FAILED: " << g_fail << " mismatch(es)\n"; return 1;
     }
     std::cerr << "bad args\n"; return 2;
 }
