@@ -164,6 +164,7 @@ public final class FeaturesInterop {
             case "ENCODE" -> ok = encodeAll();
             case "DECODE" -> ok = decodeAll();
             case "BE" -> ok = beAll();
+            case "XCDR1" -> ok = xcdr1All();
             default -> ok = encodeAll() & decodeAll();
         }
         System.exit(ok ? 0 : 1);
@@ -236,8 +237,41 @@ public final class FeaturesInterop {
     private static final String BE_DIR = DIR.replace("/_interop/goldens", "/proofs/endianness/goldens");
     static final org.zerodds.cdr.EndianMode BE = org.zerodds.cdr.EndianMode.BIG_ENDIAN;
 
+    static final org.zerodds.cdr.EndianMode LE = org.zerodds.cdr.EndianMode.LITTLE_ENDIAN;
+
     static byte[] beGolden(String name) throws Exception {
         return Files.readAllBytes(Path.of(BE_DIR, name + ".xcdr2-be.rust.bin"));
+    }
+
+    static byte[] xcdr1Golden(String name) throws Exception {
+        return Files.readAllBytes(Path.of(BE_DIR, name + ".xcdr1-le.rust.bin"));
+    }
+
+    // XCDR1 DECODE: decode the Rust XCDR1 (classic CDR / PL_CDR1) reference
+    // goldens via decode(.., representation=0) and assert every field ==
+    // canonical (no DHEADER on @appendable/@final, 8-byte align, PL_CDR1
+    // for @mutable).
+    static boolean xcdr1All() throws Exception {
+        boolean ok = true;
+        { failures = 0; byte[] b = xcdr1Golden("wstr"); WStr r = feat.WStrTypeSupport.INSTANCE.decode(b, 0, b.length, LE, 0);
+          WStr c = canonicalWStr(); eq("wstr.label", c.getLabel(), r.getLabel()); eq("wstr.text", c.getText(), r.getText());
+          ok &= report("wstr xcdr1"); }
+        { failures = 0; byte[] b = xcdr1Golden("mut"); Mut r = feat.MutTypeSupport.INSTANCE.decode(b, 0, b.length, LE, 0);
+          Mut c = canonicalMut(); eq("mut.a", c.getA(), r.getA()); eq("mut.b", c.getB(), r.getB()); eq("mut.c", c.getC(), r.getC());
+          ok &= report("mut xcdr1"); }
+        { failures = 0; byte[] b = xcdr1Golden("tree"); Tree r = feat.TreeTypeSupport.INSTANCE.decode(b, 0, b.length, LE, 0);
+          eq("tree.value", 1, r.getValue()); eq("tree.kids.size", 2, r.getKids().size()); ok &= report("tree xcdr1"); }
+        { failures = 0; byte[] b = xcdr1Golden("arr"); Arr r = feat.ArrTypeSupport.INSTANCE.decode(b, 0, b.length, LE, 0);
+          Arr c = canonicalArr(); eq("arr.grid", c.getGrid()[1][2], r.getGrid()[1][2]);
+          eq("arr.shape0x", c.getShape()[0].getX(), r.getShape()[0].getX()); ok &= report("arr xcdr1"); }
+        { failures = 0; byte[] b = xcdr1Golden("prim"); Prim r = feat.PrimTypeSupport.INSTANCE.decode(b, 0, b.length, LE, 0);
+          Prim c = canonicalPrim(); eq("prim.i64", c.getI64(), r.getI64()); eq("prim.f64", c.getF64(), r.getF64());
+          eq("prim.u16", c.getU16(), r.getU16()); ok &= report("prim xcdr1"); }
+        { failures = 0; byte[] b = xcdr1Golden("mapenum"); feat.MapEnum r = feat.MapEnumTypeSupport.INSTANCE.decode(b, 0, b.length, LE, 0);
+          feat.MapEnum c = canonicalMapEnum(); eq("mapenum.h", c.getH(), r.getH());
+          eq("mapenum.m.size", c.getM().size(), r.getM().size()); eq("mapenum.sels.size", c.getSels().size(), r.getSels().size());
+          ok &= report("mapenum xcdr1"); }
+        return ok;
     }
 
     static boolean beAll() throws Exception {
