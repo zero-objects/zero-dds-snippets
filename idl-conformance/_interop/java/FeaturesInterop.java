@@ -163,6 +163,7 @@ public final class FeaturesInterop {
         switch (mode) {
             case "ENCODE" -> ok = encodeAll();
             case "DECODE" -> ok = decodeAll();
+            case "BE" -> ok = beAll();
             default -> ok = encodeAll() & decodeAll();
         }
         System.exit(ok ? 0 : 1);
@@ -225,6 +226,45 @@ public final class FeaturesInterop {
 
     static byte[] golden(String name) throws Exception {
         return Files.readAllBytes(Path.of(DIR, name + ".rust.bin"));
+    }
+
+    // Big-endian DECODE: read the ZeroDDS-Rust reference big-endian wire (the
+    // proofs/endianness BE golden — an independent encoder) and decode it with
+    // EndianMode.BIG_ENDIAN, asserting fields == the canonical sample. Proves the
+    // Java binding decodes big-endian end to end (the Xcdr2Reader is already
+    // endian-aware; only the typed decode entry gained the EndianMode overload).
+    private static final String BE_DIR = DIR.replace("/_interop/goldens", "/proofs/endianness/goldens");
+    static final org.zerodds.cdr.EndianMode BE = org.zerodds.cdr.EndianMode.BIG_ENDIAN;
+
+    static byte[] beGolden(String name) throws Exception {
+        return Files.readAllBytes(Path.of(BE_DIR, name + ".xcdr2-be.rust.bin"));
+    }
+
+    static boolean beAll() throws Exception {
+        boolean ok = true;
+        { failures = 0; byte[] b = beGolden("wstr"); WStr r = feat.WStrTypeSupport.INSTANCE.decode(b, 0, b.length, BE);
+          WStr c = canonicalWStr(); eq("wstr.label", c.getLabel(), r.getLabel()); eq("wstr.text", c.getText(), r.getText());
+          ok &= report("wstr be"); }
+        { failures = 0; byte[] b = beGolden("mut"); Mut r = feat.MutTypeSupport.INSTANCE.decode(b, 0, b.length, BE);
+          Mut c = canonicalMut(); eq("mut.a", c.getA(), r.getA()); eq("mut.b", c.getB(), r.getB()); eq("mut.c", c.getC(), r.getC());
+          ok &= report("mut be"); }
+        { failures = 0; byte[] b = beGolden("bits"); Bits r = feat.BitsTypeSupport.INSTANCE.decode(b, 0, b.length, BE);
+          eq("bits.perm.READ", Boolean.TRUE, r.getPerm().isSet(Perm.Flag.READ));
+          eq("bits.perm.EXEC", Boolean.TRUE, r.getPerm().isSet(Perm.Flag.EXEC));
+          eq("bits.flags.kind", 5, r.getFlags().getKind()); ok &= report("bits be"); }
+        { failures = 0; byte[] b = beGolden("tree"); Tree r = feat.TreeTypeSupport.INSTANCE.decode(b, 0, b.length, BE);
+          eq("tree.value", 1, r.getValue()); eq("tree.kids.size", 2, r.getKids().size()); ok &= report("tree be"); }
+        { failures = 0; byte[] b = beGolden("arr"); Arr r = feat.ArrTypeSupport.INSTANCE.decode(b, 0, b.length, BE);
+          Arr c = canonicalArr(); eq("arr.grid", c.getGrid()[1][2], r.getGrid()[1][2]);
+          eq("arr.shape0x", c.getShape()[0].getX(), r.getShape()[0].getX()); ok &= report("arr be"); }
+        { failures = 0; byte[] b = beGolden("prim"); Prim r = feat.PrimTypeSupport.INSTANCE.decode(b, 0, b.length, BE);
+          Prim c = canonicalPrim(); eq("prim.i64", c.getI64(), r.getI64()); eq("prim.f64", c.getF64(), r.getF64());
+          eq("prim.u16", c.getU16(), r.getU16()); ok &= report("prim be"); }
+        { failures = 0; byte[] b = beGolden("mapenum"); feat.MapEnum r = feat.MapEnumTypeSupport.INSTANCE.decode(b, 0, b.length, BE);
+          feat.MapEnum c = canonicalMapEnum(); eq("mapenum.h", c.getH(), r.getH());
+          eq("mapenum.m.size", c.getM().size(), r.getM().size()); eq("mapenum.sels.size", c.getSels().size(), r.getSels().size());
+          ok &= report("mapenum be"); }
+        return ok;
     }
 
     static boolean decWStr() throws Exception {
