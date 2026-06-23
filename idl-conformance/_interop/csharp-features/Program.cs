@@ -258,11 +258,40 @@ static int RunDecode()
     return 1;
 }
 
+// Big-endian end-to-end: encode each canonical in BOTH byte orders and decode
+// it back through the new Decode(bytes, endian) overload, asserting equality.
+// Proves the C# binding decodes big-endian, not just little-endian.
+static int RunBe()
+{
+    var fails = new List<string>();
+    void Rt<T>(string name, IDdsTopicType<T> ts, T v, Func<T, T, bool> eq)
+    {
+        foreach (var e in new[] { EndianMode.LittleEndian, EndianMode.BigEndian })
+        {
+            var bytes = ts.Encode(v, e);
+            var back = ts.Decode(bytes, e);
+            bool ok = eq(v, back);
+            Console.WriteLine($"  {name} {(e == EndianMode.LittleEndian ? "le" : "be")}: {(ok ? "OK" : "FAIL")}");
+            if (!ok) fails.Add($"{name}/{e}");
+        }
+    }
+    Rt("wstr", WStrTypeSupport.Instance, CanonicalWStr(), (a, b) => a.Label == b.Label && a.Text == b.Text);
+    Rt("mut", MutTypeSupport.Instance, CanonicalMut(), (a, b) => a.A == b.A && a.B == b.B && a.C == b.C);
+    Rt("mapenum", MapEnumTypeSupport.Instance, CanonicalMapEnum(),
+        (a, b) => a.H == b.H && a.M.Count == b.M.Count && a.Sels.Count() == b.Sels.Count());
+    Rt("arr", ArrTypeSupport.Instance, CanonicalArr(),
+        (a, b) => a.Shape[0].X == b.Shape[0].X && a.Grid[1][2] == b.Grid[1][2]);
+    if (fails.Count == 0) { Console.WriteLine("BE/LE roundtrip PASS"); return 0; }
+    Console.Error.WriteLine($"BE roundtrip FAIL: {string.Join(", ", fails)}");
+    return 1;
+}
+
 var mode = args.Length >= 1 ? args[0] : "ROUNDTRIP";
 switch (mode)
 {
     case "ENCODE": return RunEncode();
     case "DECODE": return RunDecode();
+    case "BE": return RunBe();
     case "ROUNDTRIP": { var a = RunEncode(); var b = RunDecode(); return a != 0 ? a : b; }
     default:
         Console.Error.WriteLine("usage: interop-csharp-features ENCODE | DECODE | ROUNDTRIP");

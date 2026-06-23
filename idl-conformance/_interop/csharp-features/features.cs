@@ -57,9 +57,10 @@ namespace feat
             }
         }
 
-        public WStr Decode(ReadOnlySpan<byte> bytes)
+        public WStr Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public WStr Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -142,9 +143,10 @@ namespace feat
             }
         }
 
-        public Mut Decode(ReadOnlySpan<byte> bytes)
+        public Mut Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public Mut Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -225,9 +227,10 @@ namespace feat
             }
         }
 
-        public MutLeaf Decode(ReadOnlySpan<byte> bytes)
+        public MutLeaf Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public MutLeaf Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -318,9 +321,10 @@ namespace feat
             }
         }
 
-        public MutNest Decode(ReadOnlySpan<byte> bytes)
+        public MutNest Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public MutNest Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -409,9 +413,10 @@ namespace feat
             w.WriteInt32(sample.Lo);
         }
 
-        public NestedKey Decode(ReadOnlySpan<byte> bytes)
+        public NestedKey Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public NestedKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -472,9 +477,10 @@ namespace feat
             w.WriteInt32(sample.Payload);
         }
 
-        public OuterKey Decode(ReadOnlySpan<byte> bytes)
+        public OuterKey Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public OuterKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -561,9 +567,10 @@ namespace feat
             }
         }
 
-        public Bits Decode(ReadOnlySpan<byte> bytes)
+        public Bits Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public Bits Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -632,9 +639,10 @@ namespace feat
             }
         }
 
-        public Tree Decode(ReadOnlySpan<byte> bytes)
+        public Tree Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public Tree Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -704,9 +712,10 @@ namespace feat
             }
         }
 
-        public Pt Decode(ReadOnlySpan<byte> bytes)
+        public Pt Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public Pt Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -776,9 +785,10 @@ namespace feat
             }
         }
 
-        public Arr Decode(ReadOnlySpan<byte> bytes)
+        public Arr Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public Arr Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -865,9 +875,10 @@ namespace feat
             }
         }
 
-        public Sel Decode(ReadOnlySpan<byte> bytes)
+        public Sel Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public Sel Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -975,9 +986,10 @@ namespace feat
             }
         }
 
-        public MapEnum Decode(ReadOnlySpan<byte> bytes)
+        public MapEnum Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public MapEnum Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
@@ -1086,9 +1098,10 @@ namespace feat
             }
         }
 
-        public Prim Decode(ReadOnlySpan<byte> bytes)
+        public Prim Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
+        public Prim Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
         {
-            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            var r = new Xcdr2Reader(bytes, endian);
             return DecodeFrom(ref r);
         }
 
