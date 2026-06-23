@@ -185,6 +185,50 @@ int main(int argc, char** argv) {
         free(buf);
         if (g_fail == 0) { printf("DECODE OK: %s\n", feat); return 0; }
         printf("DECODE FAILED: %d mismatch(es)\n", g_fail); return 1;
+    } else if (strcmp(mode, "BE") == 0) {
+        /* Big-endian DECODE: read the ZeroDDS-Rust reference big-endian wire
+           (proofs/endianness BE golden — an independent encoder) and decode it
+           with _decode_e(.., zd_be=1), asserting fields == the canonical sample.
+           Proves the generated C decoder reads big-endian end to end. */
+        #define BE_LOAD(nm) \
+            uint8_t* bb = NULL; size_t bn = 0; \
+            { char p[256]; snprintf(p, sizeof(p), "../../proofs/endianness/goldens/%s.xcdr2-be.rust.bin", nm); \
+              FILE* f = fopen(p, "rb"); if (!f) { printf("  %s be: SKIP\n", nm); } \
+              else { fseek(f,0,SEEK_END); bn=(size_t)ftell(f); fseek(f,0,SEEK_SET); bb=(uint8_t*)malloc(bn); \
+                     if (fread(bb,1,bn,f)!=bn) { bn=0; } fclose(f); } }
+        { BE_LOAD("wstr"); if (bb) { feat_WStr_t g; memset(&g,0,sizeof(g)); feat_WStr_t w; canon_wstr(&w);
+            int before=g_fail; if (feat_WStr_decode_e(bb,bn,&g,1)!=0) ++g_fail;
+            else { size_t li=0; for(;w.label[li];++li) CHK(g.label&&g.label[li]==w.label[li],"wstr.label[]");
+                   CHK(g.label&&g.label[li]==0,"wstr.label.len");
+                   size_t ti=0; for(;w.text[ti];++ti) CHK(g.text&&g.text[ti]==w.text[ti],"wstr.text[]");
+                   CHK(g.text&&g.text[ti]==0,"wstr.text.len"); }
+            printf("  wstr be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        { BE_LOAD("mut"); if (bb) { feat_Mut_t g; memset(&g,0,sizeof(g)); feat_Mut_t w; canon_mut(&w);
+            int before=g_fail; if (feat_Mut_decode_e(bb,bn,&g,1)!=0) ++g_fail;
+            else { CHK(g.a==w.a,"mut.a"); CHK(g.b==w.b,"mut.b"); CHK(g.c&&!strcmp(g.c,w.c),"mut.c"); }
+            printf("  mut be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        { BE_LOAD("bits"); if (bb) { feat_Bits_t g; memset(&g,0,sizeof(g)); feat_Bits_t w; canon_bits(&w);
+            int before=g_fail; if (feat_Bits_decode_e(bb,bn,&g,1)!=0) ++g_fail;
+            else { CHK(g.perm==w.perm,"bits.perm"); }
+            printf("  bits be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        { BE_LOAD("tree"); if (bb) { feat_Tree_t g; memset(&g,0,sizeof(g)); feat_Tree_t w; canon_tree(&w);
+            int before=g_fail; if (feat_Tree_decode_e(bb,bn,&g,1)!=0) ++g_fail;
+            else { CHK(g.value==w.value,"tree.value"); CHK(g.kids.len==w.kids.len,"tree.kids.len"); }
+            printf("  tree be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        { BE_LOAD("arr"); if (bb) { feat_Arr_t g; memset(&g,0,sizeof(g)); feat_Arr_t w; canon_arr(&w);
+            int before=g_fail; if (feat_Arr_decode_e(bb,bn,&g,1)!=0) ++g_fail;
+            else { CHK(g.grid[1][2]==w.grid[1][2],"arr.grid"); CHK(g.shape[0].x==w.shape[0].x,"arr.shape"); }
+            printf("  arr be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        { BE_LOAD("prim"); if (bb) { feat_Prim_t g; memset(&g,0,sizeof(g)); feat_Prim_t w; canon_prim(&w);
+            int before=g_fail; if (feat_Prim_decode_e(bb,bn,&g,1)!=0) ++g_fail;
+            else { CHK(g.i64==w.i64,"prim.i64"); CHK(g.f64==w.f64,"prim.f64"); CHK(g.u16==w.u16,"prim.u16"); }
+            printf("  prim be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        { BE_LOAD("mapenum"); if (bb) { feat_MapEnum_t g; memset(&g,0,sizeof(g)); feat_MapEnum_t w; canon_mapenum(&w);
+            int before=g_fail; if (feat_MapEnum_decode_e(bb,bn,&g,1)!=0) ++g_fail;
+            else { CHK(g.h==w.h,"mapenum.h"); CHK(g.m.len==w.m.len,"mapenum.m.len"); CHK(g.sels.len==w.sels.len,"mapenum.sels.len"); }
+            printf("  mapenum be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        if (g_fail == 0) { printf("BE/LE roundtrip PASS\n"); return 0; }
+        printf("BE FAILED: %d mismatch(es)\n", g_fail); return 1;
     }
     fprintf(stderr, "bad args\n"); return 2;
 }
