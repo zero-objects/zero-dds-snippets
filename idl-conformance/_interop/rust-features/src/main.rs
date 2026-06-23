@@ -21,7 +21,8 @@ use zerodds_dcps::DdsType;
 mod generated;
 
 use generated::feat::{
-    Arr, Bits, Flags, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm, Prim, Pt, Tree, WStr,
+    Arr, Bits, Flags, Hue, MapEnum, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm, Prim, Pt,
+    Sel, Tree, WStr,
 };
 
 const DIR: &str =
@@ -98,6 +99,22 @@ fn canonical_arr() -> Arr {
     Arr {
         grid: [[10, 11, 12], [13, 14, 15]],
         shape: [Pt { x: 1, y: 2 }, Pt { x: 3, y: 4 }],
+    }
+}
+
+/// feat::Sel — @appendable union, discriminator 1 -> struct branch p = {5,6}.
+fn canonical_sel() -> Sel {
+    Sel::P(Pt { x: 5, y: 6 })
+}
+
+/// feat::MapEnum — h=H_BLUE(2); m={3:{11,12}}; sels=[Sel::N(9)].
+fn canonical_mapenum() -> MapEnum {
+    let mut m = ::std::collections::BTreeMap::new();
+    m.insert(3, Pt { x: 11, y: 12 });
+    MapEnum {
+        h: Hue::H_BLUE,
+        m,
+        sels: vec![Sel::N(9)],
     }
 }
 
@@ -193,6 +210,7 @@ fn run_encode() -> bool {
     ok &= encode_one("prim", &canonical_prim());
     ok &= encode_one("mutnest", &canonical_mutnest());
     ok &= encode_one("outerkey", &canonical_outerkey());
+    ok &= encode_one("mapenum", &canonical_mapenum());
     ok
 }
 
@@ -206,6 +224,7 @@ fn run_decode() -> bool {
     ok &= decode_one("prim", &canonical_prim());
     ok &= decode_one("mutnest", &canonical_mutnest());
     ok &= decode_one("outerkey", &canonical_outerkey());
+    ok &= decode_one("mapenum", &canonical_mapenum());
     ok
 }
 
@@ -234,6 +253,7 @@ mod tests {
         rt!(canonical_prim());
         rt!(canonical_mutnest());
         rt!(canonical_outerkey());
+        rt!(canonical_mapenum());
     }
 }
 

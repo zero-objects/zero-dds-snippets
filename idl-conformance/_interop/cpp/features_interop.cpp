@@ -86,6 +86,17 @@ static feat::OuterKey canon_outerkey() {
     v.payload(999);
     return v;
 }
+// @bit_bound(16) enum (2-byte holder) + map<long,Pt> (map of struct) +
+// sequence<Sel> (sequence of union). h=H_BLUE(2); m={3:{11,12}}; sels=[Sel::n=9].
+static feat::MapEnum canon_mapenum() {
+    feat::MapEnum v;
+    v.h(feat::Hue::H_BLUE);
+    feat::Pt p; p.x(11); p.y(12);
+    std::map<int32_t, feat::Pt> m; m[3] = p; v.m(m);
+    feat::Sel s; s._d(2); s.value() = static_cast<int32_t>(9);
+    v.sels(std::vector<feat::Sel>{s});
+    return v;
+}
 
 static std::vector<uint8_t> readfile(const char* p) {
     std::ifstream f(p, std::ios::binary);
@@ -173,6 +184,7 @@ int main(int argc, char** argv) {
         if (feat == "prim") return do_encode(file, canon_prim());
         if (feat == "mutnest")  return do_encode(file, canon_mutnest());
         if (feat == "outerkey") return do_encode(file, canon_outerkey());
+        if (feat == "mapenum")  return do_encode(file, canon_mapenum());
     } else if (mode == "DECODE") {
         auto buf = readfile(file);
         if (buf.empty()) { std::cerr << "empty/missing " << file << "\n"; return 2; }
@@ -184,6 +196,7 @@ int main(int argc, char** argv) {
         else if (feat == "prim") verify_prim(TS<feat::Prim>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_prim());
         else if (feat == "mutnest") verify_mutnest(TS<feat::MutNest>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_mutnest());
         else if (feat == "outerkey") verify_outerkey(TS<feat::OuterKey>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_outerkey());
+        else if (feat == "mapenum") { auto v = TS<feat::MapEnum>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2); auto re = TS<feat::MapEnum>::encode(v, x::XcdrVersion::Xcdr2); if (re != buf) { g_fail++; std::cerr << "  [FAIL] mapenum roundtrip re-encode != golden\n"; } }
         else { std::cerr << "unknown feature\n"; return 2; }
         if (g_fail == 0) { std::cout << "DECODE OK: " << feat << "\n"; return 0; }
         std::cout << "DECODE FAILED: " << g_fail << " mismatch(es)\n"; return 1;

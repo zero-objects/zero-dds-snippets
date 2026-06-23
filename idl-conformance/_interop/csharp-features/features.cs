@@ -818,6 +818,220 @@ namespace feat
     }
 
     [Extensibility(ExtensibilityKind.Appendable)]
+    public partial record class Sel : ITopicType<Sel>
+    {
+        public int Discriminator { get; init; } = default!;
+        public object? Value { get; init; } = default;
+
+        // case 1 -> p
+        // case 2 -> n
+        // case default -> z
+    }
+
+    public sealed class SelTypeSupport : IDdsTopicType<Sel>
+    {
+        public static readonly SelTypeSupport Instance = new();
+
+        public string TypeName => "feat::Sel";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
+
+        public byte[] Encode(Sel sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(Sel sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, Sel sample)
+        {
+            using (var __scope = w.BeginAppendable())
+            {
+                w.WriteInt32(sample.Discriminator);
+                switch (sample.Discriminator)
+                {
+                    case 1:
+                        PtTypeSupport.Instance.EncodeInto(w, ((Pt)sample.Value!));
+                        break;
+                    case 2:
+                        w.WriteInt32(((int)sample.Value!));
+                        break;
+                    default:
+                        w.WriteOctet(((byte)sample.Value!));
+                        break;
+                }
+            }
+        }
+
+        public Sel Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public Sel DecodeFrom(ref Xcdr2Reader r)
+        {
+            var __scope = r.BeginDHeader();
+            int __disc = r.ReadInt32();
+            object? __val = null;
+            switch (__disc)
+            {
+                case 1:
+                    {
+                        Pt __uv0;
+                        __uv0 = PtTypeSupport.Instance.DecodeFrom(ref r);
+                        __val = __uv0;
+                    }
+                    break;
+                case 2:
+                    {
+                        int __uv1;
+                        __uv1 = r.ReadInt32();
+                        __val = __uv1;
+                    }
+                    break;
+                default:
+                    {
+                        byte __uv2;
+                        __uv2 = r.ReadOctet();
+                        __val = __uv2;
+                    }
+                    break;
+            }
+            r.EndDHeader(__scope);
+            return new Sel { Discriminator = __disc, Value = __val };
+        }
+
+        public byte[] KeyHash(Sel sample)
+        {
+            return new byte[16];
+        }
+    }
+
+
+    public enum Hue : int
+    {
+        H_RED,
+        H_GREEN,
+        H_BLUE,
+    }
+
+    [Extensibility(ExtensibilityKind.Appendable)]
+    public partial record class MapEnum : ITopicType<MapEnum>
+    {
+        public Hue H { get; init; } = default!;
+        public IDictionary<int, Pt> M { get; init; } = default!;
+        public ISequence<Sel> Sels { get; init; } = default!;
+    }
+
+    public sealed class MapEnumTypeSupport : IDdsTopicType<MapEnum>
+    {
+        public static readonly MapEnumTypeSupport Instance = new();
+
+        public string TypeName => "feat::MapEnum";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
+
+        public byte[] Encode(MapEnum sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(MapEnum sample, EndianMode endian)
+        {
+            var w = new Xcdr2Writer(endian);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, MapEnum sample)
+        {
+            using (var __scope = w.BeginAppendable())
+            {
+                w.WriteInt16((short)(int)sample.H);
+                {
+                    var __map0 = (sample.M) ?? new System.Collections.Generic.Dictionary<int, Pt>();
+                    using (var __mapdh0 = w.BeginAppendable())
+                    {
+                        w.WriteSequenceLength(__map0.Count);
+                        foreach (var __kv0 in __map0)
+                        {
+                            w.WriteInt32(__kv0.Key);
+                            PtTypeSupport.Instance.EncodeInto(w, __kv0.Value);
+                        }
+                    }
+                }
+                {
+                    var __seq0 = (sample.Sels) as System.Collections.Generic.IEnumerable<Sel>;
+                    var __mat0 = __seq0 is null ? new System.Collections.Generic.List<Sel>() : new System.Collections.Generic.List<Sel>(__seq0);
+                    using (var __seqdh0 = w.BeginAppendable())
+                    {
+                        w.WriteSequenceLength(__mat0.Count);
+                        foreach (var __item0 in __mat0)
+                        {
+                            SelTypeSupport.Instance.EncodeInto(w, __item0);
+                        }
+                    }
+                }
+            }
+        }
+
+        public MapEnum Decode(ReadOnlySpan<byte> bytes)
+        {
+            var r = new Xcdr2Reader(bytes, EndianMode.LittleEndian);
+            return DecodeFrom(ref r);
+        }
+
+        public MapEnum DecodeFrom(ref Xcdr2Reader r)
+        {
+            var __scope = r.BeginDHeader();
+            Hue __m0 = default!;
+            __m0 = (Hue)r.ReadInt16();
+            System.Collections.Generic.IDictionary<int, Pt> __m1 = default!;
+            {
+                var __mapdh0 = r.BeginDHeader();
+                int __mcnt0 = r.ReadSequenceLength();
+                var __dict0 = new System.Collections.Generic.Dictionary<int, Pt>();
+                for (int __mi0 = 0; __mi0 < __mcnt0; __mi0++)
+                {
+                    int __mk0;
+                    __mk0 = r.ReadInt32();
+                    Pt __mv0;
+                    __mv0 = PtTypeSupport.Instance.DecodeFrom(ref r);
+                    __dict0[__mk0] = __mv0;
+                }
+                r.EndDHeader(__mapdh0);
+                __m1 = __dict0;
+            }
+            Omg.Types.ISequence<Sel> __m2 = default!;
+            {
+                var __seqdh0 = r.BeginDHeader();
+                int __cnt0 = r.ReadSequenceLength();
+                var __list0 = new Omg.Types.SequenceList<Sel>();
+                for (int __i0 = 0; __i0 < __cnt0; __i0++)
+                {
+                    Sel __e0;
+                    __e0 = SelTypeSupport.Instance.DecodeFrom(ref r);
+                    __list0.Add(__e0);
+                }
+                r.EndDHeader(__seqdh0);
+                __m2 = __list0;
+            }
+            r.EndDHeader(__scope);
+            return new MapEnum
+            {
+                H = __m0!,
+                M = __m1!,
+                Sels = __m2!,
+            };
+        }
+
+        public byte[] KeyHash(MapEnum sample)
+        {
+            return new byte[16];
+        }
+    }
+
+    [Extensibility(ExtensibilityKind.Appendable)]
     public partial record class Prim : ITopicType<Prim>
     {
         public sbyte I8 { get; init; } = default!;

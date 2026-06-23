@@ -31,6 +31,11 @@ static inline int zd_x2_read_i64(const uint8_t* buf, size_t len, size_t* pos, in
 static inline int zd_x2_read_f64(const uint8_t* buf, size_t len, size_t* pos, double* out) { uint64_t u; int rc = zd_x2_read_u64(buf, len, pos, &u); if (rc != 0) return rc; memcpy(out, &u, sizeof(*out)); return 0; }
 #endif
 
+typedef int32_t feat_Hue_t;
+enum { feat_Hue_H_RED = 0 };
+enum { feat_Hue_H_GREEN = 1 };
+enum { feat_Hue_H_BLUE = 2 };
+
 typedef uint32_t feat_Perm_t;
 enum { feat_Perm_READ = (1u << 0) };
 enum { feat_Perm_WRITE = (1u << 1) };
@@ -93,6 +98,21 @@ typedef struct feat_Arr_s {
     int32_t grid[2][3];
     feat_Pt_t shape[2];
 } feat_Arr_t;
+
+typedef struct feat_Sel_s {
+    int32_t _d;
+    union {
+        feat_Pt_t p;
+        int32_t n;
+        uint8_t z;
+    } _u;
+} feat_Sel_t;
+
+typedef struct feat_MapEnum_s {
+    feat_Hue_t h;
+    struct { uint32_t len; int32_t* keys; feat_Pt_t* vals; } m;
+    struct { uint32_t len; feat_Sel_t* elems; } sels;
+} feat_MapEnum_t;
 
 typedef struct feat_Prim_s {
     int8_t i8;
@@ -1147,6 +1167,289 @@ static void feat_Arr_sample_free(void* sample) {
     }
     for (uint32_t fi0 = 0; fi0 < 2; ++fi0) {
     }
+}
+
+static int feat_Sel_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_Sel_decode(const uint8_t* buf, size_t len, void* out_sample);
+static void feat_Sel_sample_free(void* sample);
+
+static const char feat_Sel_type_name[] = "feat::Sel";
+static const zerodds_typesupport_t feat_Sel_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_Sel_type_name,
+    .is_keyed = 0,
+    .extensibility = 1,
+    ._reserved = {0},
+    .encode = feat_Sel_encode,
+    .decode = feat_Sel_decode,
+    .key_hash = NULL,
+    .sample_free = feat_Sel_sample_free,
+};
+
+static int feat_Sel_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+    const feat_Sel_t* s = (const feat_Sel_t*)sample;
+    (void)s;
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    {
+    if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t u_dheader_pos = w_len; w_len += 4;
+    size_t u_body_start = w_len;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((*s))._d) != 0) goto fail;
+    switch (((*s))._d) {
+    case 1:
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t nst_dheader_pos = w_len;
+    w_len += 4;
+    size_t nst_body_start = w_len;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((*s))._u.p).x) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((*s))._u.p).y) != 0) goto fail;
+    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    }
+        break;
+    case 2:
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((*s))._u.n) != 0) goto fail;
+        break;
+    default:
+    if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, ((*s))._u.z) != 0) goto fail;
+        break;
+    }
+    { uint32_t u_dheader_len = (uint32_t)(w_len - u_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, u_dheader_pos, u_dheader_len); }
+    }
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_Sel_decode(const uint8_t* buf, size_t len, void* out_sample) {
+    feat_Sel_t* s = (feat_Sel_t*)out_sample;
+    size_t pos = 0;
+    if (zerodds_xcdr2_c_pad_read(buf, len, &pos, 4) != 0) return -1;
+    { uint32_t u_dh = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &u_dh) != 0) return -7; (void)u_dh; }
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((*s))._d)) != 0) return -7;
+    switch (((*s))._d) {
+    case 1:
+    {
+        uint32_t nst_dheader0 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader0) != 0) return -7;
+        size_t nst_end0 = pos + nst_dheader0;
+        if (nst_end0 > len) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((*s))._u.p).x)) != 0) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((*s))._u.p).y)) != 0) return -7;
+        pos = nst_end0;
+    }
+        break;
+    case 2:
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((*s))._u.n)) != 0) return -7;
+        break;
+    default:
+    if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(((*s))._u.z)) != 0) return -7;
+        break;
+    }
+    (void)s;
+    return 0;
+}
+
+static void feat_Sel_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_Sel_t* s = (feat_Sel_t*)sample;
+    (void)s;
+}
+
+static int feat_MapEnum_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_MapEnum_decode(const uint8_t* buf, size_t len, void* out_sample);
+static void feat_MapEnum_sample_free(void* sample);
+
+static const char feat_MapEnum_type_name[] = "feat::MapEnum";
+static const zerodds_typesupport_t feat_MapEnum_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_MapEnum_type_name,
+    .is_keyed = 0,
+    .extensibility = 1,
+    ._reserved = {0},
+    .encode = feat_MapEnum_encode,
+    .decode = feat_MapEnum_decode,
+    .key_hash = NULL,
+    .sample_free = feat_MapEnum_sample_free,
+};
+
+static int feat_MapEnum_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+    const feat_MapEnum_t* s = (const feat_MapEnum_t*)sample;
+    (void)s;
+    /* Two-pass: grow the buffer, then copy. */
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t dheader_pos = w_len;
+    w_len += 4;
+    size_t body_start = w_len;
+    if (zerodds_xcdr2_c_write_u16(&w_buf, &w_len, &w_cap, (uint16_t)(s->h)) != 0) goto fail;
+    {
+    if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t map_dheader_pos = w_len;
+    w_len += 4;
+    size_t map_body_start = w_len;
+    if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->m).len) != 0) goto fail;
+    for (uint32_t mi0 = 0; mi0 < (s->m).len; ++mi0) {
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->m).keys[mi0]) != 0) goto fail;
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t nst_dheader_pos = w_len;
+    w_len += 4;
+    size_t nst_body_start = w_len;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->m).vals[mi0]).x) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->m).vals[mi0]).y) != 0) goto fail;
+    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    }
+    }
+    uint32_t map_dheader_len = (uint32_t)(w_len - map_body_start);
+    zerodds_xcdr2_c_put_u32_at(w_buf, map_dheader_pos, map_dheader_len);
+    }
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t seq_dheader_pos = w_len;
+    w_len += 4;
+    size_t seq_body_start = w_len;
+    if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->sels).len) != 0) goto fail;
+    for (uint32_t i0 = 0; i0 < (s->sels).len; ++i0) {
+    {
+    if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t u_dheader_pos = w_len; w_len += 4;
+    size_t u_body_start = w_len;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->sels).elems[i0])._d) != 0) goto fail;
+    switch (((s->sels).elems[i0])._d) {
+    case 1:
+    {
+    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+    size_t nst_dheader_pos = w_len;
+    w_len += 4;
+    size_t nst_body_start = w_len;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((s->sels).elems[i0])._u.p).x) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((s->sels).elems[i0])._u.p).y) != 0) goto fail;
+    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    }
+        break;
+    case 2:
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->sels).elems[i0])._u.n) != 0) goto fail;
+        break;
+    default:
+    if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, ((s->sels).elems[i0])._u.z) != 0) goto fail;
+        break;
+    }
+    { uint32_t u_dheader_len = (uint32_t)(w_len - u_body_start);
+      zerodds_xcdr2_c_put_u32_at(w_buf, u_dheader_pos, u_dheader_len); }
+    }
+    }
+    uint32_t seq_dheader_len = (uint32_t)(w_len - seq_body_start);
+    zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, seq_dheader_len);
+    }
+    uint32_t dheader_len = (uint32_t)(w_len - body_start);
+    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_MapEnum_decode(const uint8_t* buf, size_t len, void* out_sample) {
+    feat_MapEnum_t* s = (feat_MapEnum_t*)out_sample;
+    size_t pos = 0;
+    uint32_t dheader = 0;
+    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader) != 0) return -7;
+    size_t body_end = pos + dheader;
+    if (body_end > len) return -7;
+    { uint16_t zd_e16 = 0; if (zerodds_xcdr2_c_read_u16(buf, len, &pos, &zd_e16) != 0) return -7; (s->h) = (int32_t)(int16_t)zd_e16; }
+    {
+        if (zerodds_xcdr2_c_pad_read(buf, len, &pos, 4) != 0) return -1;
+        uint32_t map_dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &map_dheader) != 0) return -7;
+        (void)map_dheader;
+        uint32_t map_len = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &map_len) != 0) return -7;
+        (s->m).len = map_len;
+        (s->m).keys = (int32_t*)calloc(map_len ? map_len : 1, sizeof(int32_t));
+        (s->m).vals = (feat_Pt_t*)calloc(map_len ? map_len : 1, sizeof(feat_Pt_t));
+        if ((((s->m).keys == NULL) || ((s->m).vals == NULL)) && map_len > 0) return -7;
+        for (uint32_t mi0 = 0; mi0 < map_len; ++mi0) {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->m).keys[mi0])) != 0) return -7;
+    {
+        uint32_t nst_dheader1 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader1) != 0) return -7;
+        size_t nst_end1 = pos + nst_dheader1;
+        if (nst_end1 > len) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->m).vals[mi0]).x)) != 0) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->m).vals[mi0]).y)) != 0) return -7;
+        pos = nst_end1;
+    }
+        }
+    }
+    {
+        uint32_t seq_dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_dheader) != 0) return -7;
+        (void)seq_dheader;
+        uint32_t seq_len = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_len) != 0) return -7;
+        (s->sels).len = seq_len;
+        (s->sels).elems = (feat_Sel_t*)calloc(seq_len ? seq_len : 1, sizeof(feat_Sel_t));
+        if ((s->sels).elems == NULL && seq_len > 0) return -7;
+        for (uint32_t i0 = 0; i0 < seq_len; ++i0) {
+    if (zerodds_xcdr2_c_pad_read(buf, len, &pos, 4) != 0) return -1;
+    { uint32_t u_dh = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &u_dh) != 0) return -7; (void)u_dh; }
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->sels).elems[i0])._d)) != 0) return -7;
+    switch (((s->sels).elems[i0])._d) {
+    case 1:
+    {
+        uint32_t nst_dheader1 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader1) != 0) return -7;
+        size_t nst_end1 = pos + nst_dheader1;
+        if (nst_end1 > len) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((s->sels).elems[i0])._u.p).x)) != 0) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((s->sels).elems[i0])._u.p).y)) != 0) return -7;
+        pos = nst_end1;
+    }
+        break;
+    case 2:
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->sels).elems[i0])._u.n)) != 0) return -7;
+        break;
+    default:
+    if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(((s->sels).elems[i0])._u.z)) != 0) return -7;
+        break;
+    }
+        }
+    }
+    pos = body_end;
+    (void)s;
+    return 0;
+}
+
+static void feat_MapEnum_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_MapEnum_t* s = (feat_MapEnum_t*)sample;
+    (void)s;
+    free((s->m).keys); (s->m).keys = NULL;
+    free((s->m).vals); (s->m).vals = NULL; (s->m).len = 0;
+    free((s->sels).elems); (s->sels).elems = NULL; (s->sels).len = 0;
 }
 
 static int feat_Prim_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);

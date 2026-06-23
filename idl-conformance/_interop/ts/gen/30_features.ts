@@ -1062,6 +1062,272 @@ export const ArrTypeSupport: DdsTopicType<Arr> = {
     },
 };
 
+export type Sel =
+    { discriminator: 1; p: Pt }
+    | { discriminator: 2; n: number }
+    | { discriminator: number; z: number }
+;
+
+export const SelType: DdsTypeDescriptor<Sel> = {
+    kind: "union",
+    name: "Sel",
+    extensibility: "appendable",
+    nested: false,
+    fields: [
+        {
+            name: "discriminator",
+            id: 0xFFFFFFFF,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "p",
+            id: 0,
+            type: { kind: "ref", name: "Pt" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            labels: [1],
+        },
+        {
+            name: "n",
+            id: 1,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            labels: [2],
+        },
+        {
+            name: "z",
+            id: 2,
+            type: { kind: "primitive", name: "octet" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    hasDefault: true,
+    typeGuard: isSel,
+};
+export function isSel(v: unknown): v is Sel {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    return "discriminator" in o;
+}
+
+registerType(SelType);
+
+export const SelTypeSupport: DdsTopicType<Sel> = {
+    typeName: "Sel",
+    isKeyed: false,
+    extensibility: "appendable",
+    encodeInto(w: Xcdr2Writer, s: Sel): void {
+        const _tok = w.beginAppendable();
+        w.writeInt32(s.discriminator);
+        if (s.discriminator === 1) {
+            const _v: Pt = (s as unknown as { p: Pt }).p;
+            PtTypeSupport.encodeInto(w, _v);
+        } else if (s.discriminator === 2) {
+            const _v: number = (s as unknown as { n: number }).n;
+            w.writeInt32(_v);
+        } else {
+            const _v: number = (s as unknown as { z: number }).z;
+            w.writeOctet(_v);
+        }
+        w.endAppendable(_tok);
+    },
+    encode(s: Sel, endian: EndianMode = "le"): Uint8Array {
+        const w = new Xcdr2Writer(endian);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): Sel {
+        const _tok = r.beginAppendable();
+        const _disc: number = r.readInt32();
+        let _result: Sel;
+        if (_disc === 1) {
+            const _b: Pt = PtTypeSupport.decodeFrom(r);
+            _result = { discriminator: _disc, p: _b } as unknown as typeof _result;
+        } else if (_disc === 2) {
+            const _b: number = r.readInt32();
+            _result = { discriminator: _disc, n: _b } as unknown as typeof _result;
+        } else {
+            const _b: number = r.readOctet();
+            _result = { discriminator: _disc, z: _b } as unknown as typeof _result;
+        }
+        r.endAppendable(_tok);
+        return _result;
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): Sel {
+        const r = new Xcdr2Reader(bytes, offset, length, "le");
+        return this.decodeFrom(r);
+    },
+    keyHash(s: Sel): Uint8Array {
+        void s;
+        return new Uint8Array(16);
+    },
+};
+
+export const Hue = {
+    H_RED: "H_RED",
+    H_GREEN: "H_GREEN",
+    H_BLUE: "H_BLUE",
+} as const;
+export type Hue = (typeof Hue)[keyof typeof Hue];
+export const HueOrdinal: Readonly<Record<Hue, number>> = {
+    H_RED: 0,
+    H_GREEN: 1,
+    H_BLUE: 2,
+} as const;
+export const HueFromOrdinal: ReadonlyMap<number, Hue> = new Map([
+    [0, "H_RED"],
+    [1, "H_GREEN"],
+    [2, "H_BLUE"],
+]);
+
+export function isHue(v: unknown): v is Hue {
+    if (typeof v !== "string") return false;
+    return Object.prototype.hasOwnProperty.call(Hue, v);
+}
+
+export const HueType: DdsTypeDescriptor<Hue> = {
+    kind: "enum",
+    name: "Hue",
+    extensibility: "appendable",
+    nested: false,
+    bitBound: 16,
+    fields: [
+        {
+            name: "H_RED",
+            id: 0,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            default: 0,
+        },
+        {
+            name: "H_GREEN",
+            id: 1,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            default: 1,
+        },
+        {
+            name: "H_BLUE",
+            id: 2,
+            type: { kind: "primitive", name: "int32" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+            default: 2,
+        },
+    ],
+    typeGuard: isHue,
+};
+registerType(HueType);
+
+export interface MapEnum {
+    h: Hue;
+    m: ReadonlyMap<number, Pt>;
+    sels: Array<Sel>;
+}
+
+export function isMapEnum(v: unknown): v is MapEnum {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    return true;
+}
+
+export const MapEnumType: DdsTypeDescriptor<MapEnum> = {
+    kind: "struct",
+    name: "MapEnum",
+    extensibility: "appendable",
+    nested: false,
+    fields: [
+        {
+            name: "h",
+            id: 0,
+            type: { kind: "ref", name: "Hue" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "m",
+            id: 1,
+            type: { kind: "map", key: { kind: "primitive", name: "int32" }, value: { kind: "ref", name: "Pt" } },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "sels",
+            id: 2,
+            type: { kind: "sequence", element: { kind: "ref", name: "Sel" } },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    typeGuard: isMapEnum,
+};
+registerType(MapEnumType);
+
+export const MapEnumTypeSupport: DdsTopicType<MapEnum> = {
+    typeName: "feat::MapEnum",
+    isKeyed: false,
+    extensibility: "appendable",
+    encodeInto(w: Xcdr2Writer, s: MapEnum): void {
+        const _tok = w.beginAppendable();
+        w.writeInt16(HueOrdinal[s.h]);
+        const _ment5 = [...s.m].sort(((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)));
+        const _maptok5 = w.beginAppendable();
+        w.writeUint32(_ment5.length);
+        for (const [_k5, _v5] of _ment5) {
+            w.writeInt32(_k5);
+            PtTypeSupport.encodeInto(w, _v5);
+        }
+        w.endAppendable(_maptok5);
+        const _seqtok6 = w.beginAppendable();
+        w.writeUint32(s.sels.length);
+        for (const _e6 of s.sels) {
+            SelTypeSupport.encodeInto(w, _e6);
+        }
+        w.endAppendable(_seqtok6);
+        w.endAppendable(_tok);
+    },
+    encode(s: MapEnum, endian: EndianMode = "le"): Uint8Array {
+        const w = new Xcdr2Writer(endian);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): MapEnum {
+        const _tok = r.beginAppendable();
+        const _f_h: Hue = (HueFromOrdinal.get(r.readInt16()) as Hue);
+        const _f_m: ReadonlyMap<number, Pt> = ((): ReadonlyMap<number, Pt> => { const _mt = r.beginAppendable(); const _n = r.readUint32(); const _o = new Map<number, Pt>(); for (let _i = 0; _i < _n; _i++) { const _k = r.readInt32(); const _v = PtTypeSupport.decodeFrom(r); _o.set(_k, _v); } r.endAppendable(_mt); return _o; })();
+        const _f_sels: Array<Sel> = ((): Array<Sel> => { const _t = r.beginAppendable(); const _n = r.readUint32(); const _o: Array<Sel> = []; for (let _i = 0; _i < _n; _i++) { _o.push(SelTypeSupport.decodeFrom(r)); } r.endAppendable(_t); return _o; })();
+        r.endAppendable(_tok);
+        return {
+            h: _f_h,
+            m: _f_m,
+            sels: _f_sels,
+        };
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset): MapEnum {
+        const r = new Xcdr2Reader(bytes, offset, length, "le");
+        return this.decodeFrom(r);
+    },
+    keyHash(s: MapEnum): Uint8Array {
+        return new Uint8Array(16);
+    },
+};
+
 export interface Prim {
     i8: number;
     u8: number;

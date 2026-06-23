@@ -186,7 +186,20 @@ public final class FeaturesInterop {
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         ok &= enc("prim", feat.PrimTypeSupport.INSTANCE.encode(canonicalPrim(),
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
+        ok &= enc("mapenum", feat.MapEnumTypeSupport.INSTANCE.encode(canonicalMapEnum(),
+            org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         return ok;
+    }
+
+    static feat.MapEnum canonicalMapEnum() {
+        feat.MapEnum v = new feat.MapEnum();
+        v.setH(feat.Hue.H_BLUE);
+        java.util.Map<Integer, feat.Pt> m = new java.util.TreeMap<>();
+        feat.Pt p = new feat.Pt(); p.setX(11); p.setY(12);
+        m.put(3, p);
+        v.setM(m);
+        v.setSels(java.util.List.of(new feat.Sel.N(9)));
+        return v;
     }
 
     static boolean enc(String name, byte[] bytes) throws Exception {

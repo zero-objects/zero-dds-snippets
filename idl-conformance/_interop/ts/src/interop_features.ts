@@ -26,7 +26,24 @@ const {
   PrimTypeSupport,
   MutNestTypeSupport,
   OuterKeyTypeSupport,
+  MapEnumTypeSupport,
 } = feat;
+
+const MAPENUM: feat.MapEnum = {
+  h: feat.Hue.H_BLUE,
+  m: new Map<number, feat.Pt>([[3, { x: 11, y: 12 }]]),
+  sels: [{ discriminator: 2, n: 9 }],
+};
+
+function diffMapEnum(g: feat.MapEnum, w: feat.MapEnum): Diff {
+  // Re-encode both and compare bytes (structural roundtrip check).
+  const a = MapEnumTypeSupport.encode(g, "le");
+  const b = MapEnumTypeSupport.encode(w, "le");
+  if (a.length !== b.length || !a.every((x, i) => x === b[i])) {
+    return ["mapenum: decoded re-encode != canonical"];
+  }
+  return [];
+}
 
 const GOLDEN_DIR =
   "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
@@ -253,6 +270,13 @@ const FEATURES: Array<Feature<any>> = [
     encode: (s) => OuterKeyTypeSupport.encode(s, "le"),
     decode: (b) => OuterKeyTypeSupport.decode(b),
     diff: diffOuterKey,
+  },
+  {
+    name: "mapenum",
+    sample: MAPENUM,
+    encode: (s) => MapEnumTypeSupport.encode(s, "le"),
+    decode: (b) => MapEnumTypeSupport.decode(b),
+    diff: diffMapEnum,
   },
 ];
 

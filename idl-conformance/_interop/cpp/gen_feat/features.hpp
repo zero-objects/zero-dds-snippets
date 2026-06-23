@@ -3,9 +3,11 @@
 
 #include <array>
 #include <cstdint>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "dds/topic/TopicTraits.hpp"
@@ -250,6 +252,56 @@ namespace feat {
         void shape(const std::array<::feat::Pt, 2>& value) { shape_ = value; }
     };
 
+    class Sel {
+    public:
+        using value_type = std::variant<::feat::Pt, int32_t, uint8_t>;
+        Sel() = default;
+        ~Sel() = default;
+
+        int32_t _d() const { return discriminator_; }
+        void _d(int32_t d) { discriminator_ = d; }
+        value_type& value() { return value_; }
+        const value_type& value() const { return value_; }
+
+        // case 1 -> p
+        // case 2 -> n
+        // case default -> z
+
+    private:
+        int32_t discriminator_{};
+        value_type value_{};
+    };
+
+    enum class Hue : int32_t {
+        H_RED,
+        H_GREEN,
+        H_BLUE,
+    };
+
+    class MapEnum {
+    public:
+        MapEnum() = default;
+        ~MapEnum() = default;
+        MapEnum(::feat::Hue h, std::map<int32_t, ::feat::Pt> m, std::vector<::feat::Sel> sels)
+            : h_(std::move(h)), m_(std::move(m)), sels_(std::move(sels)) {}
+
+    private:
+        ::feat::Hue h_;
+        std::map<int32_t, ::feat::Pt> m_;
+        std::vector<::feat::Sel> sels_;
+
+    public:
+        ::feat::Hue& h() { return h_; }
+        const ::feat::Hue& h() const { return h_; }
+        void h(const ::feat::Hue& value) { h_ = value; }
+        std::map<int32_t, ::feat::Pt>& m() { return m_; }
+        const std::map<int32_t, ::feat::Pt>& m() const { return m_; }
+        void m(const std::map<int32_t, ::feat::Pt>& value) { m_ = value; }
+        std::vector<::feat::Sel>& sels() { return sels_; }
+        const std::vector<::feat::Sel>& sels() const { return sels_; }
+        void sels(const std::vector<::feat::Sel>& value) { sels_ = value; }
+    };
+
     class Prim {
     public:
         Prim() = default;
@@ -319,6 +371,18 @@ namespace feat {
 // DDS-PSM-Cxx topic_type_support<T> -- auto-generiert (XCDR2 Wire, XTypes 1.3 7.4).
 namespace dds {
 namespace topic {
+
+template <>
+struct topic_type_support<::feat::Sel> {
+    static const char* type_name() { return "feat::Sel"; }
+    static constexpr bool is_keyed() { return false; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE; }
+    static std::vector<uint8_t> encode(const ::feat::Sel& zd_v);
+    static std::vector<uint8_t> encode(const ::feat::Sel& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::feat::Sel& zd_v);
+    static ::feat::Sel decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::feat::Sel& zd_v);
+};
 
 template <>
 struct topic_type_support<::feat::WStr> {
@@ -441,6 +505,18 @@ struct topic_type_support<::feat::Arr> {
 };
 
 template <>
+struct topic_type_support<::feat::MapEnum> {
+    static const char* type_name() { return "feat::MapEnum"; }
+    static constexpr bool is_keyed() { return false; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE; }
+    static std::vector<uint8_t> encode(const ::feat::MapEnum& zd_v);
+    static std::vector<uint8_t> encode(const ::feat::MapEnum& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::feat::MapEnum& zd_v);
+    static ::feat::MapEnum decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::array<uint8_t, 16> key_hash(const ::feat::MapEnum& zd_v);
+};
+
+template <>
 struct topic_type_support<::feat::Prim> {
     static const char* type_name() { return "feat::Prim"; }
     static constexpr bool is_keyed() { return false; }
@@ -451,6 +527,127 @@ struct topic_type_support<::feat::Prim> {
     static ::feat::Prim decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr);
     static std::array<uint8_t, 16> key_hash(const ::feat::Prim& zd_v);
 };
+
+inline std::vector<uint8_t> topic_type_support<::feat::Sel>::encode(const ::feat::Sel& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::Sel>::encode(const ::feat::Sel& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+            ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v._d(), zd_max_align);
+        switch (static_cast<int32_t>(zd_v._d())) {
+        case static_cast<int32_t>(1):
+        {
+            const ::feat::Pt& zd_bv = std::get<::feat::Pt>(zd_v.value());
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb0 = ::dds::topic::topic_type_support<::feat::Pt>::encode(zd_bv, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nsb0.begin(), zd_nsb0.end());
+                }
+            break;
+        }
+        case static_cast<int32_t>(2):
+        {
+            const int32_t& zd_bv = std::get<int32_t>(zd_v.value());
+                ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_bv, zd_max_align);
+            break;
+        }
+        default: {
+            const uint8_t& zd_bv = std::get<uint8_t>(zd_v.value());
+                ::dds::topic::xcdr2::write_u8(zd_out, zd_bv);
+            break;
+        }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::Sel>::encode_be(const ::feat::Sel& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+            ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v._d());
+        switch (static_cast<int32_t>(zd_v._d())) {
+        case static_cast<int32_t>(1):
+        {
+            const ::feat::Pt& zd_bv = std::get<::feat::Pt>(zd_v.value());
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb1 = ::dds::topic::topic_type_support<::feat::Pt>::encode_be(zd_bv);
+                    zd_out.insert(zd_out.end(), zd_nsb1.begin(), zd_nsb1.end());
+                }
+            break;
+        }
+        case static_cast<int32_t>(2):
+        {
+            const int32_t& zd_bv = std::get<int32_t>(zd_v.value());
+                ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_bv);
+            break;
+        }
+        default: {
+            const uint8_t& zd_bv = std::get<uint8_t>(zd_v.value());
+                ::dds::topic::xcdr2::write_u8(zd_out, zd_bv);
+            break;
+        }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline ::feat::Sel topic_type_support<::feat::Sel>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::feat::Sel zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        (void)zd_end;
+        int32_t zd_disc{};
+        zd_disc =(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+        zd_v._d(zd_disc);
+        switch (static_cast<int32_t>(zd_v._d())) {
+        case static_cast<int32_t>(1):
+        {
+            ::feat::Pt zd_bv{};
+            {
+                ::feat::Pt zd_ns2{};
+                ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+                const size_t zd_nss2 = zd_pos;
+                size_t zd_npk2 = zd_pos;
+                const uint32_t zd_nl2 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk2, zd_len);
+                zd_ns2 = ::dds::topic::topic_type_support<::feat::Pt>::decode(zd_buf + zd_nss2, 4u + zd_nl2, zd_repr);
+                zd_pos = zd_nss2 + 4u + zd_nl2;
+                zd_bv =(zd_ns2);
+            }
+            zd_v.value() = zd_bv;
+            break;
+        }
+        case static_cast<int32_t>(2):
+        {
+            int32_t zd_bv{};
+            zd_bv =(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_v.value() = zd_bv;
+            break;
+        }
+        default: {
+            uint8_t zd_bv{};
+            zd_bv =(::dds::topic::xcdr2::read_u8(zd_buf, zd_pos, zd_len));
+            zd_v.value() = zd_bv;
+            break;
+        }
+        }
+        if (zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::feat::Sel>::key_hash(const ::feat::Sel& zd_v) {
+        (void)zd_v;
+        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    }
 
 inline std::vector<uint8_t> topic_type_support<::feat::WStr>::encode(const ::feat::WStr& zd_v) {
         return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
@@ -510,11 +707,11 @@ inline std::vector<uint8_t> topic_type_support<::feat::Mut>::encode(const ::feat
         (void)zd_max_align;
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
-        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 10, false, zd_v.a());
-        ::dds::topic::xcdr2::emheader_8<double>(zd_out, zd_origin, 20, false, zd_v.b());
+        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 0xau, false, zd_v.a());
+        ::dds::topic::xcdr2::emheader_8<double>(zd_out, zd_origin, 0x14u, false, zd_v.b());
         if (zd_v.c().size() > 8) throw std::length_error("bounded string length exceeds its IDL bound (8)");
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 0x1eu, false));
             { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
               ::dds::topic::xcdr2::write_string_origin(zd_out, zd_body_origin, zd_v.c(), zd_max_align);
             } }
@@ -527,14 +724,14 @@ inline std::vector<uint8_t> topic_type_support<::feat::Mut>::encode_be(const ::f
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 10, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 0xau, false));
             ::dds::topic::xcdr2::write_be_raw<int32_t>(zd_out, zd_v.a()); }
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(3u, 20, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(3u, 0x14u, false));
             ::dds::topic::xcdr2::write_be_raw<double>(zd_out, zd_v.b()); }
         if (zd_v.c().size() > 8) throw std::length_error("bounded string length exceeds its IDL bound (8)");
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 0x1eu, false));
             { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
               ::dds::topic::xcdr2::write_string_be(zd_out, zd_v.c());
             } }
@@ -552,15 +749,15 @@ inline ::feat::Mut topic_type_support<::feat::Mut>::decode(const uint8_t* zd_buf
         while (zd_pos + 4 <= zd_end) {
             const auto zd_h = ::dds::topic::xcdr2::emheader_read(zd_buf, zd_pos, zd_len, zd_origin);
             switch (zd_h.member_id) {
-                case 10: {
+                case 0xau: {
                     zd_v.a(::dds::topic::xcdr2::read_le_raw<int32_t>(zd_buf, zd_pos, zd_len));
                     break;
                 }
-                case 20: {
+                case 0x14u: {
                     zd_v.b(::dds::topic::xcdr2::read_le_raw<double>(zd_buf, zd_pos, zd_len));
                     break;
                 }
-                case 30: {
+                case 0x1eu: {
                     auto zd_body_origin = zd_pos;
                     zd_v.c(::dds::topic::xcdr2::read_string_origin(zd_buf, zd_pos, zd_len, zd_body_origin, zd_max_align));
                     break;
@@ -599,8 +796,8 @@ inline std::vector<uint8_t> topic_type_support<::feat::MutLeaf>::encode(const ::
         (void)zd_max_align;
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
-        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 1, false, zd_v.u());
-        ::dds::topic::xcdr2::emheader_8<double>(zd_out, zd_origin, 2, false, zd_v.v());
+        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 0x1u, false, zd_v.u());
+        ::dds::topic::xcdr2::emheader_8<double>(zd_out, zd_origin, 0x2u, false, zd_v.v());
         ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
         return zd_out;
     }
@@ -610,10 +807,10 @@ inline std::vector<uint8_t> topic_type_support<::feat::MutLeaf>::encode_be(const
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 1, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 0x1u, false));
             ::dds::topic::xcdr2::write_be_raw<int32_t>(zd_out, zd_v.u()); }
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(3u, 2, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(3u, 0x2u, false));
             ::dds::topic::xcdr2::write_be_raw<double>(zd_out, zd_v.v()); }
         ::dds::topic::xcdr2::mutable_end(zd_out, zd_scope);
         return zd_out;
@@ -629,11 +826,11 @@ inline ::feat::MutLeaf topic_type_support<::feat::MutLeaf>::decode(const uint8_t
         while (zd_pos + 4 <= zd_end) {
             const auto zd_h = ::dds::topic::xcdr2::emheader_read(zd_buf, zd_pos, zd_len, zd_origin);
             switch (zd_h.member_id) {
-                case 1: {
+                case 0x1u: {
                     zd_v.u(::dds::topic::xcdr2::read_le_raw<int32_t>(zd_buf, zd_pos, zd_len));
                     break;
                 }
-                case 2: {
+                case 0x2u: {
                     zd_v.v(::dds::topic::xcdr2::read_le_raw<double>(zd_buf, zd_pos, zd_len));
                     break;
                 }
@@ -671,21 +868,21 @@ inline std::vector<uint8_t> topic_type_support<::feat::MutNest>::encode(const ::
         (void)zd_max_align;
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
-        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 10, false, zd_v.tag());
+        ::dds::topic::xcdr2::emheader_4<int32_t>(zd_out, zd_origin, 0xau, false, zd_v.tag());
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 20, false));
-            auto zd_nsb0 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode(zd_v.leaf(), zd_repr);
-            zd_out.insert(zd_out.end(), zd_nsb0.begin(), zd_nsb0.end()); }
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 0x14u, false));
+            auto zd_nsb3 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode(zd_v.leaf(), zd_repr);
+            zd_out.insert(zd_out.end(), zd_nsb3.begin(), zd_nsb3.end()); }
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 0x1eu, false));
             { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
               const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
               ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_body_origin, static_cast<uint32_t>(zd_v.list().size()), zd_max_align);
               for (const auto& zd_e : zd_v.list()) {
                     {
                         ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_body_origin, 4);
-                        auto zd_nsb1 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode(zd_e, zd_repr);
-                        zd_out.insert(zd_out.end(), zd_nsb1.begin(), zd_nsb1.end());
+                        auto zd_nsb4 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode(zd_e, zd_repr);
+                        zd_out.insert(zd_out.end(), zd_nsb4.begin(), zd_nsb4.end());
                     }
               }
               ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
@@ -700,22 +897,22 @@ inline std::vector<uint8_t> topic_type_support<::feat::MutNest>::encode_be(const
         const auto zd_scope = ::dds::topic::xcdr2::mutable_begin(zd_out);
         const size_t zd_origin = zd_scope.origin;
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 10, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(2u, 0xau, false));
             ::dds::topic::xcdr2::write_be_raw<int32_t>(zd_out, zd_v.tag()); }
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 20, false));
-            auto zd_nsb2 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode_be(zd_v.leaf());
-            zd_out.insert(zd_out.end(), zd_nsb2.begin(), zd_nsb2.end()); }
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 0x14u, false));
+            auto zd_nsb5 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode_be(zd_v.leaf());
+            zd_out.insert(zd_out.end(), zd_nsb5.begin(), zd_nsb5.end()); }
         { ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 30, false));
+            ::dds::topic::xcdr2::emheader_write(zd_out, ::dds::topic::xcdr2::emheader_make(5u, 0x1eu, false));
             { const auto zd_body_origin = zd_out.size(); (void)zd_body_origin;
               const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
               ::dds::topic::xcdr2::write_be<uint32_t>(zd_out, static_cast<uint32_t>(zd_v.list().size()));
               for (const auto& zd_e : zd_v.list()) {
                     {
                         ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_body_origin, 4);
-                        auto zd_nsb3 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode_be(zd_e);
-                        zd_out.insert(zd_out.end(), zd_nsb3.begin(), zd_nsb3.end());
+                        auto zd_nsb6 = ::dds::topic::topic_type_support<::feat::MutLeaf>::encode_be(zd_e);
+                        zd_out.insert(zd_out.end(), zd_nsb6.begin(), zd_nsb6.end());
                     }
               }
               ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
@@ -735,22 +932,22 @@ inline ::feat::MutNest topic_type_support<::feat::MutNest>::decode(const uint8_t
         while (zd_pos + 4 <= zd_end) {
             const auto zd_h = ::dds::topic::xcdr2::emheader_read(zd_buf, zd_pos, zd_len, zd_origin);
             switch (zd_h.member_id) {
-                case 10: {
+                case 0xau: {
                     zd_v.tag(::dds::topic::xcdr2::read_le_raw<int32_t>(zd_buf, zd_pos, zd_len));
                     break;
                 }
-                case 20: {
+                case 0x14u: {
                     auto zd_body_origin = zd_pos; (void)zd_body_origin;
-                    ::feat::MutLeaf zd_ns4{};
-                    const size_t zd_nss4 = zd_pos;
-                    size_t zd_npk4 = zd_pos;
-                    const uint32_t zd_nl4 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk4, zd_len);
-                    zd_ns4 = ::dds::topic::topic_type_support<::feat::MutLeaf>::decode(zd_buf + zd_nss4, 4u + zd_nl4, zd_repr);
-                    zd_pos = zd_nss4 + 4u + zd_nl4;
-                    zd_v.leaf(zd_ns4);
+                    ::feat::MutLeaf zd_ns7{};
+                    const size_t zd_nss7 = zd_pos;
+                    size_t zd_npk7 = zd_pos;
+                    const uint32_t zd_nl7 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk7, zd_len);
+                    zd_ns7 = ::dds::topic::topic_type_support<::feat::MutLeaf>::decode(zd_buf + zd_nss7, 4u + zd_nl7, zd_repr);
+                    zd_pos = zd_nss7 + 4u + zd_nl7;
+                    zd_v.leaf(zd_ns7);
                     break;
                 }
-                case 30: {
+                case 0x1eu: {
                     auto zd_body_origin = zd_pos;
                     { const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_seq_dh; }
                     auto zd_cnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_body_origin, zd_max_align);
@@ -758,12 +955,12 @@ inline ::feat::MutNest topic_type_support<::feat::MutNest>::decode(const uint8_t
                     zd_seq.reserve(zd_cnt);
                     for (uint32_t zd_i = 0; zd_i < zd_cnt; ++zd_i) {
                         ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_body_origin, 4);
-                        const size_t zd_nss5 = zd_pos;
-                        size_t zd_npk5 = zd_pos;
-                        const uint32_t zd_nl5 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk5, zd_len);
-                        ::feat::MutLeaf zd_se5 = ::dds::topic::topic_type_support<::feat::MutLeaf>::decode(zd_buf + zd_nss5, 4u + zd_nl5, zd_repr);
-                        zd_pos = zd_nss5 + 4u + zd_nl5;
-                        zd_seq.push_back(std::move(zd_se5));
+                        const size_t zd_nss8 = zd_pos;
+                        size_t zd_npk8 = zd_pos;
+                        const uint32_t zd_nl8 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk8, zd_len);
+                        ::feat::MutLeaf zd_se8 = ::dds::topic::topic_type_support<::feat::MutLeaf>::decode(zd_buf + zd_nss8, 4u + zd_nl8, zd_repr);
+                        zd_pos = zd_nss8 + 4u + zd_nl8;
+                        zd_seq.push_back(std::move(zd_se8));
                     }
                     zd_v.list(std::move(zd_seq));
                     break;
@@ -874,10 +1071,10 @@ inline ::feat::OuterKey topic_type_support<::feat::OuterKey>::decode(const uint8
         const size_t zd_origin = 0;
         (void)zd_origin;
         {
-            ::feat::NestedKey zd_ns6{};
-            zd_ns6.hi(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
-            zd_ns6.lo(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
-            zd_v.k(zd_ns6);
+            ::feat::NestedKey zd_ns9{};
+            zd_ns9.hi(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_ns9.lo(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+            zd_v.k(zd_ns9);
         }
         zd_v.payload(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
         return zd_v;
@@ -956,13 +1153,14 @@ inline std::vector<uint8_t> topic_type_support<::feat::Tree>::encode(const ::fea
         (void)zd_origin;
         ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_v.value(), zd_max_align);
         {
+        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
         const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_origin, static_cast<uint32_t>(zd_v.kids().size()), zd_max_align);
         for (const auto& zd_e : zd_v.kids()) {
                 {
                     ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-                    auto zd_nsb7 = ::dds::topic::topic_type_support<::feat::Tree>::encode(zd_e, zd_repr);
-                    zd_out.insert(zd_out.end(), zd_nsb7.begin(), zd_nsb7.end());
+                    auto zd_nsb10 = ::dds::topic::topic_type_support<::feat::Tree>::encode(zd_e, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nsb10.begin(), zd_nsb10.end());
                 }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
@@ -978,13 +1176,14 @@ inline std::vector<uint8_t> topic_type_support<::feat::Tree>::encode_be(const ::
         (void)zd_origin;
         ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_v.value());
         {
+        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
         const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
         ::dds::topic::xcdr2::write_be<uint32_t>(zd_out, static_cast<uint32_t>(zd_v.kids().size()));
         for (const auto& zd_e : zd_v.kids()) {
                 {
                     ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-                    auto zd_nsb8 = ::dds::topic::topic_type_support<::feat::Tree>::encode_be(zd_e);
-                    zd_out.insert(zd_out.end(), zd_nsb8.begin(), zd_nsb8.end());
+                    auto zd_nsb11 = ::dds::topic::topic_type_support<::feat::Tree>::encode_be(zd_e);
+                    zd_out.insert(zd_out.end(), zd_nsb11.begin(), zd_nsb11.end());
                 }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
@@ -1003,18 +1202,19 @@ inline ::feat::Tree topic_type_support<::feat::Tree>::decode(const uint8_t* zd_b
         (void)zd_end;
         zd_v.value(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
         {
+            ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
             const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_seq_dh;
             auto zd_cnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align);
             std::vector<::feat::Tree> zd_seq;
             zd_seq.reserve(zd_cnt);
             for (uint32_t zd_i = 0; zd_i < zd_cnt; ++zd_i) {
                 ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
-                const size_t zd_nss9 = zd_pos;
-                size_t zd_npk9 = zd_pos;
-                const uint32_t zd_nl9 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk9, zd_len);
-                ::feat::Tree zd_se9 = ::dds::topic::topic_type_support<::feat::Tree>::decode(zd_buf + zd_nss9, 4u + zd_nl9, zd_repr);
-                zd_pos = zd_nss9 + 4u + zd_nl9;
-                zd_seq.push_back(std::move(zd_se9));
+                const size_t zd_nss12 = zd_pos;
+                size_t zd_npk12 = zd_pos;
+                const uint32_t zd_nl12 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk12, zd_len);
+                ::feat::Tree zd_se12 = ::dds::topic::topic_type_support<::feat::Tree>::decode(zd_buf + zd_nss12, 4u + zd_nl12, zd_repr);
+                zd_pos = zd_nss12 + 4u + zd_nl12;
+                zd_seq.push_back(std::move(zd_se12));
             }
             zd_v.kids(std::move(zd_seq));
         }
@@ -1093,8 +1293,8 @@ inline std::vector<uint8_t> topic_type_support<::feat::Arr>::encode(const ::feat
         for (const auto& zd_a0 : zd_v.shape()) {
                 {
                     ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-                    auto zd_nsb10 = ::dds::topic::topic_type_support<::feat::Pt>::encode(zd_a0, zd_repr);
-                    zd_out.insert(zd_out.end(), zd_nsb10.begin(), zd_nsb10.end());
+                    auto zd_nsb13 = ::dds::topic::topic_type_support<::feat::Pt>::encode(zd_a0, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nsb13.begin(), zd_nsb13.end());
                 }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_arr_dh);
@@ -1118,8 +1318,8 @@ inline std::vector<uint8_t> topic_type_support<::feat::Arr>::encode_be(const ::f
         for (const auto& zd_a0 : zd_v.shape()) {
                 {
                     ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
-                    auto zd_nsb11 = ::dds::topic::topic_type_support<::feat::Pt>::encode_be(zd_a0);
-                    zd_out.insert(zd_out.end(), zd_nsb11.begin(), zd_nsb11.end());
+                    auto zd_nsb14 = ::dds::topic::topic_type_support<::feat::Pt>::encode_be(zd_a0);
+                    zd_out.insert(zd_out.end(), zd_nsb14.begin(), zd_nsb14.end());
                 }
         }
         ::dds::topic::xcdr2::dheader_end(zd_out, zd_arr_dh);
@@ -1150,14 +1350,14 @@ inline ::feat::Arr topic_type_support<::feat::Arr>::decode(const uint8_t* zd_buf
         auto zd_arr = zd_v.shape();
         for (auto& zd_a0 : zd_arr) {
             {
-                ::feat::Pt zd_ns12{};
+                ::feat::Pt zd_ns15{};
                 ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
-                const size_t zd_nss12 = zd_pos;
-                size_t zd_npk12 = zd_pos;
-                const uint32_t zd_nl12 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk12, zd_len);
-                zd_ns12 = ::dds::topic::topic_type_support<::feat::Pt>::decode(zd_buf + zd_nss12, 4u + zd_nl12, zd_repr);
-                zd_pos = zd_nss12 + 4u + zd_nl12;
-                zd_a0 =(zd_ns12);
+                const size_t zd_nss15 = zd_pos;
+                size_t zd_npk15 = zd_pos;
+                const uint32_t zd_nl15 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk15, zd_len);
+                zd_ns15 = ::dds::topic::topic_type_support<::feat::Pt>::decode(zd_buf + zd_nss15, 4u + zd_nl15, zd_repr);
+                zd_pos = zd_nss15 + 4u + zd_nl15;
+                zd_a0 =(zd_ns15);
             }
         }
         zd_v.shape(zd_arr);
@@ -1166,6 +1366,143 @@ inline ::feat::Arr topic_type_support<::feat::Arr>::decode(const uint8_t* zd_buf
         return zd_v;
     }
 inline std::array<uint8_t, 16> topic_type_support<::feat::Arr>::key_hash(const ::feat::Arr& zd_v) {
+        (void)zd_v;
+        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    }
+
+inline std::vector<uint8_t> topic_type_support<::feat::MapEnum>::encode(const ::feat::MapEnum& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::MapEnum>::encode(const ::feat::MapEnum& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_le_origin<int16_t>(zd_out, zd_origin, static_cast<int16_t>(zd_v.h()), zd_max_align);
+        {
+        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+        const auto zd_map_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_origin, static_cast<uint32_t>(zd_v.m().size()), zd_max_align);
+        for (const auto& zd_kv : zd_v.m()) {
+                ::dds::topic::xcdr2::write_le_origin<int32_t>(zd_out, zd_origin, zd_kv.first, zd_max_align);
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb16 = ::dds::topic::topic_type_support<::feat::Pt>::encode(zd_kv.second, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nsb16.begin(), zd_nsb16.end());
+                }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_map_dh);
+        }
+        {
+        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+        const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_le_origin<uint32_t>(zd_out, zd_origin, static_cast<uint32_t>(zd_v.sels().size()), zd_max_align);
+        for (const auto& zd_e : zd_v.sels()) {
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nub17 = ::dds::topic::topic_type_support<::feat::Sel>::encode(zd_e, zd_repr);
+                    zd_out.insert(zd_out.end(), zd_nub17.begin(), zd_nub17.end());
+                }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::MapEnum>::encode_be(const ::feat::MapEnum& zd_v) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        ::dds::topic::xcdr2::write_be<int16_t>(zd_out, static_cast<int16_t>(zd_v.h()));
+        {
+        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+        const auto zd_map_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_be<uint32_t>(zd_out, static_cast<uint32_t>(zd_v.m().size()));
+        for (const auto& zd_kv : zd_v.m()) {
+                ::dds::topic::xcdr2::write_be_origin<int32_t>(zd_out, zd_origin, zd_kv.first);
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nsb18 = ::dds::topic::topic_type_support<::feat::Pt>::encode_be(zd_kv.second);
+                    zd_out.insert(zd_out.end(), zd_nsb18.begin(), zd_nsb18.end());
+                }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_map_dh);
+        }
+        {
+        ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+        const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_begin(zd_out);
+        ::dds::topic::xcdr2::write_be<uint32_t>(zd_out, static_cast<uint32_t>(zd_v.sels().size()));
+        for (const auto& zd_e : zd_v.sels()) {
+                {
+                    ::dds::topic::xcdr2::pad_to_from_origin(zd_out, zd_origin, 4);
+                    auto zd_nub19 = ::dds::topic::topic_type_support<::feat::Sel>::encode_be(zd_e);
+                    zd_out.insert(zd_out.end(), zd_nub19.begin(), zd_nub19.end());
+                }
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_seq_dh);
+        }
+        ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh);
+        return zd_out;
+    }
+inline ::feat::MapEnum topic_type_support<::feat::MapEnum>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        size_t zd_pos = 0;
+        ::feat::MapEnum zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align;
+        const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len);
+        const size_t zd_origin = zd_pos;
+        const size_t zd_end = zd_origin + zd_dh;
+        (void)zd_end;
+        zd_v.h(static_cast<::feat::Hue>(::dds::topic::xcdr2::read_le_origin<int16_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align)));
+        {
+            ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+            const auto zd_map_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_map_dh;
+            auto zd_mcnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align);
+            std::map<int32_t, ::feat::Pt> zd_map20;
+            for (uint32_t zd_i = 0; zd_i < zd_mcnt; ++zd_i) {
+                int32_t zd_mk20{};
+                ::feat::Pt zd_mv20{};
+                zd_mk20 =(::dds::topic::xcdr2::read_le_origin<int32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align));
+                {
+                    ::feat::Pt zd_ns21{};
+                    ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+                    const size_t zd_nss21 = zd_pos;
+                    size_t zd_npk21 = zd_pos;
+                    const uint32_t zd_nl21 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk21, zd_len);
+                    zd_ns21 = ::dds::topic::topic_type_support<::feat::Pt>::decode(zd_buf + zd_nss21, 4u + zd_nl21, zd_repr);
+                    zd_pos = zd_nss21 + 4u + zd_nl21;
+                    zd_mv20 =(zd_ns21);
+                }
+                zd_map20.emplace(std::move(zd_mk20), std::move(zd_mv20));
+            }
+            zd_v.m(std::move(zd_map20));
+        }
+        {
+            ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+            const auto zd_seq_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len); (void)zd_seq_dh;
+            auto zd_cnt = ::dds::topic::xcdr2::read_le_origin<uint32_t>(zd_buf, zd_pos, zd_len, zd_origin, zd_max_align);
+            std::vector<::feat::Sel> zd_seq;
+            zd_seq.reserve(zd_cnt);
+            for (uint32_t zd_i = 0; zd_i < zd_cnt; ++zd_i) {
+                ::dds::topic::xcdr2::skip_pad_from_origin(zd_pos, zd_origin, 4);
+                const size_t zd_nss22 = zd_pos;
+                size_t zd_npk22 = zd_pos;
+                const uint32_t zd_nl22 = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_npk22, zd_len);
+                ::feat::Sel zd_se22 = ::dds::topic::topic_type_support<::feat::Sel>::decode(zd_buf + zd_nss22, 4u + zd_nl22, zd_repr);
+                zd_pos = zd_nss22 + 4u + zd_nl22;
+                zd_seq.push_back(std::move(zd_se22));
+            }
+            zd_v.sels(std::move(zd_seq));
+        }
+        if (zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::feat::MapEnum>::key_hash(const ::feat::MapEnum& zd_v) {
         (void)zd_v;
         return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
     }

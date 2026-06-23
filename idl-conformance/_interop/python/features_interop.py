@@ -44,6 +44,9 @@ MutLeaf = features.feat_MutLeaf
 MutNest = features.feat_MutNest
 NestedKey = features.feat_NestedKey
 OuterKey = features.feat_OuterKey
+Sel = features.feat_Sel
+MapEnum = features.feat_MapEnum
+Hue = features.feat_Hue
 
 GOLDENS = os.path.join(_HERE, "..", "goldens")
 
@@ -87,6 +90,11 @@ def canonical_arr():
     )
 
 
+def canonical_mapenum():
+    # @bit_bound(16) enum h=H_BLUE(2); map<long,Pt> m={3:{11,12}}; sequence<Sel> sels=[Sel(n=9)].
+    return MapEnum(h=Hue.H_BLUE, m={3: Pt(x=11, y=12)}, sels=[Sel.make(2, 9)])
+
+
 def canonical_prim():
     return Prim(
         i8=-128, u8=255, i16=-32768, u16=65535,
@@ -128,6 +136,7 @@ FEATURES = {
     "prim": (Prim, canonical_prim),
     "mutnest": (MutNest, canonical_mutnest),
     "outerkey": (OuterKey, canonical_outerkey),
+    "mapenum": (MapEnum, canonical_mapenum),
 }
 
 

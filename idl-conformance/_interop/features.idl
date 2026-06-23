@@ -75,6 +75,23 @@ module feat {
     Pt    shape[2];
   };
 
+  // --- union with a struct branch (cross-PSM union framing) ---
+  @appendable
+  union Sel switch(long) {
+    case 1: Pt    p;    // struct branch (union-of-struct)
+    case 2: long  n;
+    default: octet z;
+  };
+
+  // --- @bit_bound enum + map-of-struct + sequence-of-union ---
+  @bit_bound(16) enum Hue { H_RED, H_GREEN, H_BLUE };
+  @appendable
+  struct MapEnum {
+    Hue            h;      // @bit_bound(16) enum -> 2-byte holder
+    map<long, Pt>  m;      // map of struct value
+    sequence<Sel>  sels;   // sequence of union
+  };
+
   // --- extreme primitives (all integer types at min/max) ---
   @appendable
   struct Prim {

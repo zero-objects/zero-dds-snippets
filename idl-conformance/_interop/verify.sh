@@ -18,7 +18,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../../.." && pwd)"
 G="$HERE/goldens"
-FEATS="wstr mut bits tree arr prim mutnest outerkey"
+FEATS="wstr mut bits tree arr prim mutnest outerkey mapenum"
 fail=0
 
 cmp_all() { # <lang>  — diff every ephemeral <feat>.<lang>.bin against the golden

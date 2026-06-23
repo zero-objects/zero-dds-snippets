@@ -62,6 +62,18 @@ static void canon_outerkey(feat_OuterKey_t* v) {
     v->k.hi = 0x01020304; v->k.lo = 0x05060708;
     v->payload = 999;
 }
+/* @bit_bound enum (2B) + map<long,Pt> + sequence<Sel>. h=BLUE; m={3:{11,12}}; sels=[Sel{_d=2,n=9}]. */
+static int32_t   ME_KEYS[1];
+static feat_Pt_t ME_VALS[1];
+static feat_Sel_t ME_SELS[1];
+static void canon_mapenum(feat_MapEnum_t* v) {
+    memset(v,0,sizeof(*v));
+    v->h = feat_Hue_H_BLUE;
+    ME_KEYS[0] = 3; ME_VALS[0].x = 11; ME_VALS[0].y = 12;
+    v->m.len = 1; v->m.keys = ME_KEYS; v->m.vals = ME_VALS;
+    ME_SELS[0]._d = 2; ME_SELS[0]._u.n = 9;
+    v->sels.len = 1; v->sels.elems = ME_SELS;
+}
 static void canon_prim(feat_Prim_t* v) {
     memset(v,0,sizeof(*v));
     v->i8 = -128; v->u8 = 255; v->i16 = -32768; v->u16 = 65535;
@@ -101,7 +113,7 @@ int main(int argc, char** argv) {
     const char* mode = argv[2];
     const char* file = argc > 3 ? argv[3] : NULL;
 
-    feat_WStr_t ws; feat_Mut_t mu; feat_Bits_t bi; feat_Tree_t tr; feat_Arr_t ar; feat_Prim_t pr;
+    feat_WStr_t ws; feat_Mut_t mu; feat_Bits_t bi; feat_Tree_t tr; feat_Arr_t ar; feat_Prim_t pr; feat_MapEnum_t me;
     feat_MutNest_t mn; feat_OuterKey_t ok;
 
     if (strcmp(mode, "ENCODE") == 0) {
@@ -113,6 +125,7 @@ int main(int argc, char** argv) {
         if (!strcmp(feat,"tree")) { canon_tree(&tr); return do_encode(file, feat_Tree_encode, &tr); }
         if (!strcmp(feat,"arr"))  { canon_arr(&ar);  return do_encode(file, feat_Arr_encode,  &ar); }
         if (!strcmp(feat,"prim")) { canon_prim(&pr); return do_encode(file, feat_Prim_encode, &pr); }
+        if (!strcmp(feat,"mapenum")) { canon_mapenum(&me); return do_encode(file, feat_MapEnum_encode, &me); }
         fprintf(stderr, "unknown feature\n"); return 2;
     } else if (strcmp(mode, "DECODE") == 0) {
         size_t n = 0; uint8_t* buf = readfile(file, &n);

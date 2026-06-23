@@ -65,6 +65,19 @@ the cross-vendor-validated `zerodds-cdr` core) regenerates it.
 ## feat::Tree  (golden `tree.<lang>.bin`)  — recursion
 - root: value=1, kids=[ {value=2, kids=[ {value=4, kids=[]} ]}, {value=3, kids=[]} ]
 
+## feat::MapEnum  (golden `mapenum.golden.bin`)  — @bit_bound enum + map-of-struct + sequence-of-union
+- `@bit_bound(16) enum Hue { H_RED, H_GREEN, H_BLUE }`; `union Sel switch(long)
+  { case 1: Pt p; case 2: long n; default: octet z; }` (@appendable).
+- h (Hue)               = H_BLUE  → 2-byte holder (NOT 4)
+- m (map<long, Pt>)     = { 3: {x=11, y=12} }
+- sels (sequence<Sel>)  = [ Sel(n=9) ]   (discriminator 2)
+- 52 bytes. Exercises three combinations that each surfaced a real backend bug:
+  the map DHEADER must be 4-aligned even though it follows the 2-byte enum (cpp/c
+  map-align fix); each @appendable union element carries its OWN DHEADER (c +
+  python union-element fix). XCDR2-LE layout: outer DHEADER(48), h(0x0002)+pad,
+  map DHEADER(20) + count + key + Pt DHEADER + x + y, sels DHEADER(16) + count +
+  Sel DHEADER(8) + disc(2) + n(9).
+
 ## feat::Arr  (golden `arr.<lang>.bin`)
 - grid (long[2][3]) = [[10,11,12],[13,14,15]]  (row-major)
 - shape (Pt[2])     = [ {x=1,y=2}, {x=3,y=4} ]

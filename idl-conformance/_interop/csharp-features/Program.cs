@@ -100,6 +100,14 @@ static Prim CanonicalPrim() => new Prim
     Ch = 'Z',
 };
 
+// @bit_bound(16) enum + map<long,Pt> + sequence<Sel>: h=H_BLUE; m={3:{11,12}}; sels=[Sel(n=9)].
+static MapEnum CanonicalMapEnum() => new MapEnum
+{
+    H = Hue.H_BLUE,
+    M = new System.Collections.Generic.SortedDictionary<int, Pt> { [3] = new Pt { X = 11, Y = 12 } },
+    Sels = new SequenceList<Sel>(new[] { new Sel { Discriminator = 2, Value = 9 } }),
+};
+
 // ---- encode -----------------------------------------------------------------
 
 static void WriteGolden(string name, byte[] bytes)
@@ -121,6 +129,7 @@ static int RunEncode()
     WriteGolden("tree", TreeTypeSupport.Instance.Encode(CanonicalTree(), EndianMode.LittleEndian));
     WriteGolden("arr", ArrTypeSupport.Instance.Encode(CanonicalArr(), EndianMode.LittleEndian));
     WriteGolden("prim", PrimTypeSupport.Instance.Encode(CanonicalPrim(), EndianMode.LittleEndian));
+    WriteGolden("mapenum", MapEnumTypeSupport.Instance.Encode(CanonicalMapEnum(), EndianMode.LittleEndian));
     return 0;
 }
 
