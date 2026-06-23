@@ -57,10 +57,12 @@ namespace feat
             }
         }
 
-        public WStr Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public WStr Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public WStr Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public WStr Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public WStr Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -143,10 +145,12 @@ namespace feat
             }
         }
 
-        public Mut Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public Mut Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public Mut Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Mut Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Mut Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -155,6 +159,32 @@ namespace feat
             int __m0 = default!;
             double __m1 = default!;
             string __m2 = default!;
+            if (r.IsXcdr1)
+            {
+                while (r.BeginPlCdr1Member(out var __id, out var __plscope))
+                {
+                    switch (__id)
+                    {
+                        case 10u:
+                            __m0 = r.ReadInt32();
+                            break;
+                        case 20u:
+                            __m1 = r.ReadFloat64();
+                            break;
+                        case 30u:
+                            __m2 = r.ReadString();
+                            break;
+                        default: break;
+                    }
+                    r.EndPlCdr1Member(__plscope);
+                }
+            return new Mut
+            {
+                A = __m0!,
+                B = __m1!,
+                C = __m2!,
+            };
+            }
             var __scope = r.BeginDHeader();
             while (!r.DHeaderDone(__scope))
             {
@@ -227,10 +257,12 @@ namespace feat
             }
         }
 
-        public MutLeaf Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public MutLeaf Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public MutLeaf Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public MutLeaf Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public MutLeaf Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -238,6 +270,28 @@ namespace feat
         {
             int __m0 = default!;
             double __m1 = default!;
+            if (r.IsXcdr1)
+            {
+                while (r.BeginPlCdr1Member(out var __id, out var __plscope))
+                {
+                    switch (__id)
+                    {
+                        case 1u:
+                            __m0 = r.ReadInt32();
+                            break;
+                        case 2u:
+                            __m1 = r.ReadFloat64();
+                            break;
+                        default: break;
+                    }
+                    r.EndPlCdr1Member(__plscope);
+                }
+            return new MutLeaf
+            {
+                U = __m0!,
+                V = __m1!,
+            };
+            }
             var __scope = r.BeginDHeader();
             while (!r.DHeaderDone(__scope))
             {
@@ -321,10 +375,12 @@ namespace feat
             }
         }
 
-        public MutNest Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public MutNest Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public MutNest Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public MutNest Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public MutNest Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -333,6 +389,44 @@ namespace feat
             int __m0 = default!;
             MutLeaf __m1 = default!;
             Omg.Types.ISequence<MutLeaf> __m2 = default!;
+            if (r.IsXcdr1)
+            {
+                while (r.BeginPlCdr1Member(out var __id, out var __plscope))
+                {
+                    switch (__id)
+                    {
+                        case 10u:
+                            __m0 = r.ReadInt32();
+                            break;
+                        case 20u:
+                            __m1 = MutLeafTypeSupport.Instance.DecodeFrom(ref r);
+                            break;
+                        case 30u:
+                            {
+                                var __seqdh0 = r.BeginDHeader();
+                                int __cnt0 = r.ReadSequenceLength();
+                                var __list0 = new Omg.Types.SequenceList<MutLeaf>();
+                                for (int __i0 = 0; __i0 < __cnt0; __i0++)
+                                {
+                                    MutLeaf __e0;
+                                    __e0 = MutLeafTypeSupport.Instance.DecodeFrom(ref r);
+                                    __list0.Add(__e0);
+                                }
+                                r.EndDHeader(__seqdh0);
+                                __m2 = __list0;
+                            }
+                            break;
+                        default: break;
+                    }
+                    r.EndPlCdr1Member(__plscope);
+                }
+            return new MutNest
+            {
+                Tag = __m0!,
+                Leaf = __m1!,
+                List = __m2!,
+            };
+            }
             var __scope = r.BeginDHeader();
             while (!r.DHeaderDone(__scope))
             {
@@ -413,10 +507,12 @@ namespace feat
             w.WriteInt32(sample.Lo);
         }
 
-        public NestedKey Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public NestedKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public NestedKey Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public NestedKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public NestedKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -477,10 +573,12 @@ namespace feat
             w.WriteInt32(sample.Payload);
         }
 
-        public OuterKey Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public OuterKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public OuterKey Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public OuterKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public OuterKey Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -567,10 +665,12 @@ namespace feat
             }
         }
 
-        public Bits Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public Bits Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public Bits Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Bits Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Bits Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -639,10 +739,12 @@ namespace feat
             }
         }
 
-        public Tree Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public Tree Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public Tree Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Tree Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Tree Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -712,10 +814,12 @@ namespace feat
             }
         }
 
-        public Pt Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public Pt Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public Pt Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Pt Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Pt Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -785,10 +889,12 @@ namespace feat
             }
         }
 
-        public Arr Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public Arr Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public Arr Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Arr Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Arr Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -875,10 +981,12 @@ namespace feat
             }
         }
 
-        public Sel Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public Sel Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public Sel Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Sel Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Sel Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -986,10 +1094,12 @@ namespace feat
             }
         }
 
-        public MapEnum Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public MapEnum Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public MapEnum Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public MapEnum Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public MapEnum Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 
@@ -1098,10 +1208,12 @@ namespace feat
             }
         }
 
-        public Prim Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian);
-        public Prim Decode(ReadOnlySpan<byte> bytes, EndianMode endian)
+        public Prim Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Prim Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Prim Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
         {
-            var r = new Xcdr2Reader(bytes, endian);
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
             return DecodeFrom(ref r);
         }
 

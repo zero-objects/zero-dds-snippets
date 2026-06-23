@@ -286,14 +286,46 @@ static int RunBe()
     return 1;
 }
 
+// XCDR1 DECODE: read the Rust XCDR1 (classic CDR / PL_CDR1) reference goldens
+// and decode them through Decode(bytes, endian, representation=0), asserting
+// every field == canonical. Proves the C# binding reads the second wire
+// representation (no DHEADER on @appendable/@final, 8-byte align, PL_CDR1 for
+// @mutable).
+static int RunXcdr1()
+{
+    string dir = Path.Combine(Dir, "..", "..", "proofs", "endianness", "goldens");
+    var fails = new List<string>();
+    void Dec<T>(string name, IDdsTopicType<T> ts, T v, Func<T, T, bool> eq)
+    {
+        string path = Path.Combine(dir, $"{name}.xcdr1-le.rust.bin");
+        if (!File.Exists(path)) { Console.WriteLine($"  {name} xcdr1: SKIP"); return; }
+        var back = ts.Decode(File.ReadAllBytes(path), EndianMode.LittleEndian, 0);
+        bool ok = eq(v, back);
+        Console.WriteLine($"  {name} xcdr1: {(ok ? "OK" : "FAIL")}");
+        if (!ok) fails.Add(name);
+    }
+    Dec("wstr", WStrTypeSupport.Instance, CanonicalWStr(), (a, b) => a.Label == b.Label && a.Text == b.Text);
+    Dec("mut", MutTypeSupport.Instance, CanonicalMut(), (a, b) => a.A == b.A && a.B == b.B && a.C == b.C);
+    Dec("mapenum", MapEnumTypeSupport.Instance, CanonicalMapEnum(),
+        (a, b) => a.H == b.H && a.M.Count == b.M.Count && a.Sels.Count() == b.Sels.Count());
+    Dec("tree", TreeTypeSupport.Instance, CanonicalTree(), (a, b) => a.Value == b.Value && a.Kids.Count == b.Kids.Count);
+    Dec("arr", ArrTypeSupport.Instance, CanonicalArr(),
+        (a, b) => a.Shape[0].X == b.Shape[0].X && a.Grid[1][2] == b.Grid[1][2]);
+    Dec("prim", PrimTypeSupport.Instance, CanonicalPrim(), (a, b) => a.I64 == b.I64 && a.F64 == b.F64);
+    if (fails.Count == 0) { Console.WriteLine("XCDR1 DECODE PASS"); return 0; }
+    Console.Error.WriteLine($"XCDR1 DECODE FAIL: {string.Join(", ", fails)}");
+    return 1;
+}
+
 var mode = args.Length >= 1 ? args[0] : "ROUNDTRIP";
 switch (mode)
 {
     case "ENCODE": return RunEncode();
     case "DECODE": return RunDecode();
     case "BE": return RunBe();
+    case "XCDR1": return RunXcdr1();
     case "ROUNDTRIP": { var a = RunEncode(); var b = RunDecode(); return a != 0 ? a : b; }
     default:
-        Console.Error.WriteLine("usage: interop-csharp-features ENCODE | DECODE | ROUNDTRIP");
+        Console.Error.WriteLine("usage: interop-csharp-features ENCODE | DECODE | BE | XCDR1 | ROUNDTRIP");
         return 2;
 }
