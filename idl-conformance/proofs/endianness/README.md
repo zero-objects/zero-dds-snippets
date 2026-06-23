@@ -173,22 +173,26 @@ python3 compare.py
 The committed `goldens/`, `vendor-cyclone/`, and `vendor-fastcdr/` directories
 are the captured proof; `compare.py` reproduces the table from them offline.
 
-### Known round-trip gaps (`make roundtrip` = 22/28 OK)
+### Round-trip self-consistency (`make roundtrip` = 28/28 OK)
 
-`make roundtrip` re-decodes each freshly-encoded buffer through the
-`CdrDecode` trait and asserts equality. 22 of 28 pass (all four `mapenum` reprs
-round-trip cleanly); six fail, and all six are
-**encode-correct** (the bytes match the vendors / the `DdsType` goldens) — the
-failure is on the low-level `CdrDecode` *companion* trait:
+`make roundtrip` re-decodes each freshly-encoded buffer through the `CdrDecode`
+trait and asserts equality. All 28 (7 features × 4 reprs) now pass.
 
-* `wstr`/`xcdr2-be`, `wstr`/`xcdr1-be` — the generated wstring decode reads the
-  UTF-16 units little-endian regardless of stream byte order (decode-side BE
-  bug; encode is correct and matches Cyclone for LE / is the spec-correct BE).
-* `mut`/`xcdr2-{le,be}`, `arr`/`xcdr2-{le,be}` — the `CdrDecode` companion for
-  `@mutable` reads members positionally instead of via EMHEADER, and the
-  array-of-struct decode reads a spurious alignment word. The real DataReader
-  path (`DdsType::decode`) decodes these correctly; only the raw trait pair is
-  inconsistent.
+This previously had six big-endian decode failures — all encode-correct (the
+bytes matched the vendors), but the **decode** side hardcoded little-endian in
+two generated paths:
 
-These are tracked as ZeroDDS codec/codegen items; they do not affect the
-encode-side byte-identity that this proof establishes.
+* the inline `wstring` decode read UTF-16 units with `from_le_bytes` regardless
+  of stream order (`wstr`/`xcdr2-be`, `wstr`/`xcdr1-be`); and
+* the `@mutable` member-body sub-reader was built little-endian instead of
+  inheriting the parent stream order, so an LC5 string's reused length word read
+  back swapped (`mut`/`xcdr2-be`).
+
+Both were fixed in the Rust IDL backend (`crates/idl-rust`, commit
+*@mutable + wstring decoders must honor the stream byte order*) and are now
+gated by an `edge_roundtrip` test that round-trips both constructs in both byte
+orders. **Caveat:** this proof's only decoder is the ZeroDDS Rust reference; the
+analogous big-endian decode paths in the other six language backends are
+exercised by the cross-PSM corpus at **XCDR2-LE only** (`../../_interop/`), so a
+hardcoded-LE decode there would still be latent — an open edge tracked
+separately, not closed by this proof.
