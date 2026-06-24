@@ -299,10 +299,17 @@ static int RunXcdr1()
     {
         string path = Path.Combine(dir, $"{name}.xcdr1-le.rust.bin");
         if (!File.Exists(path)) { Console.WriteLine($"  {name} xcdr1: SKIP"); return; }
-        var back = ts.Decode(File.ReadAllBytes(path), EndianMode.LittleEndian, 0);
+        var golden = File.ReadAllBytes(path);
+        // DECODE.
+        var back = ts.Decode(golden, EndianMode.LittleEndian, 0);
         bool ok = eq(v, back);
-        Console.WriteLine($"  {name} xcdr1: {(ok ? "OK" : "FAIL")}");
-        if (!ok) fails.Add(name);
+        Console.WriteLine($"  {name} xcdr1 decode: {(ok ? "OK" : "FAIL")}");
+        if (!ok) fails.Add(name + " decode");
+        // ENCODE: must be byte-identical to the golden.
+        var wire = ts.Encode(v, EndianMode.LittleEndian, 0);
+        bool encOk = wire.AsSpan().SequenceEqual(golden);
+        Console.WriteLine($"  {name} xcdr1 encode: {(encOk ? "OK" : "FAIL")} ({wire.Length}B vs {golden.Length}B)");
+        if (!encOk) fails.Add(name + " encode");
     }
     Dec("wstr", WStrTypeSupport.Instance, CanonicalWStr(), (a, b) => a.Label == b.Label && a.Text == b.Text);
     Dec("mut", MutTypeSupport.Instance, CanonicalMut(), (a, b) => a.A == b.A && a.B == b.B && a.C == b.C);

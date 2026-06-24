@@ -26,9 +26,11 @@ namespace feat
 
         public byte[] Encode(WStr sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(WStr sample, EndianMode endian)
+        public byte[] Encode(WStr sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(WStr sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -124,15 +126,39 @@ namespace feat
 
         public byte[] Encode(Mut sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(Mut sample, EndianMode endian)
+        public byte[] Encode(Mut sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Mut sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
 
         public void EncodeInto(Xcdr2Writer w, Mut sample)
         {
+            if (w.IsXcdr1)
+            {
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    __sub.WriteInt32(sample.A);
+                    w.WritePlCdr1Member(10u, __sub.ToArray());
+                }
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    __sub.WriteFloat64(sample.B);
+                    w.WritePlCdr1Member(20u, __sub.ToArray());
+                }
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    if ((sample.C) != null && System.Text.Encoding.UTF8.GetByteCount(sample.C) > 8) throw new System.ArgumentException("bounded string length exceeds its IDL bound (8)");
+                    __sub.WriteString(sample.C);
+                    w.WritePlCdr1Member(30u, __sub.ToArray());
+                }
+                w.WritePlCdr1Sentinel();
+            }
+            else
+            {
             using (var __scope = w.BeginMutable())
             {
                 w.WriteEmHeader(10u, 2, false);
@@ -142,6 +168,7 @@ namespace feat
                 w.WriteEmHeader(30u, 5, false);
                 if ((sample.C) != null && System.Text.Encoding.UTF8.GetByteCount(sample.C) > 8) throw new System.ArgumentException("bounded string length exceeds its IDL bound (8)");
                 w.WriteString(sample.C);
+            }
             }
         }
 
@@ -239,21 +266,40 @@ namespace feat
 
         public byte[] Encode(MutLeaf sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(MutLeaf sample, EndianMode endian)
+        public byte[] Encode(MutLeaf sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(MutLeaf sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
 
         public void EncodeInto(Xcdr2Writer w, MutLeaf sample)
         {
+            if (w.IsXcdr1)
+            {
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    __sub.WriteInt32(sample.U);
+                    w.WritePlCdr1Member(1u, __sub.ToArray());
+                }
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    __sub.WriteFloat64(sample.V);
+                    w.WritePlCdr1Member(2u, __sub.ToArray());
+                }
+                w.WritePlCdr1Sentinel();
+            }
+            else
+            {
             using (var __scope = w.BeginMutable())
             {
                 w.WriteEmHeader(1u, 2, false);
                 w.WriteInt32(sample.U);
                 w.WriteEmHeader(2u, 3, false);
                 w.WriteFloat64(sample.V);
+            }
             }
         }
 
@@ -344,15 +390,49 @@ namespace feat
 
         public byte[] Encode(MutNest sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(MutNest sample, EndianMode endian)
+        public byte[] Encode(MutNest sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(MutNest sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
 
         public void EncodeInto(Xcdr2Writer w, MutNest sample)
         {
+            if (w.IsXcdr1)
+            {
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    __sub.WriteInt32(sample.Tag);
+                    w.WritePlCdr1Member(10u, __sub.ToArray());
+                }
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    MutLeafTypeSupport.Instance.EncodeInto(w, sample.Leaf);
+                    w.WritePlCdr1Member(20u, __sub.ToArray());
+                }
+                {
+                    var __sub = new Xcdr2Writer(w.Endian, Xcdr2Writer.Xcdr1MaxAlignmentValue);
+                    {
+                        var __seq0 = (sample.List) as System.Collections.Generic.IEnumerable<MutLeaf>;
+                        var __mat0 = __seq0 is null ? new System.Collections.Generic.List<MutLeaf>() : new System.Collections.Generic.List<MutLeaf>(__seq0);
+                        using (var __seqdh0 = __sub.BeginAppendable())
+                        {
+                            __sub.WriteSequenceLength(__mat0.Count);
+                            foreach (var __item0 in __mat0)
+                            {
+                                MutLeafTypeSupport.Instance.EncodeInto(w, __item0);
+                            }
+                        }
+                    }
+                    w.WritePlCdr1Member(30u, __sub.ToArray());
+                }
+                w.WritePlCdr1Sentinel();
+            }
+            else
+            {
             using (var __scope = w.BeginMutable())
             {
                 w.WriteEmHeader(10u, 2, false);
@@ -372,6 +452,7 @@ namespace feat
                         }
                     }
                 }
+            }
             }
         }
 
@@ -494,9 +575,11 @@ namespace feat
 
         public byte[] Encode(NestedKey sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(NestedKey sample, EndianMode endian)
+        public byte[] Encode(NestedKey sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(NestedKey sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -560,9 +643,11 @@ namespace feat
 
         public byte[] Encode(OuterKey sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(OuterKey sample, EndianMode endian)
+        public byte[] Encode(OuterKey sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(OuterKey sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -649,9 +734,11 @@ namespace feat
 
         public byte[] Encode(Bits sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(Bits sample, EndianMode endian)
+        public byte[] Encode(Bits sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Bits sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -712,9 +799,11 @@ namespace feat
 
         public byte[] Encode(Tree sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(Tree sample, EndianMode endian)
+        public byte[] Encode(Tree sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Tree sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -798,9 +887,11 @@ namespace feat
 
         public byte[] Encode(Pt sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(Pt sample, EndianMode endian)
+        public byte[] Encode(Pt sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Pt sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -861,9 +952,11 @@ namespace feat
 
         public byte[] Encode(Arr sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(Arr sample, EndianMode endian)
+        public byte[] Encode(Arr sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Arr sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -954,9 +1047,11 @@ namespace feat
 
         public byte[] Encode(Sel sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(Sel sample, EndianMode endian)
+        public byte[] Encode(Sel sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Sel sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -1055,9 +1150,11 @@ namespace feat
 
         public byte[] Encode(MapEnum sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(MapEnum sample, EndianMode endian)
+        public byte[] Encode(MapEnum sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(MapEnum sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
@@ -1181,9 +1278,11 @@ namespace feat
 
         public byte[] Encode(Prim sample) => Encode(sample, EndianMode.LittleEndian);
 
-        public byte[] Encode(Prim sample, EndianMode endian)
+        public byte[] Encode(Prim sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Prim sample, EndianMode endian, int representation)
         {
-            var w = new Xcdr2Writer(endian);
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
             EncodeInto(w, sample);
             return w.ToArray();
         }
