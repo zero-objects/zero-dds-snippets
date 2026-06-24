@@ -71,8 +71,8 @@ export const WStrTypeSupport: DdsTopicType<WStr> = {
         w.writeWString(s.text);
         w.endAppendable(_tok);
     },
-    encode(s: WStr, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: WStr, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -161,6 +161,32 @@ export const MutTypeSupport: DdsTopicType<Mut> = {
     isKeyed: false,
     extensibility: "mutable",
     encodeInto(w: Xcdr2Writer, s: Mut): void {
+        if (w.isXcdr1) {
+        const _plOuter = w;
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                w.writeInt32(s.a);
+            }
+            _plOuter.writePlCdr1Member(10, _sub.toBytes());
+        }
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                w.writeFloat64(s.b);
+            }
+            _plOuter.writePlCdr1Member(20, _sub.toBytes());
+        }
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                if ([...s.c].length > 8) { throw new RangeError(`bounded string over capacity 8: ${[...s.c].length}`); }
+                w.writeString(s.c);
+            }
+            _plOuter.writePlCdr1Member(30, _sub.toBytes());
+        }
+        _plOuter.writePlCdr1Sentinel();
+        } else {
         const _tok = w.beginMutable();
         {
             w.writeEmHeader(10, 2, false);
@@ -182,9 +208,10 @@ export const MutTypeSupport: DdsTopicType<Mut> = {
             w.popAlignmentOrigin();
         }
         w.endMutable(_tok);
+        }
     },
-    encode(s: Mut, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: Mut, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -313,6 +340,24 @@ export const MutLeafTypeSupport: DdsTopicType<MutLeaf> = {
     isKeyed: false,
     extensibility: "mutable",
     encodeInto(w: Xcdr2Writer, s: MutLeaf): void {
+        if (w.isXcdr1) {
+        const _plOuter = w;
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                w.writeInt32(s.u);
+            }
+            _plOuter.writePlCdr1Member(1, _sub.toBytes());
+        }
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                w.writeFloat64(s.v);
+            }
+            _plOuter.writePlCdr1Member(2, _sub.toBytes());
+        }
+        _plOuter.writePlCdr1Sentinel();
+        } else {
         const _tok = w.beginMutable();
         {
             w.writeEmHeader(1, 2, false);
@@ -327,9 +372,10 @@ export const MutLeafTypeSupport: DdsTopicType<MutLeaf> = {
             w.popAlignmentOrigin();
         }
         w.endMutable(_tok);
+        }
     },
-    encode(s: MutLeaf, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: MutLeaf, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -456,6 +502,36 @@ export const MutNestTypeSupport: DdsTopicType<MutNest> = {
     isKeyed: false,
     extensibility: "mutable",
     encodeInto(w: Xcdr2Writer, s: MutNest): void {
+        if (w.isXcdr1) {
+        const _plOuter = w;
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                w.writeInt32(s.tag);
+            }
+            _plOuter.writePlCdr1Member(10, _sub.toBytes());
+        }
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                MutLeafTypeSupport.encodeInto(w, s.leaf);
+            }
+            _plOuter.writePlCdr1Member(20, _sub.toBytes());
+        }
+        {
+            const _sub = new Xcdr2Writer(_plOuter.endian, 8);
+            { const w = _sub;
+                const _seqtok0 = w.beginAppendable();
+                w.writeUint32(s.list.length);
+                for (const _e0 of s.list) {
+                    MutLeafTypeSupport.encodeInto(w, _e0);
+                }
+                w.endAppendable(_seqtok0);
+            }
+            _plOuter.writePlCdr1Member(30, _sub.toBytes());
+        }
+        _plOuter.writePlCdr1Sentinel();
+        } else {
         const _tok = w.beginMutable();
         {
             w.writeEmHeader(10, 2, false);
@@ -472,18 +548,19 @@ export const MutNestTypeSupport: DdsTopicType<MutNest> = {
         {
             w.writeEmHeader(30, 5, false);
             w.pushAlignmentOrigin();
-            const _seqtok0 = w.beginAppendable();
+            const _seqtok1 = w.beginAppendable();
             w.writeUint32(s.list.length);
-            for (const _e0 of s.list) {
-                MutLeafTypeSupport.encodeInto(w, _e0);
+            for (const _e1 of s.list) {
+                MutLeafTypeSupport.encodeInto(w, _e1);
             }
-            w.endAppendable(_seqtok0);
+            w.endAppendable(_seqtok1);
             w.popAlignmentOrigin();
         }
         w.endMutable(_tok);
+        }
     },
-    encode(s: MutNest, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: MutNest, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -616,8 +693,8 @@ export const NestedKeyTypeSupport: DdsTopicType<NestedKey> = {
         w.writeInt32(s.hi);
         w.writeInt32(s.lo);
     },
-    encode(s: NestedKey, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: NestedKey, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -697,8 +774,8 @@ export const OuterKeyTypeSupport: DdsTopicType<OuterKey> = {
         NestedKeyTypeSupport.encodeInto(w, s.k);
         w.writeInt32(s.payload);
     },
-    encode(s: OuterKey, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: OuterKey, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -870,8 +947,8 @@ export const BitsTypeSupport: DdsTopicType<Bits> = {
         w.writeOctet((((0 | (((s.flags).kind & 0x7) << 0)) | (((s.flags).prio & 0x1f) << 3))) >>> 0);
         w.endAppendable(_tok);
     },
-    encode(s: Bits, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: Bits, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -940,16 +1017,16 @@ export const TreeTypeSupport: DdsTopicType<Tree> = {
     encodeInto(w: Xcdr2Writer, s: Tree): void {
         const _tok = w.beginAppendable();
         w.writeInt32(s.value);
-        const _seqtok1 = w.beginAppendable();
+        const _seqtok2 = w.beginAppendable();
         w.writeUint32(s.kids.length);
-        for (const _e1 of s.kids) {
-            TreeTypeSupport.encodeInto(w, _e1);
+        for (const _e2 of s.kids) {
+            TreeTypeSupport.encodeInto(w, _e2);
         }
-        w.endAppendable(_seqtok1);
+        w.endAppendable(_seqtok2);
         w.endAppendable(_tok);
     },
-    encode(s: Tree, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: Tree, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -1022,8 +1099,8 @@ export const PtTypeSupport: DdsTopicType<Pt> = {
         w.writeInt32(s.y);
         w.endAppendable(_tok);
     },
-    encode(s: Pt, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: Pt, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -1101,15 +1178,15 @@ export const ArrTypeSupport: DdsTopicType<Arr> = {
                 w.writeInt32(s.grid[_a0][_a1]);
             }
         }
-        const _atok4 = w.beginAppendable();
+        const _atok5 = w.beginAppendable();
         for (let _a0 = 0; _a0 < 2; _a0++) {
             PtTypeSupport.encodeInto(w, s.shape[_a0]);
         }
-        w.endAppendable(_atok4);
+        w.endAppendable(_atok5);
         w.endAppendable(_tok);
     },
-    encode(s: Arr, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: Arr, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -1209,8 +1286,8 @@ export const SelTypeSupport: DdsTopicType<Sel> = {
         }
         w.endAppendable(_tok);
     },
-    encode(s: Sel, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: Sel, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -1356,24 +1433,24 @@ export const MapEnumTypeSupport: DdsTopicType<MapEnum> = {
     encodeInto(w: Xcdr2Writer, s: MapEnum): void {
         const _tok = w.beginAppendable();
         w.writeInt16(HueOrdinal[s.h]);
-        const _ment5 = [...s.m].sort(((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)));
-        const _maptok5 = w.beginAppendable();
-        w.writeUint32(_ment5.length);
-        for (const [_k5, _v5] of _ment5) {
-            w.writeInt32(_k5);
-            PtTypeSupport.encodeInto(w, _v5);
+        const _ment6 = [...s.m].sort(((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)));
+        const _maptok6 = w.beginAppendable();
+        w.writeUint32(_ment6.length);
+        for (const [_k6, _v6] of _ment6) {
+            w.writeInt32(_k6);
+            PtTypeSupport.encodeInto(w, _v6);
         }
-        w.endAppendable(_maptok5);
-        const _seqtok6 = w.beginAppendable();
+        w.endAppendable(_maptok6);
+        const _seqtok7 = w.beginAppendable();
         w.writeUint32(s.sels.length);
-        for (const _e6 of s.sels) {
-            SelTypeSupport.encodeInto(w, _e6);
+        for (const _e7 of s.sels) {
+            SelTypeSupport.encodeInto(w, _e7);
         }
-        w.endAppendable(_seqtok6);
+        w.endAppendable(_seqtok7);
         w.endAppendable(_tok);
     },
-    encode(s: MapEnum, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: MapEnum, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },
@@ -1569,8 +1646,8 @@ export const PrimTypeSupport: DdsTopicType<Prim> = {
         w.writeChar(s.ch);
         w.endAppendable(_tok);
     },
-    encode(s: Prim, endian: EndianMode = "le"): Uint8Array {
-        const w = new Xcdr2Writer(endian);
+    encode(s: Prim, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
         this.encodeInto(w, s);
         return w.toBytes();
     },

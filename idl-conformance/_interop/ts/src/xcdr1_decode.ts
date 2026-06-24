@@ -33,14 +33,20 @@ for (const [name, ts, sample] of samples) {
     console.log(`  ${name} xcdr1: SKIP (no golden)`);
     continue;
   }
-  // representation = 0 selects the XCDR1 decode path.
+  // DECODE: representation = 0 selects the XCDR1 decode path.
   const back = ts.decode(bytes, 0, bytes.length, "le", 0);
   // `prim` has no inline canonical here — just assert it decodes without throwing
   // and round-trips a couple of distinctive fields.
   const ok = sample === undefined
     ? (back && typeof back === "object")
     : norm(back) === norm(sample);
-  console.log(`  ${name} xcdr1: ${ok ? "OK" : "FAIL"}`);
+  console.log(`  ${name} xcdr1 decode: ${ok ? "OK" : "FAIL"}`);
   if (!ok) { fail = 1; console.log(`    want ${norm(sample)}\n    got  ${norm(back)}`); }
+  // ENCODE: re-encode the decoded value (no inline canonical needed) and assert
+  // byte-identity to the golden.
+  const wire: Uint8Array = ts.encode(back, "le", 0);
+  const encOk = wire.length === bytes.length && wire.every((b: number, i: number) => b === bytes[i]);
+  console.log(`  ${name} xcdr1 encode: ${encOk ? "OK" : "FAIL"} (${wire.length}B vs ${bytes.length}B)`);
+  if (!encOk) fail = 1;
 }
 process.exit(fail);
