@@ -1,0 +1,22 @@
+// A deliberately "real-world-shaped" message: nested structs, a sequence of
+// structs, an optional member, a discriminated union, a map, an enum and a
+// bounded string — the constructs a hand-rolled codec usually gets wrong.
+@appendable struct Vec3 { double x; double y; double z; };
+
+enum Mode { IDLE, ACTIVE, FAULT };
+
+@appendable union Reading switch (long) {
+  case 1: Vec3   pose;       // a structured reading
+  case 2: double scalar;     // a scalar reading
+  default: octet raw;
+};
+
+@appendable struct Sensor {
+  @key unsigned long      id;
+  string<32>              name;
+  Mode                    mode;
+  Vec3                    origin;
+  sequence<Reading>       readings;   // sequence of unions
+  map<unsigned long, Vec3> calibration;
+  @optional string        note;       // present or absent
+};
