@@ -31,12 +31,19 @@ for name, sample in cases:
     with open(path, "rb") as f:
         data = f.read()
     cls = type(sample)
-    # representation=0 selects the XCDR1 decode path.
+    # DECODE: representation=0 selects the XCDR1 decode path.
     back = cls.decode(data, "le", 0)
     ok = fi.equal(back, sample)
-    print(f"  {name} xcdr1: {'OK' if ok else 'FAIL'}")
+    print(f"  {name} xcdr1 decode: {'OK' if ok else 'FAIL'}")
     if not ok:
         fail = 1
         print(f"    want {sample}\n    got  {back}")
+    # ENCODE: encode(.., representation=0) must be byte-identical to the golden.
+    wire = sample.encode("le", 0)
+    enc_ok = wire == data
+    print(f"  {name} xcdr1 encode: {'OK' if enc_ok else 'FAIL'}"
+          f" ({len(wire)}B vs {len(data)}B golden)")
+    if not enc_ok:
+        fail = 1
 
 sys.exit(fail)
