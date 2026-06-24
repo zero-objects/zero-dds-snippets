@@ -1,0 +1,9 @@
+// @final isolates the pure representation difference: no DHEADER on either
+// repr, so the only thing that changes between XCDR1 and XCDR2 is the
+// alignment of the 8-byte `value` after the 4-byte `seq`.
+@final
+struct Reading {
+    unsigned long seq;
+    double        value;
+    string        label;
+};

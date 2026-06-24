@@ -1,0 +1,20 @@
+[package]
+name = "rust-xcdr1-representation"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+# Standalone example: empty [workspace] so it does NOT join the parent
+# zerodds workspace; path-deps reach into ../../crates.
+[workspace]
+
+[dependencies]
+# CDR runtime: BufferWriter/BufferReader (the max-alignment selects XCDR1 vs
+# XCDR2) + the CdrEncode/CdrDecode traits the generated `Reading` implements.
+zerodds-cdr = { path = "../../crates/cdr" }
+
+[build-dependencies]
+# The IDL parser + the Rust code generator (the `idlc --rust` backend), invoked
+# from build.rs to generate the `Reading` binding from demo.idl.
+zerodds-idl = { path = "../../crates/idl" }
+zerodds-idl-rust = { path = "../../crates/idl-rust" }
