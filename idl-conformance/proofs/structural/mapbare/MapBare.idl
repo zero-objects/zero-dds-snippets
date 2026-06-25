@@ -1,0 +1,1 @@
+@final struct MapBare { map<long, long> m; };  // canonical: m = {7: 42}

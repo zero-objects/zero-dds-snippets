@@ -42,25 +42,53 @@ The `Sel` union-of-struct is anchored **transitively**: it is the element type o
 `sels`, so the byte match validates the per-element union DHEADER + discriminator
 + branch encoding too.
 
-## Why only Fast DDS — `map<>` is not portable IDL
+## `map<>` qualified — who compiles it, and the XCDR2 DHEADER rule
 
-`map<>` could **not** be anchored against CycloneDDS or RTI Connext, because
-neither of their IDL compilers parses it:
+`map<>` (IDL 4.2 §7.4.13.4 / DDS-XTypes 1.3 `TK_MAP`) is a standard collection,
+but IDL-frontend support is uneven. Tested end-to-end (parse → generate type →
+**compile**), not just "did the parser accept it":
 
-| compiler | `map<long, Pt>` |
-|---|---|
-| Fast DDS `fastddsgen` 4.x | ✅ accepted → `std::map` |
-| ZeroDDS `idlc` | ✅ accepted |
-| CycloneDDS `idlc` | ❌ `syntax error` at the `map` member |
-| RTI `rtiddsgen` 4.7 | ❌ `no viable alternative at input '<'` (no `-map`/escape flag) |
+| stack | IDL compiler | `map<>` end-to-end | note |
+|---|---|:--:|---|
+| ZeroDDS | `idlc` | ✅ | — |
+| Fast DDS | `fastddsgen` 4.x | ✅ | → `std::map`; byte-anchored above |
+| **OpenDDS** | `tao_idl` + `opendds_idl` 3.34 | ✅ | compiles + serializes; **second anchor** (below) |
+| CycloneDDS | `idlc` 11.0.1 | ❌ | parser: `syntax error` at the `map` member (no flag) |
+| RTI Connext | `rtiddsgen` 4.7.0 | ❌ | parser: `no viable alternative at input '<'` — both `-standard` modes, bounded `map<K,V,N>` too |
 
-This is a **vendor IDL-frontend limitation, not a wire question** — `map<>` has a
-well-defined XCDR2 encoding (a length-prefixed sequence of key/value pairs, which
-is exactly what the Fast DDS / ZeroDDS bytes above encode). It does mean a
-map-bearing topic can only be IDL-compiled — and thus statically anchored — against
-Fast DDS and ZeroDDS among these four stacks. The non-map structural features
-(`@bit_bound` enum, union-of-struct, sequence-of-union) are independently anchored
-across more vendors in `../endianness` and `../typesystem`.
+So **three of five** compile `map<>` (ZeroDDS, Fast DDS, OpenDDS); CycloneDDS and
+RTI reject it at the parser, which is a frontend limitation, not a wire question.
+*(Caveat: the **full** `MapEnum` does not build on OpenDDS — but because its
+`@bit_bound` enum annotation is unknown to `tao_idl`, not because of the map; a
+plain `map<long,Pt>` / `map<long,long>` struct compiles cleanly.)*
+
+### The DHEADER rule — and a ZeroDDS bug it exposed
+
+The cross-vendor diff also corrected a real ZeroDDS encoding bug. Per XCDR2
+(§7.4.3.5), a collection carries a DHEADER **only when its element is
+non-primitive** — same as a sequence. So:
+
+- `map<long, Pt>` (struct value) → DHEADER. ZeroDDS, Fast DDS agree (the 52-byte
+  `MapEnum` golden above is byte-identical).
+- `map<long, long>` (primitive value) → **no DHEADER**. Here ZeroDDS originally
+  over-emitted a spurious 4-byte DHEADER, while Fast DDS **and** OpenDDS both omit
+  it. [`mapbare/`](mapbare) records the three encoders for `map<long,long> = {7:42}`;
+  after the fix (`crates/cdr` keys the map DHEADER on `K::IS_PRIMITIVE &&
+  V::IS_PRIMITIVE`) all three are byte-identical:
+
+  ```
+  ZeroDDS / Fast DDS / OpenDDS :  01 00 00 00 07 00 00 00 2a 00 00 00   (count, key=7, value=42)
+  ```
+
+That bug was invisible to the `MapEnum` golden (which uses a *struct*-valued map,
+the path that correctly keeps a DHEADER) — it only showed once `map<primitive,
+primitive>` was diffed against two independent vendors. **Follow-up:** the same
+primitive-map DHEADER check should be verified in the other six ZeroDDS language
+bindings (the corpus golden doesn't yet exercise a primitive-valued map).
+
+The non-map structural features (`@bit_bound` enum, union-of-struct,
+sequence-of-union) are independently anchored across more vendors in
+`../endianness` and `../typesystem`.
 
 ## Cross-middleware — live over the wire (ZeroDDS ↔ Fast DDS)
 
