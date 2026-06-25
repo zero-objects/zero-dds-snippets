@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(rich_fd CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(fastdds REQUIRED)
+add_executable(rich_fd_pub pub.cxx RichPubSubTypes.cxx RichTypeObjectSupport.cxx)
+target_link_libraries(rich_fd_pub fastdds fastcdr)
+add_executable(rich_fd_sub sub.cxx RichPubSubTypes.cxx RichTypeObjectSupport.cxx)
+target_link_libraries(rich_fd_sub fastdds fastcdr)

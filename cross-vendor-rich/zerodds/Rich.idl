@@ -1,0 +1,6 @@
+@final
+struct RichF { @key unsigned long id; double value; sequence<octet> blob; };
+@appendable
+struct RichA { @key unsigned long id; double value; sequence<octet> blob; };
+@mutable
+struct RichM { @key unsigned long id; double value; sequence<octet> blob; };
