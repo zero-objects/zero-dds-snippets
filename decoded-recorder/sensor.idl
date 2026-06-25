@@ -1,0 +1,12 @@
+// Out-of-band schema for the decoder — no compiled type is needed; the
+// recorder builds a runtime DynamicType from this IDL and walks the wire.
+module telemetry {
+  enum Unit { CELSIUS, KELVIN, FAHRENHEIT };
+  @appendable struct Reading {
+    @key long       sensor_id;
+    string          name;
+    Unit            unit;
+    double          value;
+    sequence<long>  history;
+  };
+};
