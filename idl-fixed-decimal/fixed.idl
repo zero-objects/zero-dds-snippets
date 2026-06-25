@@ -1,0 +1,13 @@
+// fixed.idl — IDL fixed-point decimal (IDL 4.2 §7.4.1.4.4).
+// `fixed<P,S>`: P total decimal digits, S after the point. Its wire form is
+// CORBA/GIOP §9.3.2.7 packed BCD (restated verbatim in DDS XCDR2 §7.4.4.5).
+module shop {
+  @final struct Price {
+    @key  long          sku;
+          fixed<5,2>     amount;   // e.g. 123.45  -> 12 34 5c  (3 octets)
+  };
+  @appendable struct Order {
+          long          id;
+          fixed<4,0>    qty;       // e.g. 1234    -> 01 23 4c
+  };
+};
