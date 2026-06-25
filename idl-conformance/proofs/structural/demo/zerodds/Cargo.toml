@@ -1,0 +1,14 @@
+[package]
+name = "xv-mapenum"
+version = "0.0.0"
+edition = "2021"
+build = "build.rs"
+[workspace]
+[dependencies]
+zerodds-dcps = { path = "../../../../../../crates/dcps" }
+zerodds-cdr = { path = "../../../../../../crates/cdr" }
+zerodds-types = { path = "../../../../../../crates/types" }
+zerodds-sql-filter = { path = "../../../../../../crates/sql-filter" }
+[build-dependencies]
+zerodds-idl = { path = "../../../../../../crates/idl" }
+zerodds-idl-rust = { path = "../../../../../../crates/idl-rust" }

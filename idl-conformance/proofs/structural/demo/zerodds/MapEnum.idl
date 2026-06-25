@@ -1,0 +1,16 @@
+module feat {
+  struct Pt { long x; long y; };
+  @appendable
+  union Sel switch(long) {
+    case 1: Pt    p;
+    case 2: long  n;
+    default: octet z;
+  };
+  @bit_bound(16) enum Hue { H_RED, H_GREEN, H_BLUE };
+  @appendable
+  struct MapEnum {
+    Hue            h;
+    map<long, Pt>  m;
+    sequence<Sel>  sels;
+  };
+};
