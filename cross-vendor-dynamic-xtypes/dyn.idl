@@ -1,0 +1,18 @@
+module dyn {
+  enum Color { RED, GREEN, BLUE };
+
+  // MUTABLE union as a struct member — exercises the new reflective PL_CDR2 path.
+  @mutable union Cmd switch(long) {
+    case 1: long    speed;
+    case 2: double  angle;
+    default: octet  flag;
+  };
+
+  @appendable struct Track {
+    @key long       id;
+    string          name;
+    Color           color;
+    sequence<long>  path;
+    Cmd             command;
+  };
+};

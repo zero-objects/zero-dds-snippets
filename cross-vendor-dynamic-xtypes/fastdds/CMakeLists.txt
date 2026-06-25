@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(dyn_fd CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(fastdds REQUIRED)
+add_executable(dyn_fd_pub pub.cxx dynPubSubTypes.cxx dynTypeObjectSupport.cxx)
+target_link_libraries(dyn_fd_pub fastdds fastcdr)

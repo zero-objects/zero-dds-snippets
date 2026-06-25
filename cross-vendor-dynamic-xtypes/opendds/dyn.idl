@@ -1,0 +1,16 @@
+module dyn {
+  enum Color { RED, GREEN, BLUE };
+  @appendable union Cmd switch(long) {
+    case 1: long    speed;
+    case 2: double  angle;
+    default: octet  flag;
+  };
+  @topic
+  @appendable struct Track {
+    @key long       id;
+    string          name;
+    Color           hue;
+    sequence<long>  path;
+    Cmd             command;
+  };
+};

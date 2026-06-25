@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.12)
+project(dyn_od CXX)
+find_package(OpenDDS REQUIRED)
+add_library(dyn_idl)
+opendds_target_sources(dyn_idl PUBLIC dyn.idl)
+target_link_libraries(dyn_idl PUBLIC OpenDDS::Dcps)
+add_executable(od_pub pub.cpp)
+target_link_libraries(od_pub OpenDDS::Dcps OpenDDS::Rtps OpenDDS::Rtps_Udp dyn_idl)

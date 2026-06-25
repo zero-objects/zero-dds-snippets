@@ -82,9 +82,22 @@ non-primitive** — same as a sequence. So:
 
 That bug was invisible to the `MapEnum` golden (which uses a *struct*-valued map,
 the path that correctly keeps a DHEADER) — it only showed once `map<primitive,
-primitive>` was diffed against two independent vendors. **Follow-up:** the same
-primitive-map DHEADER check should be verified in the other six ZeroDDS language
-bindings (the corpus golden doesn't yet exercise a primitive-valued map).
+primitive>` was diffed against two independent vendors.
+
+**Follow-up — done, and it was systemic.** A `map<long,long>` golden
+([`_interop/goldens/mapprim.golden.bin`](../../_interop/goldens/mapprim.golden.bin),
+the `mapprim` feature) was added to the Tier-2 corpus so all seven ZeroDDS language
+bindings encode it byte-for-byte. That golden revealed the spurious DHEADER was
+**not** just the Rust core — every one of the six non-Rust backends carried it in
+its own generated map codec (each emits the collection DHEADER inline). All six
+were fixed to gate the DHEADER on `K::IS_PRIMITIVE && V::IS_PRIMITIVE` (and the
+`@mutable` case to pick EMHEADER LengthCode 4 instead of the shared-DHEADER LC5):
+TypeScript, C++, C, the Python runtime, Java and C#. The same diff also turned up a
+latent Java `Xcdr2Writer.align()` bug — it did not cap the boundary at the
+representation's max-alignment, so 8-byte primitives aligned to 8 instead of 4
+under XCDR2. The corpus now reports *ALL LANGUAGES CONFORM TO THE GOLDEN* for both
+`mapenum` (struct-valued, keeps its DHEADER) and `mapprim` (primitive-valued, omits
+it) across all seven bindings.
 
 The non-map structural features (`@bit_bound` enum, union-of-struct,
 sequence-of-union) are independently anchored across more vendors in
