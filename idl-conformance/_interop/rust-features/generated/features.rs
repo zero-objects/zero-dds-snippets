@@ -33,16 +33,51 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                if self.label.as_str().encode_utf16().count() > 16 { return Err(zerodds_cdr::EncodeError::ValueOutOfRange { message: "bounded wstring length exceeds its IDL bound (16)" }.into()); } { let __units = self.label.as_str().encode_utf16().count(); let __octets = u32::try_from(__units.checked_mul(2).ok_or(zerodds_cdr::EncodeError::ValueOutOfRange { message: "wstring length overflow" })?).map_err(|_| zerodds_cdr::EncodeError::ValueOutOfRange { message: "wstring length exceeds u32::MAX" })?; zerodds_cdr::BufferWriter::write_u32(w, __octets)?; for __u in self.label.as_str().encode_utf16() { zerodds_cdr::BufferWriter::write_u16(w, __u)?; } }
+                { let __units = self.text.as_str().encode_utf16().count(); let __octets = u32::try_from(__units.checked_mul(2).ok_or(zerodds_cdr::EncodeError::ValueOutOfRange { message: "wstring length overflow" })?).map_err(|_| zerodds_cdr::EncodeError::ValueOutOfRange { message: "wstring length exceeds u32::MAX" })?; zerodds_cdr::BufferWriter::write_u32(w, __octets)?; for __u in self.text.as_str().encode_utf16() { zerodds_cdr::BufferWriter::write_u16(w, __u)?; } }
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
-                let label = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { __units.push(u16::from_le_bytes([__bytes[__i], __bytes[__i + 1]])); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
-                let text = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { __units.push(u16::from_le_bytes([__bytes[__i], __bytes[__i + 1]])); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                let label = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __be = matches!(zerodds_cdr::BufferReader::endianness(r), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                let text = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __be = matches!(zerodds_cdr::BufferReader::endianness(r), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
                 Ok(Self {
                     label,
                     text,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let label = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __be = matches!(zerodds_cdr::BufferReader::endianness(r), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                let text = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __be = matches!(zerodds_cdr::BufferReader::endianness(r), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                Ok(Self {
+                    label,
+                    text,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -74,16 +109,16 @@ pub mod feat {
         fn decode(reader: &mut zerodds_cdr::BufferReader<'_>) -> ::core::result::Result<Self, zerodds_cdr::DecodeError> {
             if reader.max_alignment() == 4 {
                 zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
-                    let label = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { __units.push(u16::from_le_bytes([__bytes[__i], __bytes[__i + 1]])); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
-                    let text = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { __units.push(u16::from_le_bytes([__bytes[__i], __bytes[__i + 1]])); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                    let label = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __be = matches!(zerodds_cdr::BufferReader::endianness(r), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                    let text = { let __octets = zerodds_cdr::BufferReader::read_u32(r)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(r), offset: zerodds_cdr::BufferReader::position(r) })); } let __off = zerodds_cdr::BufferReader::position(r); let __be = matches!(zerodds_cdr::BufferReader::endianness(r), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(r, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
                     ::core::result::Result::Ok(Self {
                         label,
                         text,
                     })
                 })
             } else {
-                let label = { let __octets = zerodds_cdr::BufferReader::read_u32(reader)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(reader), offset: zerodds_cdr::BufferReader::position(reader) })); } let __off = zerodds_cdr::BufferReader::position(reader); let __bytes = zerodds_cdr::BufferReader::read_bytes(reader, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { __units.push(u16::from_le_bytes([__bytes[__i], __bytes[__i + 1]])); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
-                let text = { let __octets = zerodds_cdr::BufferReader::read_u32(reader)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(reader), offset: zerodds_cdr::BufferReader::position(reader) })); } let __off = zerodds_cdr::BufferReader::position(reader); let __bytes = zerodds_cdr::BufferReader::read_bytes(reader, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { __units.push(u16::from_le_bytes([__bytes[__i], __bytes[__i + 1]])); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                let label = { let __octets = zerodds_cdr::BufferReader::read_u32(reader)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(reader), offset: zerodds_cdr::BufferReader::position(reader) })); } let __off = zerodds_cdr::BufferReader::position(reader); let __be = matches!(zerodds_cdr::BufferReader::endianness(reader), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(reader, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
+                let text = { let __octets = zerodds_cdr::BufferReader::read_u32(reader)? as usize; if __octets % 2 != 0 { return ::core::result::Result::Err(::core::convert::Into::into(zerodds_cdr::DecodeError::LengthExceeded { announced: __octets, remaining: zerodds_cdr::BufferReader::remaining(reader), offset: zerodds_cdr::BufferReader::position(reader) })); } let __off = zerodds_cdr::BufferReader::position(reader); let __be = matches!(zerodds_cdr::BufferReader::endianness(reader), zerodds_cdr::Endianness::Big); let __bytes = zerodds_cdr::BufferReader::read_bytes(reader, __octets)?; let mut __units: ::std::vec::Vec<u16> = ::std::vec::Vec::with_capacity(__octets / 2); let mut __i = 0usize; while __i + 1 < __octets { let __p = [__bytes[__i], __bytes[__i + 1]]; __units.push(if __be { u16::from_be_bytes(__p) } else { u16::from_le_bytes(__p) }); __i += 2; } let __s = ::std::string::String::from_utf16(&__units).map_err(|_| zerodds_cdr::DecodeError::InvalidUtf8 { offset: __off })?; zerodds_cdr::WString(__s) };
                 ::core::result::Result::Ok(Self {
                     label,
                     text,
@@ -119,6 +154,20 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                let mut enc = zerodds_cdr::struct_enc::MutableStructEncoder::new(w, ::std::vec![10, 20, 30]);
+                enc.encode_member_lc(10, false, zerodds_cdr::struct_enc::LengthCode::Lc2, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.a, w)?; Ok(()) })?;
+                enc.encode_member_lc(20, false, zerodds_cdr::struct_enc::LengthCode::Lc3, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.b, w)?; Ok(()) })?;
+                enc.encode_member_lc(30, false, zerodds_cdr::struct_enc::LengthCode::Lc5, |w| { if self.c.len() > 8 { return Err(zerodds_cdr::EncodeError::ValueOutOfRange { message: "bounded string length exceeds its IDL bound (8)" }.into()); } <_ as zerodds_cdr::CdrEncode>::encode(&self.c, w)?; Ok(()) })?;
+                enc.finish()?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -131,7 +180,7 @@ pub mod feat {
                 loop {
                     match zerodds_cdr::struct_enc::read_mutable_member(r)? {
                         ::core::option::Option::Some(member) => {
-                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
                             match member.member_id {
                                 10 => {
                                     a = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
@@ -161,6 +210,62 @@ pub mod feat {
                     c: c.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 30 })?,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                // member-id 10
+                let mut a: ::core::option::Option<i32> = ::core::option::Option::None;
+                // member-id 20
+                let mut b: ::core::option::Option<f64> = ::core::option::Option::None;
+                // member-id 30
+                let mut c: ::core::option::Option<String> = ::core::option::Option::None;
+                loop {
+                    match zerodds_cdr::struct_enc::read_mutable_member(r)? {
+                        ::core::option::Option::Some(member) => {
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
+                            match member.member_id {
+                                10 => {
+                                    a = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                20 => {
+                                    b = ::core::option::Option::Some(<f64 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                30 => {
+                                    c = ::core::option::Option::Some(<String as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                _ => {
+                                    if member.must_understand {
+                                        return ::core::result::Result::Err(zerodds_cdr::DecodeError::UnknownMustUnderstandMember {
+                                            member_id: member.member_id,
+                                        });
+                                    }
+                                    // unknown optional member: skip body
+                                }
+                            }
+                        }
+                        ::core::option::Option::None => break,
+                    }
+                }
+                ::core::result::Result::Ok(Self {
+                    a: a.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 10 })?,
+                    b: b.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 20 })?,
+                    c: c.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 30 })?,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -207,7 +312,7 @@ pub mod feat {
                 loop {
                     match zerodds_cdr::struct_enc::read_mutable_member(r)? {
                         ::core::option::Option::Some(member) => {
-                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
                             match member.member_id {
                                 10 => {
                                     a = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
@@ -299,6 +404,19 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                let mut enc = zerodds_cdr::struct_enc::MutableStructEncoder::new(w, ::std::vec![1, 2]);
+                enc.encode_member_lc(1, false, zerodds_cdr::struct_enc::LengthCode::Lc2, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.u, w)?; Ok(()) })?;
+                enc.encode_member_lc(2, false, zerodds_cdr::struct_enc::LengthCode::Lc3, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.v, w)?; Ok(()) })?;
+                enc.finish()?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -309,7 +427,7 @@ pub mod feat {
                 loop {
                     match zerodds_cdr::struct_enc::read_mutable_member(r)? {
                         ::core::option::Option::Some(member) => {
-                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
                             match member.member_id {
                                 1 => {
                                     u = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
@@ -335,6 +453,56 @@ pub mod feat {
                     v: v.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 2 })?,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                // member-id 1
+                let mut u: ::core::option::Option<i32> = ::core::option::Option::None;
+                // member-id 2
+                let mut v: ::core::option::Option<f64> = ::core::option::Option::None;
+                loop {
+                    match zerodds_cdr::struct_enc::read_mutable_member(r)? {
+                        ::core::option::Option::Some(member) => {
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
+                            match member.member_id {
+                                1 => {
+                                    u = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                2 => {
+                                    v = ::core::option::Option::Some(<f64 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                _ => {
+                                    if member.must_understand {
+                                        return ::core::result::Result::Err(zerodds_cdr::DecodeError::UnknownMustUnderstandMember {
+                                            member_id: member.member_id,
+                                        });
+                                    }
+                                    // unknown optional member: skip body
+                                }
+                            }
+                        }
+                        ::core::option::Option::None => break,
+                    }
+                }
+                ::core::result::Result::Ok(Self {
+                    u: u.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 1 })?,
+                    v: v.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 2 })?,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -376,7 +544,7 @@ pub mod feat {
                 loop {
                     match zerodds_cdr::struct_enc::read_mutable_member(r)? {
                         ::core::option::Option::Some(member) => {
-                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
                             match member.member_id {
                                 1 => {
                                     u = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
@@ -460,6 +628,20 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                let mut enc = zerodds_cdr::struct_enc::MutableStructEncoder::new(w, ::std::vec![10, 20, 30]);
+                enc.encode_member_lc(10, false, zerodds_cdr::struct_enc::LengthCode::Lc2, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.tag, w)?; Ok(()) })?;
+                enc.encode_member_lc(20, false, zerodds_cdr::struct_enc::LengthCode::Lc5, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.leaf, w)?; Ok(()) })?;
+                enc.encode_member_lc(30, false, zerodds_cdr::struct_enc::LengthCode::Lc5, |w| { <_ as zerodds_cdr::CdrEncode>::encode(&self.list, w)?; Ok(()) })?;
+                enc.finish()?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -472,7 +654,7 @@ pub mod feat {
                 loop {
                     match zerodds_cdr::struct_enc::read_mutable_member(r)? {
                         ::core::option::Option::Some(member) => {
-                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
                             match member.member_id {
                                 10 => {
                                     tag = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
@@ -502,6 +684,62 @@ pub mod feat {
                     list: list.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 30 })?,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                // member-id 10
+                let mut tag: ::core::option::Option<i32> = ::core::option::Option::None;
+                // member-id 20
+                let mut leaf: ::core::option::Option<MutLeaf> = ::core::option::Option::None;
+                // member-id 30
+                let mut list: ::core::option::Option<Vec<MutLeaf>> = ::core::option::Option::None;
+                loop {
+                    match zerodds_cdr::struct_enc::read_mutable_member(r)? {
+                        ::core::option::Option::Some(member) => {
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
+                            match member.member_id {
+                                10 => {
+                                    tag = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                20 => {
+                                    leaf = ::core::option::Option::Some(<MutLeaf as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                30 => {
+                                    list = ::core::option::Option::Some(<Vec<MutLeaf> as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
+                                }
+                                _ => {
+                                    if member.must_understand {
+                                        return ::core::result::Result::Err(zerodds_cdr::DecodeError::UnknownMustUnderstandMember {
+                                            member_id: member.member_id,
+                                        });
+                                    }
+                                    // unknown optional member: skip body
+                                }
+                            }
+                        }
+                        ::core::option::Option::None => break,
+                    }
+                }
+                ::core::result::Result::Ok(Self {
+                    tag: tag.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 10 })?,
+                    leaf: leaf.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 20 })?,
+                    list: list.ok_or(zerodds_cdr::DecodeError::MissingNonOptionalMember { member_id: 30 })?,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -547,7 +785,7 @@ pub mod feat {
                 loop {
                     match zerodds_cdr::struct_enc::read_mutable_member(r)? {
                         ::core::option::Option::Some(member) => {
-                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::Endianness::Little).xcdr2();
+                            let mut body_reader = zerodds_cdr::BufferReader::new(member.body, zerodds_cdr::BufferReader::endianness(r)).xcdr2();
                             match member.member_id {
                                 10 => {
                                     tag = ::core::option::Option::Some(<i32 as zerodds_cdr::CdrDecode>::decode(&mut body_reader)?);
@@ -637,6 +875,14 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            <_ as zerodds_cdr::CdrEncode>::encode(&self.hi, &mut writer)?;
+            <_ as zerodds_cdr::CdrEncode>::encode(&self.lo, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             let hi = <i32 as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
@@ -645,6 +891,28 @@ pub mod feat {
                 hi,
                 lo,
             })
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            let hi = <i32 as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
+            let lo = <i32 as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
+            Ok(Self {
+                hi,
+                lo,
+            })
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn encode_key_holder_be(&self, holder: &mut zerodds_cdr::PlainCdr2BeKeyHolder) {
@@ -702,6 +970,14 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            <_ as zerodds_cdr::CdrEncode>::encode(&self.k, &mut writer)?;
+            <_ as zerodds_cdr::CdrEncode>::encode(&self.payload, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             let k = <NestedKey as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
@@ -710,6 +986,28 @@ pub mod feat {
                 k,
                 payload,
             })
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            let k = <NestedKey as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
+            let payload = <i32 as zerodds_cdr::CdrDecode>::decode(&mut reader)?;
+            Ok(Self {
+                k,
+                payload,
+            })
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn encode_key_holder_be(&self, holder: &mut zerodds_cdr::PlainCdr2BeKeyHolder) {
@@ -896,6 +1194,17 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.perm, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.flags, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -906,6 +1215,30 @@ pub mod feat {
                     flags,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let perm = <Perm as zerodds_cdr::CdrDecode>::decode(r)?;
+                let flags = <Flags as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    perm,
+                    flags,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -976,6 +1309,17 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.value, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.kids, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -986,6 +1330,30 @@ pub mod feat {
                     kids,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let value = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let kids = <Vec<Tree> as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    value,
+                    kids,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -1057,6 +1425,17 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.x, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.y, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -1067,6 +1446,30 @@ pub mod feat {
                     y,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let x = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let y = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    x,
+                    y,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -1139,6 +1542,17 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.grid, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.shape, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -1149,6 +1563,30 @@ pub mod feat {
                     shape,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let grid = <[[i32; 3]; 2] as zerodds_cdr::CdrDecode>::decode(r)?;
+                let shape = { if zerodds_cdr::BufferReader::max_alignment(r) == 4 { let _ = zerodds_cdr::BufferReader::read_u32(r)?; } let mut __arr: ::std::vec::Vec<Pt> = ::std::vec::Vec::with_capacity(2); for _ in 0..2 { __arr.push(<Pt as zerodds_cdr::CdrDecode>::decode(r)?); } let __arr: [Pt; 2] = __arr.try_into().map_err(|v: ::std::vec::Vec<Pt>| zerodds_cdr::DecodeError::LengthExceeded { announced: 2, remaining: v.len(), offset: 0 })?; __arr };
+                Ok(Self {
+                    grid,
+                    shape,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -1315,6 +1753,108 @@ pub mod feat {
 
     /// Generated by `zerodds-idl-rust` from IDL.
     #[derive(Debug, Clone, PartialEq, Default)]
+    pub struct MapPrim {
+        pub m: ::std::collections::BTreeMap<i32, i32>,
+    }
+
+    impl zerodds_dcps::DdsType for MapPrim {
+        const TYPE_NAME: &'static str = "feat::MapPrim";
+        const EXTENSIBILITY: zerodds_dcps::Extensibility = zerodds_dcps::Extensibility::Appendable;
+        const TYPE_IDENTIFIER: zerodds_types::TypeIdentifier = zerodds_types::TypeIdentifier::None;
+
+        fn encode(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.m, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.m, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let m = <::std::collections::BTreeMap<i32, i32> as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    m,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let m = <::std::collections::BTreeMap<i32, i32> as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    m,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
+        }
+
+        fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
+            match path {
+                _ => ::core::option::Option::None,
+            }
+        }
+    }
+
+    impl zerodds_cdr::CdrEncode for MapPrim {
+        fn encode(&self, writer: &mut zerodds_cdr::BufferWriter) -> ::core::result::Result<(), zerodds_cdr::EncodeError> {
+            if writer.max_alignment() == 4 {
+                zerodds_cdr::struct_enc::encode_appendable(writer, |w| {
+                    <_ as zerodds_cdr::CdrEncode>::encode(&self.m, w)?;
+                    Ok(())
+                })?;
+            } else {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.m, writer)?;
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+
+    impl zerodds_cdr::CdrDecode for MapPrim {
+        fn decode(reader: &mut zerodds_cdr::BufferReader<'_>) -> ::core::result::Result<Self, zerodds_cdr::DecodeError> {
+            if reader.max_alignment() == 4 {
+                zerodds_cdr::struct_enc::decode_appendable(reader, |r| {
+                    let m = <::std::collections::BTreeMap<i32, i32> as zerodds_cdr::CdrDecode>::decode(r)?;
+                    ::core::result::Result::Ok(Self {
+                        m,
+                    })
+                })
+            } else {
+                let m = <::std::collections::BTreeMap<i32, i32> as zerodds_cdr::CdrDecode>::decode(reader)?;
+                ::core::result::Result::Ok(Self {
+                    m,
+                })
+            }
+        }
+    }
+
+    /// Generated by `zerodds-idl-rust` from IDL.
+    #[derive(Debug, Clone, PartialEq, Default)]
     pub struct MapEnum {
         pub h: Hue,
         pub m: ::std::collections::BTreeMap<i32, Pt>,
@@ -1338,6 +1878,18 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.h, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.m, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.sels, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -1350,6 +1902,32 @@ pub mod feat {
                     sels,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let h = <Hue as zerodds_cdr::CdrDecode>::decode(r)?;
+                let m = <::std::collections::BTreeMap<i32, Pt> as zerodds_cdr::CdrDecode>::decode(r)?;
+                let sels = <Vec<Sel> as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    h,
+                    m,
+                    sels,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {
@@ -1449,6 +2027,28 @@ pub mod feat {
             Ok(())
         }
 
+        fn encode_be(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::encode_appendable(&mut writer, |w| {
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.i8, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.u8, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.i16, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.u16, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.i32, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.u32, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.i64, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.u64, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.f32, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.f64, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.b, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.o, w)?;
+                <_ as zerodds_cdr::CdrEncode>::encode(&self.ch, w)?;
+                Ok(())
+            })?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
         fn decode(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
             let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little).xcdr2();
             zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
@@ -1481,6 +2081,52 @@ pub mod feat {
                     ch,
                 })
             }).map_err(::core::convert::Into::into)
+        }
+
+        fn decode_be(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Big).xcdr2();
+            zerodds_cdr::struct_enc::decode_appendable(&mut reader, |r| {
+                let i8 = <i8 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let u8 = <u8 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let i16 = <i16 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let u16 = <u16 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let i32 = <i32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let u32 = <u32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let i64 = <i64 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let u64 = <u64 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let f32 = <f32 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let f64 = <f64 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let b = <bool as zerodds_cdr::CdrDecode>::decode(r)?;
+                let o = <u8 as zerodds_cdr::CdrDecode>::decode(r)?;
+                let ch = <u8 as zerodds_cdr::CdrDecode>::decode(r)?;
+                Ok(Self {
+                    i8,
+                    u8,
+                    i16,
+                    u16,
+                    i32,
+                    u32,
+                    i64,
+                    u64,
+                    f32,
+                    f64,
+                    b,
+                    o,
+                    ch,
+                })
+            }).map_err(::core::convert::Into::into)
+        }
+
+        fn encode_xcdr1(&self, out: &mut ::std::vec::Vec<u8>) -> ::core::result::Result<(), zerodds_dcps::EncodeError> {
+            let mut writer = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrEncode>::encode(self, &mut writer)?;
+            out.extend_from_slice(&writer.into_bytes());
+            Ok(())
+        }
+
+        fn decode_xcdr1(bytes: &[u8]) -> ::core::result::Result<Self, zerodds_dcps::DecodeError> {
+            let mut reader = zerodds_cdr::BufferReader::new(bytes, zerodds_cdr::Endianness::Little);
+            <Self as zerodds_cdr::CdrDecode>::decode(&mut reader).map_err(::core::convert::Into::into)
         }
 
         fn field_value(&self, path: &str) -> ::core::option::Option<zerodds_sql_filter::Value> {

@@ -97,6 +97,12 @@ static feat::MapEnum canon_mapenum() {
     v.sels(std::vector<feat::Sel>{s});
     return v;
 }
+// map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5). m={7:42,8:99}.
+static feat::MapPrim canon_mapprim() {
+    feat::MapPrim v;
+    std::map<int32_t, int32_t> m; m[7] = 42; m[8] = 99; v.m(m);
+    return v;
+}
 
 static std::vector<uint8_t> readfile(const char* p) {
     std::ifstream f(p, std::ios::binary);
@@ -217,6 +223,7 @@ int main(int argc, char** argv) {
         if (feat == "mutnest")  return do_encode(file, canon_mutnest());
         if (feat == "outerkey") return do_encode(file, canon_outerkey());
         if (feat == "mapenum")  return do_encode(file, canon_mapenum());
+        if (feat == "mapprim")  return do_encode(file, canon_mapprim());
     } else if (mode == "DECODE") {
         auto buf = readfile(file);
         if (buf.empty()) { std::cerr << "empty/missing " << file << "\n"; return 2; }

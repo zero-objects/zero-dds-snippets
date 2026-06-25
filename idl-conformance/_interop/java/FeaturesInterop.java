@@ -190,6 +190,8 @@ public final class FeaturesInterop {
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         ok &= enc("mapenum", feat.MapEnumTypeSupport.INSTANCE.encode(canonicalMapEnum(),
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
+        ok &= enc("mapprim", feat.MapPrimTypeSupport.INSTANCE.encode(canonicalMapPrim(),
+            org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         return ok;
     }
 
@@ -201,6 +203,15 @@ public final class FeaturesInterop {
         m.put(3, p);
         v.setM(m);
         v.setSels(java.util.List.of(new feat.Sel.N(9)));
+        return v;
+    }
+
+    // map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5). m={7:42,8:99}.
+    static feat.MapPrim canonicalMapPrim() {
+        feat.MapPrim v = new feat.MapPrim();
+        java.util.Map<Integer, Integer> m = new java.util.TreeMap<>();
+        m.put(7, 42); m.put(8, 99);
+        v.setM(m);
         return v;
     }
 

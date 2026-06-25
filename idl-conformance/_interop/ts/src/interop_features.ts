@@ -27,12 +27,17 @@ const {
   MutNestTypeSupport,
   OuterKeyTypeSupport,
   MapEnumTypeSupport,
+  MapPrimTypeSupport,
 } = feat;
 
 const MAPENUM: feat.MapEnum = {
   h: feat.Hue.H_BLUE,
   m: new Map<number, feat.Pt>([[3, { x: 11, y: 12 }]]),
   sels: [{ discriminator: 2, n: 9 }],
+};
+
+const MAPPRIM: feat.MapPrim = {
+  m: new Map([[7, 42], [8, 99]]),
 };
 
 function diffMapEnum(g: feat.MapEnum, w: feat.MapEnum): Diff {
@@ -277,6 +282,13 @@ const FEATURES: Array<Feature<any>> = [
     encode: (s) => MapEnumTypeSupport.encode(s, "le"),
     decode: (b) => MapEnumTypeSupport.decode(b),
     diff: diffMapEnum,
+  },
+  {
+    name: "mapprim",
+    sample: MAPPRIM,
+    encode: (s) => MapPrimTypeSupport.encode(s, "le"),
+    decode: (b) => MapPrimTypeSupport.decode(b),
+    diff: (g, w) => (MapPrimTypeSupport.encode(g, "le").length === MapPrimTypeSupport.encode(w, "le").length ? [] : ["mapprim: re-encode != canonical"]),
   },
 ];
 

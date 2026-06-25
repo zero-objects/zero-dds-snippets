@@ -1133,6 +1133,86 @@ namespace feat
     }
 
     [Extensibility(ExtensibilityKind.Appendable)]
+    public partial record class MapPrim : ITopicType<MapPrim>
+    {
+        public IDictionary<int, int> M { get; init; } = default!;
+    }
+
+    public sealed class MapPrimTypeSupport : IDdsTopicType<MapPrim>
+    {
+        public static readonly MapPrimTypeSupport Instance = new();
+
+        public string TypeName => "feat::MapPrim";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
+
+        public byte[] Encode(MapPrim sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(MapPrim sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(MapPrim sample, EndianMode endian, int representation)
+        {
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, MapPrim sample)
+        {
+            using (var __scope = w.BeginAppendable())
+            {
+                {
+                    var __map0 = (sample.M) ?? new System.Collections.Generic.Dictionary<int, int>();
+                    w.WriteSequenceLength(__map0.Count);
+                    foreach (var __kv0 in __map0)
+                    {
+                        w.WriteInt32(__kv0.Key);
+                        w.WriteInt32(__kv0.Value);
+                    }
+                }
+            }
+        }
+
+        public MapPrim Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public MapPrim Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public MapPrim Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
+        {
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
+            return DecodeFrom(ref r);
+        }
+
+        public MapPrim DecodeFrom(ref Xcdr2Reader r)
+        {
+            var __scope = r.BeginDHeader();
+            System.Collections.Generic.IDictionary<int, int> __m0 = default!;
+            {
+                int __mcnt0 = r.ReadSequenceLength();
+                var __dict0 = new System.Collections.Generic.Dictionary<int, int>();
+                for (int __mi0 = 0; __mi0 < __mcnt0; __mi0++)
+                {
+                    int __mk0;
+                    __mk0 = r.ReadInt32();
+                    int __mv0;
+                    __mv0 = r.ReadInt32();
+                    __dict0[__mk0] = __mv0;
+                }
+                __m0 = __dict0;
+            }
+            r.EndDHeader(__scope);
+            return new MapPrim
+            {
+                M = __m0!,
+            };
+        }
+
+        public byte[] KeyHash(MapPrim sample)
+        {
+            return new byte[16];
+        }
+    }
+
+    [Extensibility(ExtensibilityKind.Appendable)]
     public partial record class MapEnum : ITopicType<MapEnum>
     {
         public Hue H { get; init; } = default!;

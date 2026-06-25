@@ -108,6 +108,12 @@ static MapEnum CanonicalMapEnum() => new MapEnum
     Sels = new SequenceList<Sel>(new[] { new Sel { Discriminator = 2, Value = 9 } }),
 };
 
+// map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5). m={7:42,8:99}.
+static MapPrim CanonicalMapPrim() => new MapPrim
+{
+    M = new System.Collections.Generic.SortedDictionary<int, int> { [7] = 42, [8] = 99 },
+};
+
 // ---- encode -----------------------------------------------------------------
 
 static void WriteGolden(string name, byte[] bytes)
@@ -130,6 +136,7 @@ static int RunEncode()
     WriteGolden("arr", ArrTypeSupport.Instance.Encode(CanonicalArr(), EndianMode.LittleEndian));
     WriteGolden("prim", PrimTypeSupport.Instance.Encode(CanonicalPrim(), EndianMode.LittleEndian));
     WriteGolden("mapenum", MapEnumTypeSupport.Instance.Encode(CanonicalMapEnum(), EndianMode.LittleEndian));
+    WriteGolden("mapprim", MapPrimTypeSupport.Instance.Encode(CanonicalMapPrim(), EndianMode.LittleEndian));
     return 0;
 }
 

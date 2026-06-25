@@ -108,6 +108,10 @@ typedef struct feat_Sel_s {
     } _u;
 } feat_Sel_t;
 
+typedef struct feat_MapPrim_s {
+    struct { uint32_t len; int32_t* keys; int32_t* vals; } m;
+} feat_MapPrim_t;
+
 typedef struct feat_MapEnum_s {
     feat_Hue_t h;
     struct { uint32_t len; int32_t* keys; feat_Pt_t* vals; } m;
@@ -130,34 +134,37 @@ typedef struct feat_Prim_s {
     char ch;
 } feat_Prim_t;
 
-static int feat_Tree_write_body(const feat_Tree_t* v, uint8_t** w_buf_pp, size_t* w_len_pp, size_t* w_cap_pp);
-static int feat_Tree_read_body(const uint8_t* buf, size_t len, size_t* pos_pp, feat_Tree_t* v, int zd_be);
+static int feat_Tree_write_body(const feat_Tree_t* v, uint8_t** w_buf_pp, size_t* w_len_pp, size_t* w_cap_pp, int representation);
+static int feat_Tree_read_body(const uint8_t* buf, size_t len, size_t* pos_pp, feat_Tree_t* v, int zd_be, int representation);
 
-static int feat_Tree_write_body(const feat_Tree_t* v, uint8_t** w_buf_pp, size_t* w_len_pp, size_t* w_cap_pp) {
+static int feat_Tree_write_body(const feat_Tree_t* v, uint8_t** w_buf_pp, size_t* w_len_pp, size_t* w_cap_pp, int representation) {
 #define w_buf (*w_buf_pp)
 #define w_len (*w_len_pp)
 #define w_cap (*w_cap_pp)
     const feat_Tree_t* s = v; (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->value) != 0) goto fail;
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t seq_dheader_pos = w_len;
-    w_len += 4;
-    size_t seq_body_start = w_len;
+    size_t seq_dheader_pos = 0; (void)seq_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        seq_dheader_pos = w_len; w_len += 4;
+    }
+    size_t seq_body_start = w_len; (void)seq_body_start;
     if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->kids).len) != 0) goto fail;
     for (uint32_t i0 = 0; i0 < (s->kids).len; ++i0) {
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t rec_dheader_pos = w_len;
-    w_len += 4;
-    size_t rec_body_start = w_len;
-    if (feat_Tree_write_body(&((s->kids).elems[i0]), &w_buf, &w_len, &w_cap) != 0) goto fail;
-    { uint32_t rec_dheader_len = (uint32_t)(w_len - rec_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, rec_dheader_pos, rec_dheader_len); }
+    size_t rec_dheader_pos = 0; (void)rec_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        rec_dheader_pos = w_len; w_len += 4;
+    }
+    size_t rec_body_start = w_len; (void)rec_body_start;
+    if (feat_Tree_write_body(&((s->kids).elems[i0]), &w_buf, &w_len, &w_cap, representation) != 0) goto fail;
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, rec_dheader_pos, (uint32_t)(w_len - rec_body_start)); }
     }
     }
-    uint32_t seq_dheader_len = (uint32_t)(w_len - seq_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, seq_dheader_len);
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, (uint32_t)(w_len - seq_body_start)); }
     }
     return 0;
 fail:
@@ -167,22 +174,25 @@ fail:
 #undef w_cap
 }
 
-static int feat_Tree_read_body(const uint8_t* buf, size_t len, size_t* pos_pp, feat_Tree_t* v, int zd_be) {
+static int feat_Tree_read_body(const uint8_t* buf, size_t len, size_t* pos_pp, feat_Tree_t* v, int zd_be, int representation) {
 #define pos (*pos_pp)
     feat_Tree_t* s = v; (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->value), zd_be) != 0) return -7;
     {
+        if (representation) {
         uint32_t seq_dheader = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_dheader, zd_be) != 0) return -7;
         (void)seq_dheader;
+        }
         uint32_t seq_len = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_len, zd_be) != 0) return -7;
         (s->kids).len = seq_len;
         (s->kids).elems = (struct feat_Tree_s*)calloc(seq_len ? seq_len : 1, sizeof(struct feat_Tree_s));
         if ((s->kids).elems == NULL && seq_len > 0) return -7;
         for (uint32_t i0 = 0; i0 < seq_len; ++i0) {
-    { uint32_t rec_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &rec_dheader, zd_be) != 0) return -7; (void)rec_dheader; }
-    if (feat_Tree_read_body(buf, len, &pos, &((s->kids).elems[i0]), zd_be) != 0) return -7;
+    if (representation) { uint32_t rec_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &rec_dheader, zd_be) != 0) return -7; (void)rec_dheader; }
+    if (feat_Tree_read_body(buf, len, &pos, &((s->kids).elems[i0]), zd_be, representation) != 0) return -7;
         }
     }
     return 0;
@@ -192,6 +202,7 @@ static int feat_Tree_read_body(const uint8_t* buf, size_t len, size_t* pos_pp, f
 static int feat_WStr_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_WStr_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_WStr_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_WStr_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_WStr_sample_free(void* sample);
 
 static const char feat_WStr_type_name[] = "feat::WStr";
@@ -205,19 +216,25 @@ static const zerodds_typesupport_t feat_WStr_typesupport = {
     .decode = feat_WStr_decode,
     .key_hash = NULL,
     .sample_free = feat_WStr_sample_free,
+    .decode_repr = feat_WStr_decode_repr,
 };
 
-static int feat_WStr_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_WStr_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_WStr_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_WStr_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_WStr_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_WStr_t* s = (const feat_WStr_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
     size_t body_start = w_len;
     {
         const uint16_t* ws_p = (const uint16_t*)(s->label);
@@ -234,8 +251,9 @@ static int feat_WStr_encode(const void* sample, uint8_t* out_buf, size_t out_cap
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, ws_n * 2u) != 0) goto fail;
         for (uint32_t wi = 0; wi < ws_n; ++wi) { if (zerodds_xcdr2_c_write_u16(&w_buf, &w_len, &w_cap, ws_p[wi]) != 0) goto fail; }
     }
-    uint32_t dheader_len = (uint32_t)(w_len - body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -246,14 +264,21 @@ fail:
     return -1;
 }
 
-static int feat_WStr_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_WStr_decode_e(buf, len, out_sample, 0); }
-static int feat_WStr_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_WStr_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_WStr_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_WStr_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_WStr_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_WStr_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_WStr_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_WStr_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_WStr_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_WStr_t* s = (feat_WStr_t*)out_sample;
     size_t pos = 0;
-    uint32_t dheader = 0;
-    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
-    size_t body_end = pos + dheader;
-    if (body_end > len) return -7;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
     {
         uint32_t ws_bytes = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &ws_bytes, zd_be) != 0) return -7;
@@ -274,7 +299,7 @@ static int feat_WStr_decode_e(const uint8_t* buf, size_t len, void* out_sample, 
         ws_p[ws_n] = 0;
         (s->text) = ws_p;
     }
-    pos = body_end;
+    if (representation) pos = body_end;
     (void)s;
     return 0;
 }
@@ -290,6 +315,7 @@ static void feat_WStr_sample_free(void* sample) {
 static int feat_Mut_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Mut_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_Mut_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Mut_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_Mut_sample_free(void* sample);
 
 static const char feat_Mut_type_name[] = "feat::Mut";
@@ -303,35 +329,65 @@ static const zerodds_typesupport_t feat_Mut_typesupport = {
     .decode = feat_Mut_decode,
     .key_hash = NULL,
     .sample_free = feat_Mut_sample_free,
+    .decode_repr = feat_Mut_decode_repr,
 };
 
-static int feat_Mut_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_Mut_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Mut_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Mut_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Mut_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_Mut_t* s = (const feat_Mut_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
-    size_t mut_body_start = w_len;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        size_t dheader_pos = w_len; w_len += 4;
+        size_t mut_body_start = w_len;
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x2000000Au) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->a) != 0) goto fail;
     }
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000014u) != 0) goto fail;
-    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->b) != 0) goto fail;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->b) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, s->b) != 0) goto fail; }
     }
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x5000001Eu) != 0) goto fail;
     if ((s->c) != NULL && strlen(s->c) > 8u) goto fail;
     if (zerodds_xcdr2_c_write_string(&w_buf, &w_len, &w_cap, s->c) != 0) goto fail;
     }
-    uint32_t dheader_len = (uint32_t)(w_len - mut_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - mut_body_start));
+    } else {
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->a) != 0) goto fail;
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 10u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->b) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, s->b) != 0) goto fail; }
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 20u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    if ((s->c) != NULL && strlen(s->c) > 8u) goto fail;
+    if (zerodds_xcdr2_c_write_string(&w_buf, &w_len, &w_cap, s->c) != 0) goto fail;
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 30u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    if (zerodds_xcdr2_c_pl1_sentinel(&w_buf, &w_len, &w_cap) != 0) goto fail;
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -342,10 +398,50 @@ fail:
     return -1;
 }
 
-static int feat_Mut_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Mut_decode_e(buf, len, out_sample, 0); }
-static int feat_Mut_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_Mut_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Mut_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Mut_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Mut_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Mut_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Mut_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Mut_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Mut_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_Mut_t* s = (feat_Mut_t*)out_sample;
     size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    if (!representation) {
+    while (pos + 4 <= len) {
+        uint32_t pl_id = 0; size_t pl_blen = 0; int pl_end = 0;
+        if (zerodds_xcdr2_c_pl1_read_header(buf, len, &pos, &pl_id, &pl_blen, &pl_end, zd_be) != 0) return -7;
+        if (pl_end) break;
+        if (pos + pl_blen > len) return -7;
+        size_t pl_body_start = pos;
+        switch (pl_id) {
+        case 10u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->a), zd_be) != 0) return -7;
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        case 20u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &(s->b), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &(s->b), zd_be) != 0) return -7; }
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        case 30u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    if (zerodds_xcdr2_c_read_string(buf, len, &pos, &(s->c), zd_be) != 0) return -7;
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        default: break;
+        }
+        pos = pl_body_start + pl_blen;
+        { size_t pl_pad = (4u - (pl_blen % 4u)) % 4u; pos += pl_pad; if (pos > len) pos = len; }
+    }
+    } else {
     uint32_t dheader = 0;
     if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
     size_t body_end = pos + dheader;
@@ -373,7 +469,8 @@ static int feat_Mut_decode_e(const uint8_t* buf, size_t len, void* out_sample, i
             break;
         }
         case 20: {
-    if (zd_x2_read_f64(buf, len, &pos, &(s->b), zd_be) != 0) return -7;
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &(s->b), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &(s->b), zd_be) != 0) return -7; }
             break;
         }
         case 30: {
@@ -382,6 +479,7 @@ static int feat_Mut_decode_e(const uint8_t* buf, size_t len, void* out_sample, i
         }
         default: pos += body_len; break;
         }
+    }
     }
     (void)s;
     return 0;
@@ -397,6 +495,7 @@ static void feat_Mut_sample_free(void* sample) {
 static int feat_MutLeaf_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_MutLeaf_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_MutLeaf_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_MutLeaf_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_MutLeaf_sample_free(void* sample);
 
 static const char feat_MutLeaf_type_name[] = "feat::MutLeaf";
@@ -410,30 +509,52 @@ static const zerodds_typesupport_t feat_MutLeaf_typesupport = {
     .decode = feat_MutLeaf_decode,
     .key_hash = NULL,
     .sample_free = feat_MutLeaf_sample_free,
+    .decode_repr = feat_MutLeaf_decode_repr,
 };
 
-static int feat_MutLeaf_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_MutLeaf_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_MutLeaf_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_MutLeaf_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_MutLeaf_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_MutLeaf_t* s = (const feat_MutLeaf_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
-    size_t mut_body_start = w_len;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        size_t dheader_pos = w_len; w_len += 4;
+        size_t mut_body_start = w_len;
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->u) != 0) goto fail;
     }
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
-    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->v) != 0) goto fail;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->v) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, s->v) != 0) goto fail; }
     }
-    uint32_t dheader_len = (uint32_t)(w_len - mut_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - mut_body_start));
+    } else {
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->u) != 0) goto fail;
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 1u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->v) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, s->v) != 0) goto fail; }
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 2u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    if (zerodds_xcdr2_c_pl1_sentinel(&w_buf, &w_len, &w_cap) != 0) goto fail;
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -444,10 +565,43 @@ fail:
     return -1;
 }
 
-static int feat_MutLeaf_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_MutLeaf_decode_e(buf, len, out_sample, 0); }
-static int feat_MutLeaf_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_MutLeaf_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_MutLeaf_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_MutLeaf_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_MutLeaf_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_MutLeaf_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_MutLeaf_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_MutLeaf_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_MutLeaf_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_MutLeaf_t* s = (feat_MutLeaf_t*)out_sample;
     size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    if (!representation) {
+    while (pos + 4 <= len) {
+        uint32_t pl_id = 0; size_t pl_blen = 0; int pl_end = 0;
+        if (zerodds_xcdr2_c_pl1_read_header(buf, len, &pos, &pl_id, &pl_blen, &pl_end, zd_be) != 0) return -7;
+        if (pl_end) break;
+        if (pos + pl_blen > len) return -7;
+        size_t pl_body_start = pos;
+        switch (pl_id) {
+        case 1u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->u), zd_be) != 0) return -7;
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        case 2u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &(s->v), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &(s->v), zd_be) != 0) return -7; }
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        default: break;
+        }
+        pos = pl_body_start + pl_blen;
+        { size_t pl_pad = (4u - (pl_blen % 4u)) % 4u; pos += pl_pad; if (pos > len) pos = len; }
+    }
+    } else {
     uint32_t dheader = 0;
     if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
     size_t body_end = pos + dheader;
@@ -475,11 +629,13 @@ static int feat_MutLeaf_decode_e(const uint8_t* buf, size_t len, void* out_sampl
             break;
         }
         case 2: {
-    if (zd_x2_read_f64(buf, len, &pos, &(s->v), zd_be) != 0) return -7;
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &(s->v), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &(s->v), zd_be) != 0) return -7; }
             break;
         }
         default: pos += body_len; break;
         }
+    }
     }
     (void)s;
     return 0;
@@ -494,6 +650,7 @@ static void feat_MutLeaf_sample_free(void* sample) {
 static int feat_MutNest_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_MutNest_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_MutNest_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_MutNest_sample_free(void* sample);
 
 static const char feat_MutNest_type_name[] = "feat::MutNest";
@@ -507,20 +664,24 @@ static const zerodds_typesupport_t feat_MutNest_typesupport = {
     .decode = feat_MutNest_decode,
     .key_hash = NULL,
     .sample_free = feat_MutNest_sample_free,
+    .decode_repr = feat_MutNest_decode_repr,
 };
 
-static int feat_MutNest_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_MutNest_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_MutNest_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_MutNest_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_MutNest_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_MutNest_t* s = (const feat_MutNest_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
-    size_t mut_body_start = w_len;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        size_t dheader_pos = w_len; w_len += 4;
+        size_t mut_body_start = w_len;
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x2000000Au) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->tag) != 0) goto fail;
@@ -528,54 +689,128 @@ static int feat_MutNest_encode(const void* sample, uint8_t* out_buf, size_t out_
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x50000014u) != 0) goto fail;
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t nst_dheader_pos = w_len;
-    w_len += 4;
-    size_t nst_body_start = w_len;
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->leaf).u) != 0) goto fail;
     }
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
-    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, (s->leaf).v) != 0) goto fail;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, (s->leaf).v) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, (s->leaf).v) != 0) goto fail; }
     }
-    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
     }
     }
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x5000001Eu) != 0) goto fail;
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t seq_dheader_pos = w_len;
-    w_len += 4;
-    size_t seq_body_start = w_len;
+    size_t seq_dheader_pos = 0; (void)seq_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        seq_dheader_pos = w_len; w_len += 4;
+    }
+    size_t seq_body_start = w_len; (void)seq_body_start;
     if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->list).len) != 0) goto fail;
     for (uint32_t i0 = 0; i0 < (s->list).len; ++i0) {
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t nst_dheader_pos = w_len;
-    w_len += 4;
-    size_t nst_body_start = w_len;
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).u) != 0) goto fail;
     }
     {
         if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
-    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).v) != 0) goto fail;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).v) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).v) != 0) goto fail; }
     }
-    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
-    }
-    }
-    uint32_t seq_dheader_len = (uint32_t)(w_len - seq_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, seq_dheader_len);
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
     }
     }
-    uint32_t dheader_len = (uint32_t)(w_len - mut_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, (uint32_t)(w_len - seq_body_start)); }
+    }
+    }
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - mut_body_start));
+    } else {
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->tag) != 0) goto fail;
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 10u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    {
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->leaf).u) != 0) goto fail;
+    }
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, (s->leaf).v) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, (s->leaf).v) != 0) goto fail; }
+    }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
+    }
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 20u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    {
+        uint8_t* m_buf = w_buf; size_t m_len = w_len; size_t m_cap = w_cap;
+        w_buf = NULL; w_len = 0; w_cap = 0;
+    {
+    size_t seq_dheader_pos = 0; (void)seq_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        seq_dheader_pos = w_len; w_len += 4;
+    }
+    size_t seq_body_start = w_len; (void)seq_body_start;
+    if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->list).len) != 0) goto fail;
+    for (uint32_t i0 = 0; i0 < (s->list).len; ++i0) {
+    {
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x20000001u) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).u) != 0) goto fail;
+    }
+    {
+        if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, 0x30000002u) != 0) goto fail;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).v) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, ((s->list).elems[i0]).v) != 0) goto fail; }
+    }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
+    }
+    }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, (uint32_t)(w_len - seq_body_start)); }
+    }
+        if (zerodds_xcdr2_c_pl1_write_member(&m_buf, &m_len, &m_cap, 30u, w_buf, w_len) != 0) { free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap; goto fail; }
+        free(w_buf); w_buf = m_buf; w_len = m_len; w_cap = m_cap;
+    }
+    if (zerodds_xcdr2_c_pl1_sentinel(&w_buf, &w_len, &w_cap) != 0) goto fail;
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -586,10 +821,139 @@ fail:
     return -1;
 }
 
-static int feat_MutNest_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_MutNest_decode_e(buf, len, out_sample, 0); }
-static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_MutNest_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_MutNest_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_MutNest_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_MutNest_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_MutNest_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_MutNest_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_MutNest_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_MutNest_t* s = (feat_MutNest_t*)out_sample;
     size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    if (!representation) {
+    while (pos + 4 <= len) {
+        uint32_t pl_id = 0; size_t pl_blen = 0; int pl_end = 0;
+        if (zerodds_xcdr2_c_pl1_read_header(buf, len, &pos, &pl_id, &pl_blen, &pl_end, zd_be) != 0) return -7;
+        if (pl_end) break;
+        if (pos + pl_blen > len) return -7;
+        size_t pl_body_start = pos;
+        switch (pl_id) {
+        case 10u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->tag), zd_be) != 0) return -7;
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        case 20u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    {
+        size_t nst_end0 = len; (void)nst_end0;
+        if (representation) {
+        uint32_t nst_dheader0 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader0, zd_be) != 0) return -7;
+        nst_end0 = pos + nst_dheader0;
+        if (nst_end0 > len) return -7;
+        }
+        while (representation && pos < nst_end0) {
+            uint32_t emheader0 = 0;
+            if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader0, zd_be) != 0) return -7;
+            uint32_t mid0 = emheader0 & 0x0FFFFFFFu;
+            uint32_t lc0 = (emheader0 >> 28) & 0x7u;
+            uint32_t nextint0 = 0;
+            size_t body_len0 = 0;
+            if (lc0 == 0) body_len0 = 1; else if (lc0 == 1) body_len0 = 2; else if (lc0 == 2) body_len0 = 4; else if (lc0 == 3) body_len0 = 8;
+            else if (lc0 == 5) {
+                size_t peek_pos0 = pos;
+                if (zerodds_xcdr2_c_read_u32(buf, len, &peek_pos0, &nextint0, zd_be) != 0) return -7;
+                body_len0 = 4u + (size_t)nextint0;
+            } else {
+                if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nextint0, zd_be) != 0) return -7;
+                body_len0 = nextint0;
+            }
+            if (pos + body_len0 > nst_end0) return -7;
+        switch (mid0) {
+        case 1: {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->leaf).u), zd_be) != 0) return -7;
+            break;
+        }
+        case 2: {
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &((s->leaf).v), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &((s->leaf).v), zd_be) != 0) return -7; }
+            break;
+        }
+        default: pos += body_len0; break;
+        }
+        }
+    }
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        case 30u: {
+            const uint8_t* mb = buf; size_t ml = len; size_t mp = pos;
+            buf = mb + pl_body_start; len = pl_blen; pos = 0;
+    {
+        if (representation) {
+        uint32_t seq_dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_dheader, zd_be) != 0) return -7;
+        (void)seq_dheader;
+        }
+        uint32_t seq_len = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_len, zd_be) != 0) return -7;
+        (s->list).len = seq_len;
+        (s->list).elems = (feat_MutLeaf_t*)calloc(seq_len ? seq_len : 1, sizeof(feat_MutLeaf_t));
+        if ((s->list).elems == NULL && seq_len > 0) return -7;
+        for (uint32_t i0 = 0; i0 < seq_len; ++i0) {
+    {
+        size_t nst_end1 = len; (void)nst_end1;
+        if (representation) {
+        uint32_t nst_dheader1 = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader1, zd_be) != 0) return -7;
+        nst_end1 = pos + nst_dheader1;
+        if (nst_end1 > len) return -7;
+        }
+        while (representation && pos < nst_end1) {
+            uint32_t emheader1 = 0;
+            if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader1, zd_be) != 0) return -7;
+            uint32_t mid1 = emheader1 & 0x0FFFFFFFu;
+            uint32_t lc1 = (emheader1 >> 28) & 0x7u;
+            uint32_t nextint1 = 0;
+            size_t body_len1 = 0;
+            if (lc1 == 0) body_len1 = 1; else if (lc1 == 1) body_len1 = 2; else if (lc1 == 2) body_len1 = 4; else if (lc1 == 3) body_len1 = 8;
+            else if (lc1 == 5) {
+                size_t peek_pos1 = pos;
+                if (zerodds_xcdr2_c_read_u32(buf, len, &peek_pos1, &nextint1, zd_be) != 0) return -7;
+                body_len1 = 4u + (size_t)nextint1;
+            } else {
+                if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nextint1, zd_be) != 0) return -7;
+                body_len1 = nextint1;
+            }
+            if (pos + body_len1 > nst_end1) return -7;
+        switch (mid1) {
+        case 1: {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->list).elems[i0]).u), zd_be) != 0) return -7;
+            break;
+        }
+        case 2: {
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &(((s->list).elems[i0]).v), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &(((s->list).elems[i0]).v), zd_be) != 0) return -7; }
+            break;
+        }
+        default: pos += body_len1; break;
+        }
+        }
+    }
+        }
+    }
+            buf = mb; len = ml; pos = mp;
+            break;
+        }
+        default: break;
+        }
+        pos = pl_body_start + pl_blen;
+        { size_t pl_pad = (4u - (pl_blen % 4u)) % 4u; pos += pl_pad; if (pos > len) pos = len; }
+    }
+    } else {
     uint32_t dheader = 0;
     if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
     size_t body_end = pos + dheader;
@@ -618,11 +982,14 @@ static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sampl
         }
         case 20: {
     {
+        size_t nst_end0 = len; (void)nst_end0;
+        if (representation) {
         uint32_t nst_dheader0 = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader0, zd_be) != 0) return -7;
-        size_t nst_end0 = pos + nst_dheader0;
+        nst_end0 = pos + nst_dheader0;
         if (nst_end0 > len) return -7;
-        while (pos < nst_end0) {
+        }
+        while (representation && pos < nst_end0) {
             uint32_t emheader0 = 0;
             if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader0, zd_be) != 0) return -7;
             uint32_t mid0 = emheader0 & 0x0FFFFFFFu;
@@ -645,7 +1012,8 @@ static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sampl
             break;
         }
         case 2: {
-    if (zd_x2_read_f64(buf, len, &pos, &((s->leaf).v), zd_be) != 0) return -7;
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &((s->leaf).v), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &((s->leaf).v), zd_be) != 0) return -7; }
             break;
         }
         default: pos += body_len0; break;
@@ -656,9 +1024,11 @@ static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sampl
         }
         case 30: {
     {
+        if (representation) {
         uint32_t seq_dheader = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_dheader, zd_be) != 0) return -7;
         (void)seq_dheader;
+        }
         uint32_t seq_len = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_len, zd_be) != 0) return -7;
         (s->list).len = seq_len;
@@ -666,11 +1036,14 @@ static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sampl
         if ((s->list).elems == NULL && seq_len > 0) return -7;
         for (uint32_t i0 = 0; i0 < seq_len; ++i0) {
     {
+        size_t nst_end1 = len; (void)nst_end1;
+        if (representation) {
         uint32_t nst_dheader1 = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader1, zd_be) != 0) return -7;
-        size_t nst_end1 = pos + nst_dheader1;
+        nst_end1 = pos + nst_dheader1;
         if (nst_end1 > len) return -7;
-        while (pos < nst_end1) {
+        }
+        while (representation && pos < nst_end1) {
             uint32_t emheader1 = 0;
             if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &emheader1, zd_be) != 0) return -7;
             uint32_t mid1 = emheader1 & 0x0FFFFFFFu;
@@ -693,7 +1066,8 @@ static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sampl
             break;
         }
         case 2: {
-    if (zd_x2_read_f64(buf, len, &pos, &(((s->list).elems[i0]).v), zd_be) != 0) return -7;
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &(((s->list).elems[i0]).v), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &(((s->list).elems[i0]).v), zd_be) != 0) return -7; }
             break;
         }
         default: pos += body_len1; break;
@@ -706,6 +1080,7 @@ static int feat_MutNest_decode_e(const uint8_t* buf, size_t len, void* out_sampl
         }
         default: pos += body_len; break;
         }
+    }
     }
     (void)s;
     return 0;
@@ -721,6 +1096,7 @@ static void feat_MutNest_sample_free(void* sample) {
 static int feat_NestedKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_NestedKey_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_NestedKey_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_NestedKey_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_NestedKey_sample_free(void* sample);
 static int feat_NestedKey_key_hash(const void* sample, uint8_t out_hash[16]);
 
@@ -735,11 +1111,15 @@ static const zerodds_typesupport_t feat_NestedKey_typesupport = {
     .decode = feat_NestedKey_decode,
     .key_hash = feat_NestedKey_key_hash,
     .sample_free = feat_NestedKey_sample_free,
+    .decode_repr = feat_NestedKey_decode_repr,
 };
 
-static int feat_NestedKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_NestedKey_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_NestedKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_NestedKey_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_NestedKey_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_NestedKey_t* s = (const feat_NestedKey_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
@@ -757,10 +1137,14 @@ fail:
     return -1;
 }
 
-static int feat_NestedKey_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_NestedKey_decode_e(buf, len, out_sample, 0); }
-static int feat_NestedKey_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_NestedKey_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_NestedKey_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_NestedKey_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_NestedKey_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_NestedKey_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_NestedKey_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_NestedKey_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_NestedKey_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_NestedKey_t* s = (feat_NestedKey_t*)out_sample;
     size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->hi), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->lo), zd_be) != 0) return -7;
     (void)s;
@@ -788,6 +1172,7 @@ static int feat_NestedKey_key_hash(const void* sample, uint8_t out_hash[16]) {
 static int feat_OuterKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_OuterKey_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_OuterKey_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_OuterKey_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_OuterKey_sample_free(void* sample);
 static int feat_OuterKey_key_hash(const void* sample, uint8_t out_hash[16]);
 
@@ -802,11 +1187,15 @@ static const zerodds_typesupport_t feat_OuterKey_typesupport = {
     .decode = feat_OuterKey_decode,
     .key_hash = feat_OuterKey_key_hash,
     .sample_free = feat_OuterKey_sample_free,
+    .decode_repr = feat_OuterKey_decode_repr,
 };
 
-static int feat_OuterKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_OuterKey_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_OuterKey_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_OuterKey_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_OuterKey_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_OuterKey_t* s = (const feat_OuterKey_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
@@ -825,10 +1214,14 @@ fail:
     return -1;
 }
 
-static int feat_OuterKey_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_OuterKey_decode_e(buf, len, out_sample, 0); }
-static int feat_OuterKey_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_OuterKey_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_OuterKey_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_OuterKey_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_OuterKey_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_OuterKey_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_OuterKey_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_OuterKey_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_OuterKey_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_OuterKey_t* s = (feat_OuterKey_t*)out_sample;
     size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->k).hi), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->k).lo), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->payload), zd_be) != 0) return -7;
@@ -855,6 +1248,7 @@ static int feat_OuterKey_key_hash(const void* sample, uint8_t out_hash[16]) {
 static int feat_Bits_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Bits_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_Bits_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Bits_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_Bits_sample_free(void* sample);
 
 static const char feat_Bits_type_name[] = "feat::Bits";
@@ -868,24 +1262,31 @@ static const zerodds_typesupport_t feat_Bits_typesupport = {
     .decode = feat_Bits_decode,
     .key_hash = NULL,
     .sample_free = feat_Bits_sample_free,
+    .decode_repr = feat_Bits_decode_repr,
 };
 
-static int feat_Bits_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_Bits_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Bits_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Bits_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Bits_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_Bits_t* s = (const feat_Bits_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
     size_t body_start = w_len;
     if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, s->perm) != 0) goto fail;
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, s->flags) != 0) goto fail;
-    uint32_t dheader_len = (uint32_t)(w_len - body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -896,17 +1297,24 @@ fail:
     return -1;
 }
 
-static int feat_Bits_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Bits_decode_e(buf, len, out_sample, 0); }
-static int feat_Bits_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_Bits_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Bits_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Bits_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Bits_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Bits_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Bits_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Bits_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Bits_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_Bits_t* s = (feat_Bits_t*)out_sample;
     size_t pos = 0;
-    uint32_t dheader = 0;
-    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
-    size_t body_end = pos + dheader;
-    if (body_end > len) return -7;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
     if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &(s->perm), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(s->flags), zd_be) != 0) return -7;
-    pos = body_end;
+    if (representation) pos = body_end;
     (void)s;
     return 0;
 }
@@ -920,6 +1328,7 @@ static void feat_Bits_sample_free(void* sample) {
 static int feat_Tree_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Tree_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_Tree_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Tree_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_Tree_sample_free(void* sample);
 
 static const char feat_Tree_type_name[] = "feat::Tree";
@@ -933,43 +1342,52 @@ static const zerodds_typesupport_t feat_Tree_typesupport = {
     .decode = feat_Tree_decode,
     .key_hash = NULL,
     .sample_free = feat_Tree_sample_free,
+    .decode_repr = feat_Tree_decode_repr,
 };
 
-static int feat_Tree_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_Tree_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Tree_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Tree_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Tree_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_Tree_t* s = (const feat_Tree_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
     size_t body_start = w_len;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->value) != 0) goto fail;
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t seq_dheader_pos = w_len;
-    w_len += 4;
-    size_t seq_body_start = w_len;
+    size_t seq_dheader_pos = 0; (void)seq_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        seq_dheader_pos = w_len; w_len += 4;
+    }
+    size_t seq_body_start = w_len; (void)seq_body_start;
     if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->kids).len) != 0) goto fail;
     for (uint32_t i0 = 0; i0 < (s->kids).len; ++i0) {
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t rec_dheader_pos = w_len;
-    w_len += 4;
-    size_t rec_body_start = w_len;
-    if (feat_Tree_write_body(&((s->kids).elems[i0]), &w_buf, &w_len, &w_cap) != 0) goto fail;
-    { uint32_t rec_dheader_len = (uint32_t)(w_len - rec_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, rec_dheader_pos, rec_dheader_len); }
+    size_t rec_dheader_pos = 0; (void)rec_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        rec_dheader_pos = w_len; w_len += 4;
+    }
+    size_t rec_body_start = w_len; (void)rec_body_start;
+    if (feat_Tree_write_body(&((s->kids).elems[i0]), &w_buf, &w_len, &w_cap, representation) != 0) goto fail;
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, rec_dheader_pos, (uint32_t)(w_len - rec_body_start)); }
     }
     }
-    uint32_t seq_dheader_len = (uint32_t)(w_len - seq_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, seq_dheader_len);
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, (uint32_t)(w_len - seq_body_start)); }
     }
-    uint32_t dheader_len = (uint32_t)(w_len - body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -980,30 +1398,39 @@ fail:
     return -1;
 }
 
-static int feat_Tree_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Tree_decode_e(buf, len, out_sample, 0); }
-static int feat_Tree_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_Tree_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Tree_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Tree_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Tree_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Tree_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Tree_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Tree_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Tree_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_Tree_t* s = (feat_Tree_t*)out_sample;
     size_t pos = 0;
-    uint32_t dheader = 0;
-    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
-    size_t body_end = pos + dheader;
-    if (body_end > len) return -7;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->value), zd_be) != 0) return -7;
     {
+        if (representation) {
         uint32_t seq_dheader = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_dheader, zd_be) != 0) return -7;
         (void)seq_dheader;
+        }
         uint32_t seq_len = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_len, zd_be) != 0) return -7;
         (s->kids).len = seq_len;
         (s->kids).elems = (struct feat_Tree_s*)calloc(seq_len ? seq_len : 1, sizeof(struct feat_Tree_s));
         if ((s->kids).elems == NULL && seq_len > 0) return -7;
         for (uint32_t i0 = 0; i0 < seq_len; ++i0) {
-    { uint32_t rec_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &rec_dheader, zd_be) != 0) return -7; (void)rec_dheader; }
-    if (feat_Tree_read_body(buf, len, &pos, &((s->kids).elems[i0]), zd_be) != 0) return -7;
+    if (representation) { uint32_t rec_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &rec_dheader, zd_be) != 0) return -7; (void)rec_dheader; }
+    if (feat_Tree_read_body(buf, len, &pos, &((s->kids).elems[i0]), zd_be, representation) != 0) return -7;
         }
     }
-    pos = body_end;
+    if (representation) pos = body_end;
     (void)s;
     return 0;
 }
@@ -1018,6 +1445,7 @@ static void feat_Tree_sample_free(void* sample) {
 static int feat_Pt_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Pt_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_Pt_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Pt_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_Pt_sample_free(void* sample);
 
 static const char feat_Pt_type_name[] = "feat::Pt";
@@ -1031,24 +1459,31 @@ static const zerodds_typesupport_t feat_Pt_typesupport = {
     .decode = feat_Pt_decode,
     .key_hash = NULL,
     .sample_free = feat_Pt_sample_free,
+    .decode_repr = feat_Pt_decode_repr,
 };
 
-static int feat_Pt_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_Pt_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Pt_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Pt_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Pt_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_Pt_t* s = (const feat_Pt_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
     size_t body_start = w_len;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->x) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->y) != 0) goto fail;
-    uint32_t dheader_len = (uint32_t)(w_len - body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -1059,17 +1494,24 @@ fail:
     return -1;
 }
 
-static int feat_Pt_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Pt_decode_e(buf, len, out_sample, 0); }
-static int feat_Pt_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_Pt_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Pt_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Pt_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Pt_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Pt_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Pt_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Pt_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Pt_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_Pt_t* s = (feat_Pt_t*)out_sample;
     size_t pos = 0;
-    uint32_t dheader = 0;
-    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
-    size_t body_end = pos + dheader;
-    if (body_end > len) return -7;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->x), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->y), zd_be) != 0) return -7;
-    pos = body_end;
+    if (representation) pos = body_end;
     (void)s;
     return 0;
 }
@@ -1083,6 +1525,7 @@ static void feat_Pt_sample_free(void* sample) {
 static int feat_Arr_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Arr_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_Arr_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Arr_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_Arr_sample_free(void* sample);
 
 static const char feat_Arr_type_name[] = "feat::Arr";
@@ -1096,19 +1539,25 @@ static const zerodds_typesupport_t feat_Arr_typesupport = {
     .decode = feat_Arr_decode,
     .key_hash = NULL,
     .sample_free = feat_Arr_sample_free,
+    .decode_repr = feat_Arr_decode_repr,
 };
 
-static int feat_Arr_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_Arr_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Arr_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Arr_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Arr_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_Arr_t* s = (const feat_Arr_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
     size_t body_start = w_len;
     for (uint32_t ai0 = 0; ai0 < 2; ++ai0) {
     for (uint32_t ai1 = 0; ai1 < 3; ++ai1) {
@@ -1116,27 +1565,30 @@ static int feat_Arr_encode(const void* sample, uint8_t* out_buf, size_t out_cap,
     }
     }
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t arr_dheader_pos = w_len;
-    w_len += 4;
-    size_t arr_body_start = w_len;
+    size_t arr_dheader_pos = 0; (void)arr_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        arr_dheader_pos = w_len; w_len += 4;
+    }
+    size_t arr_body_start = w_len; (void)arr_body_start;
     for (uint32_t ai0 = 0; ai0 < 2; ++ai0) {
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t nst_dheader_pos = w_len;
-    w_len += 4;
-    size_t nst_body_start = w_len;
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->shape[ai0]).x) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->shape[ai0]).y) != 0) goto fail;
-    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
     }
     }
-    { uint32_t arr_dheader_len = (uint32_t)(w_len - arr_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, arr_dheader_pos, arr_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, arr_dheader_pos, (uint32_t)(w_len - arr_body_start)); }
     }
-    uint32_t dheader_len = (uint32_t)(w_len - body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -1147,32 +1599,42 @@ fail:
     return -1;
 }
 
-static int feat_Arr_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Arr_decode_e(buf, len, out_sample, 0); }
-static int feat_Arr_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_Arr_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Arr_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Arr_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Arr_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Arr_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Arr_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Arr_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Arr_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_Arr_t* s = (feat_Arr_t*)out_sample;
     size_t pos = 0;
-    uint32_t dheader = 0;
-    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
-    size_t body_end = pos + dheader;
-    if (body_end > len) return -7;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
     for (uint32_t ri0 = 0; ri0 < 2; ++ri0) {
     for (uint32_t ri1 = 0; ri1 < 3; ++ri1) {
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->grid[ri0][ri1]), zd_be) != 0) return -7;
     }
     }
-    { uint32_t arr_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &arr_dheader, zd_be) != 0) return -7; (void)arr_dheader; }
+    if (representation) { uint32_t arr_dheader = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &arr_dheader, zd_be) != 0) return -7; (void)arr_dheader; }
     for (uint32_t ri0 = 0; ri0 < 2; ++ri0) {
     {
+        size_t nst_end0 = len; (void)nst_end0;
+        if (representation) {
         uint32_t nst_dheader0 = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader0, zd_be) != 0) return -7;
-        size_t nst_end0 = pos + nst_dheader0;
+        nst_end0 = pos + nst_dheader0;
         if (nst_end0 > len) return -7;
+        }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->shape[ri0]).x), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->shape[ri0]).y), zd_be) != 0) return -7;
-        pos = nst_end0;
+        if (representation) pos = nst_end0;
     }
     }
-    pos = body_end;
+    if (representation) pos = body_end;
     (void)s;
     return 0;
 }
@@ -1192,6 +1654,7 @@ static void feat_Arr_sample_free(void* sample) {
 static int feat_Sel_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Sel_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_Sel_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Sel_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_Sel_sample_free(void* sample);
 
 static const char feat_Sel_type_name[] = "feat::Sel";
@@ -1205,32 +1668,40 @@ static const zerodds_typesupport_t feat_Sel_typesupport = {
     .decode = feat_Sel_decode,
     .key_hash = NULL,
     .sample_free = feat_Sel_sample_free,
+    .decode_repr = feat_Sel_decode_repr,
 };
 
-static int feat_Sel_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_Sel_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Sel_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Sel_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Sel_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_Sel_t* s = (const feat_Sel_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
     {
-    if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t u_dheader_pos = w_len; w_len += 4;
-    size_t u_body_start = w_len;
+    size_t u_dheader_pos = 0; (void)u_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        u_dheader_pos = w_len; w_len += 4;
+    }
+    size_t u_body_start = w_len; (void)u_body_start;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((*s))._d) != 0) goto fail;
     switch (((*s))._d) {
     case 1:
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t nst_dheader_pos = w_len;
-    w_len += 4;
-    size_t nst_body_start = w_len;
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((*s))._u.p).x) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((*s))._u.p).y) != 0) goto fail;
-    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
     }
         break;
     case 2:
@@ -1240,8 +1711,7 @@ static int feat_Sel_encode(const void* sample, uint8_t* out_buf, size_t out_cap,
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, ((*s))._u.z) != 0) goto fail;
         break;
     }
-    { uint32_t u_dheader_len = (uint32_t)(w_len - u_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, u_dheader_pos, u_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, u_dheader_pos, (uint32_t)(w_len - u_body_start)); }
     }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
@@ -1253,23 +1723,32 @@ fail:
     return -1;
 }
 
-static int feat_Sel_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Sel_decode_e(buf, len, out_sample, 0); }
-static int feat_Sel_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_Sel_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Sel_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Sel_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Sel_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Sel_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Sel_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Sel_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Sel_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_Sel_t* s = (feat_Sel_t*)out_sample;
     size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    if (representation) {
     if (zerodds_xcdr2_c_pad_read(buf, len, &pos, 4) != 0) return -1;
     { uint32_t u_dh = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &u_dh, zd_be) != 0) return -7; (void)u_dh; }
+    }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((*s))._d), zd_be) != 0) return -7;
     switch (((*s))._d) {
     case 1:
     {
+        size_t nst_end0 = len; (void)nst_end0;
+        if (representation) {
         uint32_t nst_dheader0 = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader0, zd_be) != 0) return -7;
-        size_t nst_end0 = pos + nst_dheader0;
+        nst_end0 = pos + nst_dheader0;
         if (nst_end0 > len) return -7;
+        }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((*s))._u.p).x), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((*s))._u.p).y), zd_be) != 0) return -7;
-        pos = nst_end0;
+        if (representation) pos = nst_end0;
     }
         break;
     case 2:
@@ -1289,9 +1768,111 @@ static void feat_Sel_sample_free(void* sample) {
     (void)s;
 }
 
+static int feat_MapPrim_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_MapPrim_decode(const uint8_t* buf, size_t len, void* out_sample);
+static int feat_MapPrim_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_MapPrim_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
+static void feat_MapPrim_sample_free(void* sample);
+
+static const char feat_MapPrim_type_name[] = "feat::MapPrim";
+static const zerodds_typesupport_t feat_MapPrim_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_MapPrim_type_name,
+    .is_keyed = 0,
+    .extensibility = 1,
+    ._reserved = {0},
+    .encode = feat_MapPrim_encode,
+    .decode = feat_MapPrim_decode,
+    .key_hash = NULL,
+    .sample_free = feat_MapPrim_sample_free,
+    .decode_repr = feat_MapPrim_decode_repr,
+};
+
+static int feat_MapPrim_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_MapPrim_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_MapPrim_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_MapPrim_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
+    const feat_MapPrim_t* s = (const feat_MapPrim_t*)sample;
+    (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    /* Two-pass: grow the buffer, then copy. */
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
+    size_t body_start = w_len;
+    {
+    if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
+    size_t map_dheader_pos = 0; (void)map_dheader_pos;
+    size_t map_body_start = w_len; (void)map_body_start;
+    if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->m).len) != 0) goto fail;
+    for (uint32_t mi0 = 0; mi0 < (s->m).len; ++mi0) {
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->m).keys[mi0]) != 0) goto fail;
+    if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->m).vals[mi0]) != 0) goto fail;
+    }
+    }
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_MapPrim_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_MapPrim_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_MapPrim_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_MapPrim_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_MapPrim_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_MapPrim_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_MapPrim_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_MapPrim_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
+    feat_MapPrim_t* s = (feat_MapPrim_t*)out_sample;
+    size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
+    {
+        if (zerodds_xcdr2_c_pad_read(buf, len, &pos, 4) != 0) return -1;
+        uint32_t map_len = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &map_len, zd_be) != 0) return -7;
+        (s->m).len = map_len;
+        (s->m).keys = (int32_t*)calloc(map_len ? map_len : 1, sizeof(int32_t));
+        (s->m).vals = (int32_t*)calloc(map_len ? map_len : 1, sizeof(int32_t));
+        if ((((s->m).keys == NULL) || ((s->m).vals == NULL)) && map_len > 0) return -7;
+        for (uint32_t mi0 = 0; mi0 < map_len; ++mi0) {
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->m).keys[mi0]), zd_be) != 0) return -7;
+    if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->m).vals[mi0]), zd_be) != 0) return -7;
+        }
+    }
+    if (representation) pos = body_end;
+    (void)s;
+    return 0;
+}
+
+static void feat_MapPrim_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_MapPrim_t* s = (feat_MapPrim_t*)sample;
+    (void)s;
+    free((s->m).keys); (s->m).keys = NULL;
+    free((s->m).vals); (s->m).vals = NULL; (s->m).len = 0;
+}
+
 static int feat_MapEnum_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_MapEnum_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_MapEnum_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_MapEnum_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_MapEnum_sample_free(void* sample);
 
 static const char feat_MapEnum_type_name[] = "feat::MapEnum";
@@ -1305,68 +1886,82 @@ static const zerodds_typesupport_t feat_MapEnum_typesupport = {
     .decode = feat_MapEnum_decode,
     .key_hash = NULL,
     .sample_free = feat_MapEnum_sample_free,
+    .decode_repr = feat_MapEnum_decode_repr,
 };
 
-static int feat_MapEnum_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_MapEnum_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_MapEnum_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_MapEnum_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_MapEnum_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_MapEnum_t* s = (const feat_MapEnum_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
     size_t body_start = w_len;
     if (zerodds_xcdr2_c_write_u16(&w_buf, &w_len, &w_cap, (uint16_t)(s->h)) != 0) goto fail;
     {
     if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t map_dheader_pos = w_len;
-    w_len += 4;
-    size_t map_body_start = w_len;
+    size_t map_dheader_pos = 0; (void)map_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        map_dheader_pos = w_len; w_len += 4;
+    }
+    size_t map_body_start = w_len; (void)map_body_start;
     if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->m).len) != 0) goto fail;
     for (uint32_t mi0 = 0; mi0 < (s->m).len; ++mi0) {
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (s->m).keys[mi0]) != 0) goto fail;
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t nst_dheader_pos = w_len;
-    w_len += 4;
-    size_t nst_body_start = w_len;
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->m).vals[mi0]).x) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->m).vals[mi0]).y) != 0) goto fail;
-    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
     }
     }
-    uint32_t map_dheader_len = (uint32_t)(w_len - map_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, map_dheader_pos, map_dheader_len);
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, map_dheader_pos, (uint32_t)(w_len - map_body_start)); }
     }
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t seq_dheader_pos = w_len;
-    w_len += 4;
-    size_t seq_body_start = w_len;
+    size_t seq_dheader_pos = 0; (void)seq_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        seq_dheader_pos = w_len; w_len += 4;
+    }
+    size_t seq_body_start = w_len; (void)seq_body_start;
     if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, (s->sels).len) != 0) goto fail;
     for (uint32_t i0 = 0; i0 < (s->sels).len; ++i0) {
     {
-    if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t u_dheader_pos = w_len; w_len += 4;
-    size_t u_body_start = w_len;
+    size_t u_dheader_pos = 0; (void)u_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_pad_to(&w_buf, &w_len, &w_cap, 4) != 0) goto fail;
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        u_dheader_pos = w_len; w_len += 4;
+    }
+    size_t u_body_start = w_len; (void)u_body_start;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, ((s->sels).elems[i0])._d) != 0) goto fail;
     switch (((s->sels).elems[i0])._d) {
     case 1:
     {
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t nst_dheader_pos = w_len;
-    w_len += 4;
-    size_t nst_body_start = w_len;
+    size_t nst_dheader_pos = 0; (void)nst_dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        nst_dheader_pos = w_len; w_len += 4;
+    }
+    size_t nst_body_start = w_len; (void)nst_body_start;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((s->sels).elems[i0])._u.p).x) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, (((s->sels).elems[i0])._u.p).y) != 0) goto fail;
-    { uint32_t nst_dheader_len = (uint32_t)(w_len - nst_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, nst_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, nst_dheader_pos, (uint32_t)(w_len - nst_body_start)); }
     }
         break;
     case 2:
@@ -1376,15 +1971,14 @@ static int feat_MapEnum_encode(const void* sample, uint8_t* out_buf, size_t out_
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, ((s->sels).elems[i0])._u.z) != 0) goto fail;
         break;
     }
-    { uint32_t u_dheader_len = (uint32_t)(w_len - u_body_start);
-      zerodds_xcdr2_c_put_u32_at(w_buf, u_dheader_pos, u_dheader_len); }
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, u_dheader_pos, (uint32_t)(w_len - u_body_start)); }
     }
     }
-    uint32_t seq_dheader_len = (uint32_t)(w_len - seq_body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, seq_dheader_len);
+    if (representation) { zerodds_xcdr2_c_put_u32_at(w_buf, seq_dheader_pos, (uint32_t)(w_len - seq_body_start)); }
     }
-    uint32_t dheader_len = (uint32_t)(w_len - body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -1395,20 +1989,29 @@ fail:
     return -1;
 }
 
-static int feat_MapEnum_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_MapEnum_decode_e(buf, len, out_sample, 0); }
-static int feat_MapEnum_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_MapEnum_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_MapEnum_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_MapEnum_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_MapEnum_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_MapEnum_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_MapEnum_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_MapEnum_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_MapEnum_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_MapEnum_t* s = (feat_MapEnum_t*)out_sample;
     size_t pos = 0;
-    uint32_t dheader = 0;
-    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
-    size_t body_end = pos + dheader;
-    if (body_end > len) return -7;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
     { uint16_t zd_e16 = 0; if (zerodds_xcdr2_c_read_u16(buf, len, &pos, &zd_e16, zd_be) != 0) return -7; (s->h) = (int32_t)(int16_t)zd_e16; }
     {
         if (zerodds_xcdr2_c_pad_read(buf, len, &pos, 4) != 0) return -1;
+        if (representation) {
         uint32_t map_dheader = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &map_dheader, zd_be) != 0) return -7;
         (void)map_dheader;
+        }
         uint32_t map_len = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &map_len, zd_be) != 0) return -7;
         (s->m).len = map_len;
@@ -1418,39 +2021,49 @@ static int feat_MapEnum_decode_e(const uint8_t* buf, size_t len, void* out_sampl
         for (uint32_t mi0 = 0; mi0 < map_len; ++mi0) {
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((s->m).keys[mi0]), zd_be) != 0) return -7;
     {
+        size_t nst_end1 = len; (void)nst_end1;
+        if (representation) {
         uint32_t nst_dheader1 = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader1, zd_be) != 0) return -7;
-        size_t nst_end1 = pos + nst_dheader1;
+        nst_end1 = pos + nst_dheader1;
         if (nst_end1 > len) return -7;
+        }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->m).vals[mi0]).x), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->m).vals[mi0]).y), zd_be) != 0) return -7;
-        pos = nst_end1;
+        if (representation) pos = nst_end1;
     }
         }
     }
     {
+        if (representation) {
         uint32_t seq_dheader = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_dheader, zd_be) != 0) return -7;
         (void)seq_dheader;
+        }
         uint32_t seq_len = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &seq_len, zd_be) != 0) return -7;
         (s->sels).len = seq_len;
         (s->sels).elems = (feat_Sel_t*)calloc(seq_len ? seq_len : 1, sizeof(feat_Sel_t));
         if ((s->sels).elems == NULL && seq_len > 0) return -7;
         for (uint32_t i0 = 0; i0 < seq_len; ++i0) {
+    if (representation) {
     if (zerodds_xcdr2_c_pad_read(buf, len, &pos, 4) != 0) return -1;
     { uint32_t u_dh = 0; if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &u_dh, zd_be) != 0) return -7; (void)u_dh; }
+    }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(((s->sels).elems[i0])._d), zd_be) != 0) return -7;
     switch (((s->sels).elems[i0])._d) {
     case 1:
     {
+        size_t nst_end1 = len; (void)nst_end1;
+        if (representation) {
         uint32_t nst_dheader1 = 0;
         if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &nst_dheader1, zd_be) != 0) return -7;
-        size_t nst_end1 = pos + nst_dheader1;
+        nst_end1 = pos + nst_dheader1;
         if (nst_end1 > len) return -7;
+        }
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((s->sels).elems[i0])._u.p).x), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &((((s->sels).elems[i0])._u.p).y), zd_be) != 0) return -7;
-        pos = nst_end1;
+        if (representation) pos = nst_end1;
     }
         break;
     case 2:
@@ -1462,7 +2075,7 @@ static int feat_MapEnum_decode_e(const uint8_t* buf, size_t len, void* out_sampl
     }
         }
     }
-    pos = body_end;
+    if (representation) pos = body_end;
     (void)s;
     return 0;
 }
@@ -1479,6 +2092,7 @@ static void feat_MapEnum_sample_free(void* sample) {
 static int feat_Prim_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
 static int feat_Prim_decode(const uint8_t* buf, size_t len, void* out_sample);
 static int feat_Prim_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Prim_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
 static void feat_Prim_sample_free(void* sample);
 
 static const char feat_Prim_type_name[] = "feat::Prim";
@@ -1492,19 +2106,25 @@ static const zerodds_typesupport_t feat_Prim_typesupport = {
     .decode = feat_Prim_decode,
     .key_hash = NULL,
     .sample_free = feat_Prim_sample_free,
+    .decode_repr = feat_Prim_decode_repr,
 };
 
-static int feat_Prim_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) {
+static int feat_Prim_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Prim_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Prim_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Prim_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
     const feat_Prim_t* s = (const feat_Prim_t*)sample;
     (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
     /* Two-pass: grow the buffer, then copy. */
     uint8_t* w_buf = NULL;
     size_t w_len = 0;
     size_t w_cap = 0;
     if (out_buf == NULL && out_cap > 0) goto fail;
-    if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
-    size_t dheader_pos = w_len;
-    w_len += 4;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
     size_t body_start = w_len;
     if (zerodds_xcdr2_c_write_i8(&w_buf, &w_len, &w_cap, s->i8) != 0) goto fail;
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, s->u8) != 0) goto fail;
@@ -1512,15 +2132,19 @@ static int feat_Prim_encode(const void* sample, uint8_t* out_buf, size_t out_cap
     if (zerodds_xcdr2_c_write_u16(&w_buf, &w_len, &w_cap, s->u16) != 0) goto fail;
     if (zerodds_xcdr2_c_write_i32(&w_buf, &w_len, &w_cap, s->i32) != 0) goto fail;
     if (zerodds_xcdr2_c_write_u32(&w_buf, &w_len, &w_cap, s->u32) != 0) goto fail;
-    if (zd_x2_write_i64(&w_buf, &w_len, &w_cap, s->i64) != 0) goto fail;
-    if (zd_x2_write_u64(&w_buf, &w_len, &w_cap, s->u64) != 0) goto fail;
+    if (representation) { if (zd_x2_write_i64(&w_buf, &w_len, &w_cap, s->i64) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_i64(&w_buf, &w_len, &w_cap, s->i64) != 0) goto fail; }
+    if (representation) { if (zd_x2_write_u64(&w_buf, &w_len, &w_cap, s->u64) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_u64(&w_buf, &w_len, &w_cap, s->u64) != 0) goto fail; }
     if (zerodds_xcdr2_c_write_f32(&w_buf, &w_len, &w_cap, s->f32) != 0) goto fail;
-    if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->f64) != 0) goto fail;
+    if (representation) { if (zd_x2_write_f64(&w_buf, &w_len, &w_cap, s->f64) != 0) goto fail; }
+    else { if (zerodds_xcdr2_c_write_f64(&w_buf, &w_len, &w_cap, s->f64) != 0) goto fail; }
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, s->b) != 0) goto fail;
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, s->o) != 0) goto fail;
     if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, s->ch) != 0) goto fail;
-    uint32_t dheader_len = (uint32_t)(w_len - body_start);
-    zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, dheader_len);
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
     if (out_len) *out_len = w_len;
     if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
     if (w_len > 0) memcpy(out_buf, w_buf, w_len);
@@ -1531,28 +2155,38 @@ fail:
     return -1;
 }
 
-static int feat_Prim_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Prim_decode_e(buf, len, out_sample, 0); }
-static int feat_Prim_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) {
+static int feat_Prim_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Prim_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Prim_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Prim_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Prim_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Prim_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Prim_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Prim_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
     feat_Prim_t* s = (feat_Prim_t*)out_sample;
     size_t pos = 0;
-    uint32_t dheader = 0;
-    if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
-    size_t body_end = pos + dheader;
-    if (body_end > len) return -7;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
     if (zerodds_xcdr2_c_read_i8(buf, len, &pos, &(s->i8), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(s->u8), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i16(buf, len, &pos, &(s->i16), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_u16(buf, len, &pos, &(s->u16), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_i32(buf, len, &pos, &(s->i32), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &(s->u32), zd_be) != 0) return -7;
-    if (zd_x2_read_i64(buf, len, &pos, &(s->i64), zd_be) != 0) return -7;
-    if (zd_x2_read_u64(buf, len, &pos, &(s->u64), zd_be) != 0) return -7;
+    if (representation) { if (zd_x2_read_i64(buf, len, &pos, &(s->i64), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_i64(buf, len, &pos, &(s->i64), zd_be) != 0) return -7; }
+    if (representation) { if (zd_x2_read_u64(buf, len, &pos, &(s->u64), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_u64(buf, len, &pos, &(s->u64), zd_be) != 0) return -7; }
     if (zerodds_xcdr2_c_read_f32(buf, len, &pos, &(s->f32), zd_be) != 0) return -7;
-    if (zd_x2_read_f64(buf, len, &pos, &(s->f64), zd_be) != 0) return -7;
+    if (representation) { if (zd_x2_read_f64(buf, len, &pos, &(s->f64), zd_be) != 0) return -7; }
+    else { if (zerodds_xcdr2_c_read_f64(buf, len, &pos, &(s->f64), zd_be) != 0) return -7; }
     if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(s->b), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(s->o), zd_be) != 0) return -7;
     if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &(s->ch), zd_be) != 0) return -7;
-    pos = body_end;
+    if (representation) pos = body_end;
     (void)s;
     return 0;
 }

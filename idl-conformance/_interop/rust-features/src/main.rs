@@ -21,7 +21,7 @@ use zerodds_dcps::DdsType;
 mod generated;
 
 use generated::feat::{
-    Arr, Bits, Flags, Hue, MapEnum, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm, Prim, Pt,
+    Arr, Bits, Flags, Hue, MapEnum, MapPrim, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm, Prim, Pt,
     Sel, Tree, WStr,
 };
 
@@ -118,6 +118,14 @@ fn canonical_mapenum() -> MapEnum {
     }
 }
 
+/// feat::MapPrim — m = {7:42, 8:99}. Primitive-valued map: NO collection DHEADER.
+fn canonical_mapprim() -> MapPrim {
+    let mut m = ::std::collections::BTreeMap::new();
+    m.insert(7, 42);
+    m.insert(8, 99);
+    MapPrim { m }
+}
+
 /// feat::Prim — every integer at its extreme + exact floats.
 fn canonical_prim() -> Prim {
     Prim {
@@ -211,6 +219,7 @@ fn run_encode() -> bool {
     ok &= encode_one("mutnest", &canonical_mutnest());
     ok &= encode_one("outerkey", &canonical_outerkey());
     ok &= encode_one("mapenum", &canonical_mapenum());
+    ok &= encode_one("mapprim", &canonical_mapprim());
     ok
 }
 
@@ -225,6 +234,7 @@ fn run_decode() -> bool {
     ok &= decode_one("mutnest", &canonical_mutnest());
     ok &= decode_one("outerkey", &canonical_outerkey());
     ok &= decode_one("mapenum", &canonical_mapenum());
+    ok &= decode_one("mapprim", &canonical_mapprim());
     ok
 }
 

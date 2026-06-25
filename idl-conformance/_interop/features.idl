@@ -85,6 +85,13 @@ module feat {
 
   // --- @bit_bound enum + map-of-struct + sequence-of-union ---
   @bit_bound(16) enum Hue { H_RED, H_GREEN, H_BLUE };
+
+  // --- primitive-valued map: must NOT carry a collection DHEADER (XCDR2 §7.4.3.5) ---
+  @appendable
+  struct MapPrim {
+    map<long, long>  m;
+  };
+
   @appendable
   struct MapEnum {
     Hue            h;      // @bit_bound(16) enum -> 2-byte holder

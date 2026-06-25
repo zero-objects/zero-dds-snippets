@@ -46,6 +46,7 @@ NestedKey = features.feat_NestedKey
 OuterKey = features.feat_OuterKey
 Sel = features.feat_Sel
 MapEnum = features.feat_MapEnum
+MapPrim = features.feat_MapPrim
 Hue = features.feat_Hue
 
 GOLDENS = os.path.join(_HERE, "..", "goldens")
@@ -95,6 +96,11 @@ def canonical_mapenum():
     return MapEnum(h=Hue.H_BLUE, m={3: Pt(x=11, y=12)}, sels=[Sel.make(2, 9)])
 
 
+def canonical_mapprim():
+    # map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5).
+    return MapPrim(m={7: 42, 8: 99})
+
+
 def canonical_prim():
     return Prim(
         i8=-128, u8=255, i16=-32768, u16=65535,
@@ -137,6 +143,7 @@ FEATURES = {
     "mutnest": (MutNest, canonical_mutnest),
     "outerkey": (OuterKey, canonical_outerkey),
     "mapenum": (MapEnum, canonical_mapenum),
+    "mapprim": (MapPrim, canonical_mapprim),
 }
 
 

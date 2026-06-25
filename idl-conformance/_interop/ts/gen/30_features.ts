@@ -1379,6 +1379,71 @@ export const HueType: DdsTypeDescriptor<Hue> = {
 };
 registerType(HueType);
 
+export interface MapPrim {
+    m: ReadonlyMap<number, number>;
+}
+
+export function isMapPrim(v: unknown): v is MapPrim {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    return true;
+}
+
+export const MapPrimType: DdsTypeDescriptor<MapPrim> = {
+    kind: "struct",
+    name: "MapPrim",
+    extensibility: "appendable",
+    nested: false,
+    fields: [
+        {
+            name: "m",
+            id: 0,
+            type: { kind: "map", key: { kind: "primitive", name: "int32" }, value: { kind: "primitive", name: "int32" } },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    typeGuard: isMapPrim,
+};
+registerType(MapPrimType);
+
+export const MapPrimTypeSupport: DdsTopicType<MapPrim> = {
+    typeName: "feat::MapPrim",
+    isKeyed: false,
+    extensibility: "appendable",
+    encodeInto(w: Xcdr2Writer, s: MapPrim): void {
+        const _tok = w.beginAppendable();
+        const _ment6 = [...s.m].sort(((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)));
+        w.writeUint32(_ment6.length);
+        for (const [_k6, _v6] of _ment6) {
+            w.writeInt32(_k6);
+            w.writeInt32(_v6);
+        }
+        w.endAppendable(_tok);
+    },
+    encode(s: MapPrim, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): MapPrim {
+        const _tok = r.beginAppendable();
+        const _f_m: ReadonlyMap<number, number> = ((): ReadonlyMap<number, number> => { const _n = r.readUint32(); const _o = new Map<number, number>(); for (let _i = 0; _i < _n; _i++) { const _k = r.readInt32(); const _v = r.readInt32(); _o.set(_k, _v); } return _o; })();
+        r.endAppendable(_tok);
+        return {
+            m: _f_m,
+        };
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): MapPrim {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
+        return this.decodeFrom(r);
+    },
+    keyHash(s: MapPrim): Uint8Array {
+        return new Uint8Array(16);
+    },
+};
+
 export interface MapEnum {
     h: Hue;
     m: ReadonlyMap<number, Pt>;
@@ -1433,20 +1498,20 @@ export const MapEnumTypeSupport: DdsTopicType<MapEnum> = {
     encodeInto(w: Xcdr2Writer, s: MapEnum): void {
         const _tok = w.beginAppendable();
         w.writeInt16(HueOrdinal[s.h]);
-        const _ment6 = [...s.m].sort(((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)));
-        const _maptok6 = w.beginAppendable();
-        w.writeUint32(_ment6.length);
-        for (const [_k6, _v6] of _ment6) {
-            w.writeInt32(_k6);
-            PtTypeSupport.encodeInto(w, _v6);
+        const _ment7 = [...s.m].sort(((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)));
+        const _maptok7 = w.beginAppendable();
+        w.writeUint32(_ment7.length);
+        for (const [_k7, _v7] of _ment7) {
+            w.writeInt32(_k7);
+            PtTypeSupport.encodeInto(w, _v7);
         }
-        w.endAppendable(_maptok6);
-        const _seqtok7 = w.beginAppendable();
+        w.endAppendable(_maptok7);
+        const _seqtok8 = w.beginAppendable();
         w.writeUint32(s.sels.length);
-        for (const _e7 of s.sels) {
-            SelTypeSupport.encodeInto(w, _e7);
+        for (const _e8 of s.sels) {
+            SelTypeSupport.encodeInto(w, _e8);
         }
-        w.endAppendable(_seqtok7);
+        w.endAppendable(_seqtok8);
         w.endAppendable(_tok);
     },
     encode(s: MapEnum, endian: EndianMode = "le", representation = 1): Uint8Array {

@@ -101,6 +101,11 @@ class feat_Hue(IntEnum):
     H_BLUE = 2
 feat_Hue._idl_bit_bound = 16
 
+@idl_struct(typename="feat::MapPrim", extensibility="appendable")
+@dataclass
+class feat_MapPrim:
+    m: Dict[Int32, Int32]
+
 @idl_struct(typename="feat::MapEnum", extensibility="appendable")
 @dataclass
 class feat_MapEnum:

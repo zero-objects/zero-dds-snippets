@@ -74,6 +74,13 @@ static void canon_mapenum(feat_MapEnum_t* v) {
     ME_SELS[0]._d = 2; ME_SELS[0]._u.n = 9;
     v->sels.len = 1; v->sels.elems = ME_SELS;
 }
+/* map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5). m={7:42,8:99}. */
+static int32_t MP_KEYS[2]; static int32_t MP_VALS[2];
+static void canon_mapprim(feat_MapPrim_t* v) {
+    memset(v,0,sizeof(*v));
+    MP_KEYS[0]=7; MP_VALS[0]=42; MP_KEYS[1]=8; MP_VALS[1]=99;
+    v->m.len = 2; v->m.keys = MP_KEYS; v->m.vals = MP_VALS;
+}
 static void canon_prim(feat_Prim_t* v) {
     memset(v,0,sizeof(*v));
     v->i8 = -128; v->u8 = 255; v->i16 = -32768; v->u16 = 65535;
@@ -113,7 +120,7 @@ int main(int argc, char** argv) {
     const char* mode = argv[2];
     const char* file = argc > 3 ? argv[3] : NULL;
 
-    feat_WStr_t ws; feat_Mut_t mu; feat_Bits_t bi; feat_Tree_t tr; feat_Arr_t ar; feat_Prim_t pr; feat_MapEnum_t me;
+    feat_WStr_t ws; feat_Mut_t mu; feat_Bits_t bi; feat_Tree_t tr; feat_Arr_t ar; feat_Prim_t pr; feat_MapEnum_t me; feat_MapPrim_t mp;
     feat_MutNest_t mn; feat_OuterKey_t ok;
 
     if (strcmp(mode, "ENCODE") == 0) {
@@ -126,6 +133,7 @@ int main(int argc, char** argv) {
         if (!strcmp(feat,"arr"))  { canon_arr(&ar);  return do_encode(file, feat_Arr_encode,  &ar); }
         if (!strcmp(feat,"prim")) { canon_prim(&pr); return do_encode(file, feat_Prim_encode, &pr); }
         if (!strcmp(feat,"mapenum")) { canon_mapenum(&me); return do_encode(file, feat_MapEnum_encode, &me); }
+        if (!strcmp(feat,"mapprim")) { canon_mapprim(&mp); return do_encode(file, feat_MapPrim_encode, &mp); }
         fprintf(stderr, "unknown feature\n"); return 2;
     } else if (strcmp(mode, "DECODE") == 0) {
         size_t n = 0; uint8_t* buf = readfile(file, &n);
