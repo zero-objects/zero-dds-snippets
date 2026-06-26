@@ -21,8 +21,8 @@ use zerodds_dcps::DdsType;
 mod generated;
 
 use generated::feat::{
-    Arr, Bits, Flags, Hue, MapEnum, MapPrim, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm, Prim, Pt,
-    Sel, Tree, WStr,
+    Arr, Bits, Flags, Hue, MapEnum, MapPrim, Money, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm,
+    Prim, Pt, Sel, Tree, WStr,
 };
 
 const DIR: &str =
@@ -115,6 +115,15 @@ fn canonical_mapenum() -> MapEnum {
         h: Hue::H_BLUE,
         m,
         sels: vec![Sel::N(9)],
+    }
+}
+
+/// feat::Money — fixed<5,2> price = 123.45 (12 34 5c), fixed<4,0> qty = 1234
+/// (01 23 4c). CORBA/GIOP §9.3.2.7 packed BCD, align 1, no length prefix.
+fn canonical_fixed() -> Money {
+    Money {
+        price: zerodds_cdr::fixed::Fixed::from_str_repr("123.45").unwrap(),
+        qty: zerodds_cdr::fixed::Fixed::from_str_repr("1234").unwrap(),
     }
 }
 
@@ -220,6 +229,7 @@ fn run_encode() -> bool {
     ok &= encode_one("outerkey", &canonical_outerkey());
     ok &= encode_one("mapenum", &canonical_mapenum());
     ok &= encode_one("mapprim", &canonical_mapprim());
+    ok &= encode_one("fixed", &canonical_fixed());
     ok
 }
 
@@ -235,6 +245,7 @@ fn run_decode() -> bool {
     ok &= decode_one("outerkey", &canonical_outerkey());
     ok &= decode_one("mapenum", &canonical_mapenum());
     ok &= decode_one("mapprim", &canonical_mapprim());
+    ok &= decode_one("fixed", &canonical_fixed());
     ok
 }
 

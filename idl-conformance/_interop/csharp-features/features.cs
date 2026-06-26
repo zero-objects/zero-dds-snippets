@@ -1450,4 +1450,69 @@ namespace feat
         }
     }
 
+    [Extensibility(ExtensibilityKind.Appendable)]
+    public partial record class Money : ITopicType<Money>
+    {
+        public decimal Price { get; init; } = default!;
+        public decimal Qty { get; init; } = default!;
+    }
+
+    public sealed class MoneyTypeSupport : IDdsTopicType<Money>
+    {
+        public static readonly MoneyTypeSupport Instance = new();
+
+        public string TypeName => "feat::Money";
+        public bool IsKeyed => false;
+        public ExtensibilityKind Extensibility => ExtensibilityKind.Appendable;
+
+        public byte[] Encode(Money sample) => Encode(sample, EndianMode.LittleEndian);
+
+        public byte[] Encode(Money sample, EndianMode endian) => Encode(sample, endian, 1);
+        public byte[] Encode(Money sample, EndianMode endian, int representation)
+        {
+            int __maxAlign = representation == 0 ? Xcdr2Writer.Xcdr1MaxAlignmentValue : 4;
+            var w = new Xcdr2Writer(endian, __maxAlign);
+            EncodeInto(w, sample);
+            return w.ToArray();
+        }
+
+        public void EncodeInto(Xcdr2Writer w, Money sample)
+        {
+            using (var __scope = w.BeginAppendable())
+            {
+                w.WriteFixedBcd(sample.Price, 5, 2);
+                w.WriteFixedBcd(sample.Qty, 4, 0);
+            }
+        }
+
+        public Money Decode(ReadOnlySpan<byte> bytes) => Decode(bytes, EndianMode.LittleEndian, 1);
+        public Money Decode(ReadOnlySpan<byte> bytes, EndianMode endian) => Decode(bytes, endian, 1);
+        public Money Decode(ReadOnlySpan<byte> bytes, EndianMode endian, int representation)
+        {
+            int __maxAlign = representation == 0 ? Xcdr2Reader.Xcdr1MaxAlignmentValue : 4;
+            var r = new Xcdr2Reader(bytes, endian, __maxAlign);
+            return DecodeFrom(ref r);
+        }
+
+        public Money DecodeFrom(ref Xcdr2Reader r)
+        {
+            var __scope = r.BeginDHeader();
+            decimal __m0 = default!;
+            __m0 = r.ReadFixedBcd(5, 2);
+            decimal __m1 = default!;
+            __m1 = r.ReadFixedBcd(4, 0);
+            r.EndDHeader(__scope);
+            return new Money
+            {
+                Price = __m0!,
+                Qty = __m1!,
+            };
+        }
+
+        public byte[] KeyHash(Money sample)
+        {
+            return new byte[16];
+        }
+    }
+
 } // namespace feat

@@ -116,4 +116,11 @@ module feat {
     octet    o;
     char     ch;
   };
+
+  // --- fixed<P,S> decimal (CORBA/GIOP §9.3.2.7 packed BCD; not an XTypes type) ---
+  @appendable
+  struct Money {
+    fixed<5,2>  price;   // 123.45 -> 12 34 5c
+    fixed<4,0>  qty;     // 1234   -> 01 23 4c
+  };
 };

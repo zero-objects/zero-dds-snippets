@@ -28,7 +28,12 @@ const {
   OuterKeyTypeSupport,
   MapEnumTypeSupport,
   MapPrimTypeSupport,
+  MoneyTypeSupport,
 } = feat;
+
+// fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c).
+// The TS value is the decimal as a string.
+const MONEY: feat.Money = { price: "123.45", qty: "1234" };
 
 const MAPENUM: feat.MapEnum = {
   h: feat.Hue.H_BLUE,
@@ -289,6 +294,13 @@ const FEATURES: Array<Feature<any>> = [
     encode: (s) => MapPrimTypeSupport.encode(s, "le"),
     decode: (b) => MapPrimTypeSupport.decode(b),
     diff: (g, w) => (MapPrimTypeSupport.encode(g, "le").length === MapPrimTypeSupport.encode(w, "le").length ? [] : ["mapprim: re-encode != canonical"]),
+  },
+  {
+    name: "fixed",
+    sample: MONEY,
+    encode: (s) => MoneyTypeSupport.encode(s, "le"),
+    decode: (b) => MoneyTypeSupport.decode(b),
+    diff: (g, w) => (g.price === w.price && g.qty === w.qty ? [] : ["fixed: decoded != canonical"]),
   },
 ];
 

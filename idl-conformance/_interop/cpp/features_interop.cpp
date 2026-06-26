@@ -104,6 +104,18 @@ static feat::MapPrim canon_mapprim() {
     return v;
 }
 
+// fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c).
+static feat::Money canon_fixed() {
+    feat::Money v;
+    v.price(::dds::core::Fixed<5, 2>::from_string("123.45"));
+    v.qty(::dds::core::Fixed<4, 0>::from_string("1234"));
+    return v;
+}
+static void verify_fixed(const feat::Money& g, const feat::Money& w) {
+    chk("price", g.price().to_string(), w.price().to_string());
+    chk("qty", g.qty().to_string(), w.qty().to_string());
+}
+
 static std::vector<uint8_t> readfile(const char* p) {
     std::ifstream f(p, std::ios::binary);
     return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)),
@@ -224,6 +236,7 @@ int main(int argc, char** argv) {
         if (feat == "outerkey") return do_encode(file, canon_outerkey());
         if (feat == "mapenum")  return do_encode(file, canon_mapenum());
         if (feat == "mapprim")  return do_encode(file, canon_mapprim());
+        if (feat == "fixed")    return do_encode(file, canon_fixed());
     } else if (mode == "DECODE") {
         auto buf = readfile(file);
         if (buf.empty()) { std::cerr << "empty/missing " << file << "\n"; return 2; }
@@ -235,6 +248,7 @@ int main(int argc, char** argv) {
         else if (feat == "prim") verify_prim(TS<feat::Prim>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_prim());
         else if (feat == "mutnest") verify_mutnest(TS<feat::MutNest>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_mutnest());
         else if (feat == "outerkey") verify_outerkey(TS<feat::OuterKey>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_outerkey());
+        else if (feat == "fixed") verify_fixed(TS<feat::Money>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_fixed());
         else if (feat == "mapenum") { auto v = TS<feat::MapEnum>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2); auto re = TS<feat::MapEnum>::encode(v, x::XcdrVersion::Xcdr2); if (re != buf) { g_fail++; std::cerr << "  [FAIL] mapenum roundtrip re-encode != golden\n"; } }
         else { std::cerr << "unknown feature\n"; return 2; }
         if (g_fail == 0) { std::cout << "DECODE OK: " << feat << "\n"; return 0; }

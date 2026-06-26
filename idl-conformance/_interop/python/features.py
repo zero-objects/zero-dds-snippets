@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 from typing import Dict, List, TypeAlias
-from zerodds.idl import idl_struct, idl_union, Array, Bitset, Bool, BoundedString, BoundedWString, Char, Float32, Float64, Int16, Int32, Int64, Int8, Octet, UInt16, UInt32, UInt64, UInt8, WString
+from zerodds.idl import idl_struct, idl_union, Array, Bitset, Bool, BoundedString, BoundedWString, Char, Fixed, Float32, Float64, Int16, Int32, Int64, Int8, Octet, UInt16, UInt32, UInt64, UInt8, WString
 
 @idl_struct(typename="feat::WStr", extensibility="appendable")
 @dataclass
@@ -129,4 +129,10 @@ class feat_Prim:
     b: Bool
     o: Octet
     ch: Char
+
+@idl_struct(typename="feat::Money", extensibility="appendable")
+@dataclass
+class feat_Money:
+    price: Fixed[5, 2]
+    qty: Fixed[4, 0]
 

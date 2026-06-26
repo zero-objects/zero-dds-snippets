@@ -192,6 +192,8 @@ public final class FeaturesInterop {
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         ok &= enc("mapprim", feat.MapPrimTypeSupport.INSTANCE.encode(canonicalMapPrim(),
             org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
+        ok &= enc("fixed", feat.MoneyTypeSupport.INSTANCE.encode(canonicalMoney(),
+            org.zerodds.cdr.EndianMode.LITTLE_ENDIAN));
         return ok;
     }
 
@@ -212,6 +214,14 @@ public final class FeaturesInterop {
         java.util.Map<Integer, Integer> m = new java.util.TreeMap<>();
         m.put(7, 42); m.put(8, 99);
         v.setM(m);
+        return v;
+    }
+
+    // fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c).
+    static feat.Money canonicalMoney() {
+        feat.Money v = new feat.Money();
+        v.setPrice(new java.math.BigDecimal("123.45"));
+        v.setQty(new java.math.BigDecimal("1234"));
         return v;
     }
 

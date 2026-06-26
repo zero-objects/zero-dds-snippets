@@ -47,6 +47,7 @@ OuterKey = features.feat_OuterKey
 Sel = features.feat_Sel
 MapEnum = features.feat_MapEnum
 MapPrim = features.feat_MapPrim
+Money = features.feat_Money
 Hue = features.feat_Hue
 
 GOLDENS = os.path.join(_HERE, "..", "goldens")
@@ -101,6 +102,12 @@ def canonical_mapprim():
     return MapPrim(m={7: 42, 8: 99})
 
 
+def canonical_fixed():
+    # fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c).
+    # The Python value is the decimal as a str (the Fixed[P,S] brand).
+    return Money(price="123.45", qty="1234")
+
+
 def canonical_prim():
     return Prim(
         i8=-128, u8=255, i16=-32768, u16=65535,
@@ -144,6 +151,7 @@ FEATURES = {
     "outerkey": (OuterKey, canonical_outerkey),
     "mapenum": (MapEnum, canonical_mapenum),
     "mapprim": (MapPrim, canonical_mapprim),
+    "fixed": (Money, canonical_fixed),
 }
 
 

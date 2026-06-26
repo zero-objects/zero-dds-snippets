@@ -114,6 +114,9 @@ static MapPrim CanonicalMapPrim() => new MapPrim
     M = new System.Collections.Generic.SortedDictionary<int, int> { [7] = 42, [8] = 99 },
 };
 
+// fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c).
+static Money CanonicalMoney() => new Money { Price = 123.45m, Qty = 1234m };
+
 // ---- encode -----------------------------------------------------------------
 
 static void WriteGolden(string name, byte[] bytes)
@@ -137,6 +140,7 @@ static int RunEncode()
     WriteGolden("prim", PrimTypeSupport.Instance.Encode(CanonicalPrim(), EndianMode.LittleEndian));
     WriteGolden("mapenum", MapEnumTypeSupport.Instance.Encode(CanonicalMapEnum(), EndianMode.LittleEndian));
     WriteGolden("mapprim", MapPrimTypeSupport.Instance.Encode(CanonicalMapPrim(), EndianMode.LittleEndian));
+    WriteGolden("fixed", MoneyTypeSupport.Instance.Encode(CanonicalMoney(), EndianMode.LittleEndian));
     return 0;
 }
 
@@ -288,6 +292,8 @@ static int RunBe()
         (a, b) => a.H == b.H && a.M.Count == b.M.Count && a.Sels.Count() == b.Sels.Count());
     Rt("arr", ArrTypeSupport.Instance, CanonicalArr(),
         (a, b) => a.Shape[0].X == b.Shape[0].X && a.Grid[1][2] == b.Grid[1][2]);
+    Rt("fixed", MoneyTypeSupport.Instance, CanonicalMoney(),
+        (a, b) => a.Price == b.Price && a.Qty == b.Qty);
     if (fails.Count == 0) { Console.WriteLine("BE/LE roundtrip PASS"); return 0; }
     Console.Error.WriteLine($"BE roundtrip FAIL: {string.Join(", ", fails)}");
     return 1;

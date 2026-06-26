@@ -87,6 +87,15 @@ the cross-vendor-validated `zerodds-cdr` core) regenerates it.
 - i64=-9223372036854775808, u64=18446744073709551615,
 - f32=3.5 (exact), f64=-1234.5 (exact), b=true(1), o=0xAB, ch='Z' (0x5A)
 
+## feat::Money  (golden `fixed.golden.bin`)  — fixed<P,S> CORBA-BCD decimal
+- price (fixed<5,2>) = `123.45`  → BCD `12 34 5c` (3 octets)
+- qty   (fixed<4,0>) = `1234`    → BCD `01 23 4c` (3 octets)
+- `@appendable`, so the wire is DHEADER(6) + price(3) + qty(3) = **10 bytes**:
+  `06 00 00 00 12 34 5c 01 23 4c`. fixed is align-1, no length prefix, endian-
+  independent — the BCD octets are the CORBA/GIOP §9.3.2.7 form (oracle-validated
+  against JacORB 3.9 / omniORB 4.3). It is NOT an XTypes type (no TypeObject), so
+  CycloneDDS/Fast DDS reject it; ZeroDDS carries it across all seven bindings.
+
 ## Conformance criterion (per feature, per language)
 For every feature F and every language L in {rust,cpp,python,java,ts,c,csharp}:
 1. `L.encode(canonical(F))` is **byte-identical** to `goldens/F.golden.bin`.

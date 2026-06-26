@@ -81,6 +81,12 @@ static void canon_mapprim(feat_MapPrim_t* v) {
     MP_KEYS[0]=7; MP_VALS[0]=42; MP_KEYS[1]=8; MP_VALS[1]=99;
     v->m.len = 2; v->m.keys = MP_KEYS; v->m.vals = MP_VALS;
 }
+/* fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c). */
+static void canon_fixed(feat_Money_t* v) {
+    memset(v,0,sizeof(*v));
+    v->price.bcd[0]=0x12; v->price.bcd[1]=0x34; v->price.bcd[2]=0x5c;
+    v->qty.bcd[0]=0x01;   v->qty.bcd[1]=0x23;   v->qty.bcd[2]=0x4c;
+}
 static void canon_prim(feat_Prim_t* v) {
     memset(v,0,sizeof(*v));
     v->i8 = -128; v->u8 = 255; v->i16 = -32768; v->u16 = 65535;
@@ -121,7 +127,7 @@ int main(int argc, char** argv) {
     const char* file = argc > 3 ? argv[3] : NULL;
 
     feat_WStr_t ws; feat_Mut_t mu; feat_Bits_t bi; feat_Tree_t tr; feat_Arr_t ar; feat_Prim_t pr; feat_MapEnum_t me; feat_MapPrim_t mp;
-    feat_MutNest_t mn; feat_OuterKey_t ok;
+    feat_MutNest_t mn; feat_OuterKey_t ok; feat_Money_t mo;
 
     if (strcmp(mode, "ENCODE") == 0) {
         if (!strcmp(feat,"wstr")) { canon_wstr(&ws); return do_encode(file, feat_WStr_encode, &ws); }
@@ -134,6 +140,7 @@ int main(int argc, char** argv) {
         if (!strcmp(feat,"prim")) { canon_prim(&pr); return do_encode(file, feat_Prim_encode, &pr); }
         if (!strcmp(feat,"mapenum")) { canon_mapenum(&me); return do_encode(file, feat_MapEnum_encode, &me); }
         if (!strcmp(feat,"mapprim")) { canon_mapprim(&mp); return do_encode(file, feat_MapPrim_encode, &mp); }
+        if (!strcmp(feat,"fixed")) { canon_fixed(&mo); return do_encode(file, feat_Money_encode, &mo); }
         fprintf(stderr, "unknown feature\n"); return 2;
     } else if (strcmp(mode, "DECODE") == 0) {
         size_t n = 0; uint8_t* buf = readfile(file, &n);
@@ -163,6 +170,11 @@ int main(int argc, char** argv) {
             feat_OuterKey_t g; memset(&g,0,sizeof(g)); feat_OuterKey_t w; canon_outerkey(&w);
             if (feat_OuterKey_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
             CHK(g.k.hi==w.k.hi, "k.hi"); CHK(g.k.lo==w.k.lo, "k.lo"); CHK(g.payload==w.payload, "payload");
+        } else if (!strcmp(feat,"fixed")) {
+            feat_Money_t g; memset(&g,0,sizeof(g)); feat_Money_t w; canon_fixed(&w);
+            if (feat_Money_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
+            CHK(memcmp(g.price.bcd, w.price.bcd, sizeof(w.price.bcd))==0, "price.bcd");
+            CHK(memcmp(g.qty.bcd, w.qty.bcd, sizeof(w.qty.bcd))==0, "qty.bcd");
         } else if (!strcmp(feat,"bits")) {
             feat_Bits_t g; memset(&g,0,sizeof(g)); feat_Bits_t w; canon_bits(&w);
             if (feat_Bits_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
