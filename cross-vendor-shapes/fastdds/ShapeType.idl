@@ -1,0 +1,16 @@
+// The canonical OMG ShapesDemo type, as spoken by RTI Connext, Eclipse
+// CycloneDDS, eProsima Fast DDS and ZeroDDS on the standard `Square` /
+// `Triangle` / `Circle` topics.
+//
+// Extensibility is **@final** on purpose: that is the wire form every classic
+// ShapesDemo client uses, and the only extensibility that interoperates with a
+// non-XTypes-negotiating peer. (CycloneDDS's IDL compiler also defaults to
+// @final; Fast DDS's `topic_instances` example chose @appendable, which is why
+// this suite regenerates it — see `fastdds/README.md`.)
+@extensibility(FINAL)
+struct ShapeType {
+    @key string color;
+    long x;
+    long y;
+    long shapesize;
+};

@@ -1,0 +1,8 @@
+@topic
+@final
+struct ShapeType {
+  @key string color;
+  long x;
+  long y;
+  long shapesize;
+};
