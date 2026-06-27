@@ -69,4 +69,12 @@ fields and the topic names `RichF` / `RichA` / `RichM` are identical across all
 stacks; the `blob` is filled with `k % 251` so the subscriber can verify byte
 integrity end to end.
 
+## See also
+
+[**roundtrip-perf.md**](roundtrip-perf.md) — full ping/pong round-trip **latency**
+across all five stacks in four conditions (plain/rich × clear/secured), the
+event-driven same-host SHM carrier, and the per-vendor requirements (RTI XCDR2
+compliance mask, OpenDDS governance, Fast DDS RSA certs) that make every
+ZeroDDS↔vendor cell deliver data.
+
 Part of **[ZeroDDS](https://zerodds.de)**.
