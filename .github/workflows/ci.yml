@@ -7,17 +7,25 @@ on:
 
 jobs:
   build:
-    name: build + run examples (crates.io)
+    name: build examples (crates.io)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build + run every example against published crates
+      - name: Build every cargo example against the published crates
         run: |
           set -e
+          # The examples carry monorepo path-deps (../../crates, ../../tools) for
+          # local development inside the zerodds checkout. Outside the monorepo
+          # those paths don't exist, so for the public repo we build them against
+          # the published crates.io versions: rewrite `path = "../../{crates,tools}/X"`
+          # to `version = "1.0.0-rc.4"` before building. Compile-only (cargo build):
+          # running the pub/sub examples needs live DDS infra not present in CI.
+          find . -name Cargo.toml -not -path '*/target/*' -exec \
+            sed -i -E 's#path = "\.\./\.\./(crates|tools)/[^"]*"#version = "1.0.0-rc.4"#g' {} +
           for dir in */; do
             [ -f "$dir/Cargo.toml" ] || continue
             echo "::group::$dir"
-            ( cd "$dir" && cargo run )
+            ( cd "$dir" && cargo build )
             echo "::endgroup::"
           done
