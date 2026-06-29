@@ -26,7 +26,7 @@ use generated::feat::{
 };
 
 const DIR: &str =
-    "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
+    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
 
 // ---------------------------------------------------------------------------
 // Canonical samples (EXACT values from CANONICAL.md; identical across all PSMs)

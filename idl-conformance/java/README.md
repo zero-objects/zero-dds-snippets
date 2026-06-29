@@ -37,7 +37,7 @@ The script builds the binding jar once (if missing), compiles, and runs:
 Or the explicit steps (copy-paste):
 
 ```sh
-REPO=/Users/sandrakessler/projects/zerodds
+REPO=/path/to/zerodds
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 
 # 1) Build the ZeroDDS Java binding jar once.

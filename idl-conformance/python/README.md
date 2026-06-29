@@ -54,7 +54,7 @@ Python runtime package and run:
 
 ```sh
 cd zerodds-examples/idl-conformance/python
-PYTHONPATH=/Users/sandrakessler/projects/zerodds/crates/py/python \
+PYTHONPATH=/path/to/zerodds/crates/py/python \
   python3 conformance_roundtrip.py
 ```
 
@@ -69,7 +69,7 @@ ALL ROUNDTRIPS PASSED
 ### Regenerating the type (optional)
 
 ```sh
-ZIDLC=/Users/sandrakessler/projects/zerodds/target/debug/zerodds-idlc
+ZIDLC=/path/to/zerodds/target/debug/zerodds-idlc
 $ZIDLC generate 20_mixed_combo.idl --python -o . </dev/null
 ```
 

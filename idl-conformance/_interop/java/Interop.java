@@ -28,7 +28,7 @@ import java.util.Optional;
 public final class Interop {
 
     private static final String GOLDEN =
-        "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens/java.bin";
+        "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/java.bin";
 
     /** Build the ONE canonical sample. Identical values across every language. */
     static Telemetry canonical() {

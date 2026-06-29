@@ -13,6 +13,7 @@
 #include "dds/topic/TopicTraits.hpp"
 #include "dds/topic/xcdr2.hpp"
 #include "dds/topic/xcdr2_md5.hpp"
+#include "dds/core/Fixed.hpp"
 
 namespace feat {
     class WStr {
@@ -382,6 +383,26 @@ namespace feat {
         void ch(const char& value) { ch_ = value; }
     };
 
+    class Money {
+    public:
+        Money() = default;
+        ~Money() = default;
+        Money(::dds::core::Fixed<5, 2> price, ::dds::core::Fixed<4, 0> qty)
+            : price_(std::move(price)), qty_(std::move(qty)) {}
+
+    private:
+        ::dds::core::Fixed<5, 2> price_;
+        ::dds::core::Fixed<4, 0> qty_;
+
+    public:
+        ::dds::core::Fixed<5, 2>& price() { return price_; }
+        const ::dds::core::Fixed<5, 2>& price() const { return price_; }
+        void price(const ::dds::core::Fixed<5, 2>& value) { price_ = value; }
+        ::dds::core::Fixed<4, 0>& qty() { return qty_; }
+        const ::dds::core::Fixed<4, 0>& qty() const { return qty_; }
+        void qty(const ::dds::core::Fixed<4, 0>& value) { qty_ = value; }
+    };
+
 } // namespace feat
 
 // DDS-PSM-Cxx topic_type_support<T> -- auto-generiert (XCDR2 Wire, XTypes 1.3 7.4).
@@ -568,6 +589,19 @@ struct topic_type_support<::feat::Prim> {
     static std::vector<uint8_t> encode_be(const ::feat::Prim& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
     static ::feat::Prim decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr, bool zd_be = false);
     static std::array<uint8_t, 16> key_hash(const ::feat::Prim& zd_v);
+};
+
+template <>
+struct topic_type_support<::feat::Money> {
+    static const char* type_name() { return "feat::Money"; }
+    static constexpr bool is_keyed() { return false; }
+    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() { return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE; }
+    static std::vector<uint8_t> encode(const ::feat::Money& zd_v);
+    static std::vector<uint8_t> encode(const ::feat::Money& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static std::vector<uint8_t> encode_be(const ::feat::Money& zd_v);
+    static std::vector<uint8_t> encode_be(const ::feat::Money& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr);
+    static ::feat::Money decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr, bool zd_be = false);
+    static std::array<uint8_t, 16> key_hash(const ::feat::Money& zd_v);
 };
 
 inline std::vector<uint8_t> topic_type_support<::feat::Sel>::encode(const ::feat::Sel& zd_v) {
@@ -2130,6 +2164,75 @@ inline ::feat::Prim topic_type_support<::feat::Prim>::decode(const uint8_t* zd_b
         return zd_v;
     }
 inline std::array<uint8_t, 16> topic_type_support<::feat::Prim>::key_hash(const ::feat::Prim& zd_v) {
+        (void)zd_v;
+        return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    }
+
+inline std::vector<uint8_t> topic_type_support<::feat::Money>::encode(const ::feat::Money& zd_v) {
+        return encode(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::Money>::encode(const ::feat::Money& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const bool zd_x1 = (zd_repr == ::dds::topic::xcdr2::XcdrVersion::Xcdr1);
+        size_t zd_dh = 0; (void)zd_dh;
+        if (!zd_x1) { zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out); }
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        { const auto& zd_bcd = zd_v.price().bcd_bytes(); zd_out.insert(zd_out.end(), zd_bcd.begin(), zd_bcd.end()); }
+        { const auto& zd_bcd = zd_v.qty().bcd_bytes(); zd_out.insert(zd_out.end(), zd_bcd.begin(), zd_bcd.end()); }
+        if (!zd_x1) { ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh, false); }
+        return zd_out;
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::Money>::encode_be(const ::feat::Money& zd_v) {
+        return encode_be(zd_v, ::dds::topic::xcdr2::XcdrVersion::Xcdr2);
+    }
+inline std::vector<uint8_t> topic_type_support<::feat::Money>::encode_be(const ::feat::Money& zd_v, ::dds::topic::xcdr2::XcdrVersion zd_repr) {
+        std::vector<uint8_t> zd_out;
+        (void)zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_max_align;
+        const bool zd_x1 = (zd_repr == ::dds::topic::xcdr2::XcdrVersion::Xcdr1);
+        size_t zd_dh = 0; (void)zd_dh;
+        if (!zd_x1) { zd_dh = ::dds::topic::xcdr2::dheader_begin(zd_out); }
+        const size_t zd_origin = zd_out.size();
+        (void)zd_origin;
+        { const auto& zd_bcd = zd_v.price().bcd_bytes(); zd_out.insert(zd_out.end(), zd_bcd.begin(), zd_bcd.end()); }
+        { const auto& zd_bcd = zd_v.qty().bcd_bytes(); zd_out.insert(zd_out.end(), zd_bcd.begin(), zd_bcd.end()); }
+        if (!zd_x1) { ::dds::topic::xcdr2::dheader_end(zd_out, zd_dh, true); }
+        return zd_out;
+    }
+inline ::feat::Money topic_type_support<::feat::Money>::decode(const uint8_t* zd_buf, size_t zd_len, ::dds::topic::xcdr2::XcdrVersion zd_repr, bool zd_be) {
+        size_t zd_pos = 0;
+        ::feat::Money zd_v;
+        const size_t zd_max_align = ::dds::topic::xcdr2::xcdr_max_align(zd_repr);
+        (void)zd_buf; (void)zd_len; (void)zd_pos; (void)zd_max_align; (void)zd_be;
+        const bool zd_x1 = (zd_repr == ::dds::topic::xcdr2::XcdrVersion::Xcdr1);
+        size_t zd_end = zd_len;
+        if (!zd_x1) {
+            const auto zd_dh = ::dds::topic::xcdr2::dheader_read(zd_buf, zd_pos, zd_len, zd_be);
+            zd_end = zd_pos + zd_dh;
+        }
+        const size_t zd_origin = zd_pos;
+        (void)zd_end;
+        {
+            ::dds::topic::xcdr2::check_avail(zd_pos, ::dds::core::Fixed<5, 2>::kByteCount, zd_len);
+            ::dds::core::Fixed<5, 2> zd_fx(zd_buf + zd_pos);
+            zd_pos += ::dds::core::Fixed<5, 2>::kByteCount;
+            zd_v.price(std::move(zd_fx));
+        }
+        {
+            ::dds::topic::xcdr2::check_avail(zd_pos, ::dds::core::Fixed<4, 0>::kByteCount, zd_len);
+            ::dds::core::Fixed<4, 0> zd_fx(zd_buf + zd_pos);
+            zd_pos += ::dds::core::Fixed<4, 0>::kByteCount;
+            zd_v.qty(std::move(zd_fx));
+        }
+        if (!zd_x1 && zd_pos < zd_end) zd_pos = zd_end;
+        return zd_v;
+    }
+inline std::array<uint8_t, 16> topic_type_support<::feat::Money>::key_hash(const ::feat::Money& zd_v) {
         (void)zd_v;
         return std::array<uint8_t, 16>{{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
     }

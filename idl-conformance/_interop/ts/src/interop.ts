@@ -20,7 +20,7 @@ const { TelemetryTypeSupport, Mode } = combo;
 type Telemetry = combo.Telemetry;
 
 const GOLDEN_DEFAULT =
-  "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens/ts.bin";
+  "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/ts.bin";
 
 // ---------------------------------------------------------------------------
 // CANONICAL SAMPLE — identical across every language PSM.

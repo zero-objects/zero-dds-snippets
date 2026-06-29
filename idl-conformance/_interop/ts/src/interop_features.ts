@@ -56,7 +56,7 @@ function diffMapEnum(g: feat.MapEnum, w: feat.MapEnum): Diff {
 }
 
 const GOLDEN_DIR =
-  "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
+  "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
 
 // ---------------------------------------------------------------------------
 // CANONICAL SAMPLES — EXACT values from CANONICAL.md (identical across PSMs).

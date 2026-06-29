@@ -23,7 +23,7 @@ mod generated;
 use generated::combo::{Mode, Reading, Sample, Telemetry};
 
 const GOLDEN: &str =
-    "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens/rust.bin";
+    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/rust.bin";
 
 /// The canonical sample — IDENTICAL values across every language PSM, so the
 /// encoded bytes must match byte-for-byte.

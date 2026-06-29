@@ -1757,5 +1757,77 @@ export const PrimTypeSupport: DdsTopicType<Prim> = {
     },
 };
 
+export interface Money {
+    price: string;
+    qty: string;
+}
+
+export function isMoney(v: unknown): v is Money {
+    if (typeof v !== "object" || v === null) return false;
+    const o = v as Record<string, unknown>;
+    return true;
+}
+
+export const MoneyType: DdsTypeDescriptor<Money> = {
+    kind: "struct",
+    name: "Money",
+    extensibility: "appendable",
+    nested: false,
+    fields: [
+        {
+            name: "price",
+            id: 0,
+            type: { kind: "primitive", name: "int64" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+        {
+            name: "qty",
+            id: 1,
+            type: { kind: "primitive", name: "int64" },
+            key: false,
+            optional: false,
+            mustUnderstand: false,
+        },
+    ],
+    typeGuard: isMoney,
+};
+registerType(MoneyType);
+
+export const MoneyTypeSupport: DdsTopicType<Money> = {
+    typeName: "feat::Money",
+    isKeyed: false,
+    extensibility: "appendable",
+    encodeInto(w: Xcdr2Writer, s: Money): void {
+        const _tok = w.beginAppendable();
+        w.writeFixedBcd(s.price, 5, 2);
+        w.writeFixedBcd(s.qty, 4, 0);
+        w.endAppendable(_tok);
+    },
+    encode(s: Money, endian: EndianMode = "le", representation = 1): Uint8Array {
+        const w = new Xcdr2Writer(endian, representation === 0 ? 8 : 4);
+        this.encodeInto(w, s);
+        return w.toBytes();
+    },
+    decodeFrom(r: Xcdr2Reader): Money {
+        const _tok = r.beginAppendable();
+        const _f_price: string = r.readFixedBcd(5, 2);
+        const _f_qty: string = r.readFixedBcd(4, 0);
+        r.endAppendable(_tok);
+        return {
+            price: _f_price,
+            qty: _f_qty,
+        };
+    },
+    decode(bytes: Uint8Array, offset = 0, length: number = bytes.length - offset, endian: EndianMode = "le", representation = 1): Money {
+        const r = new Xcdr2Reader(bytes, offset, length, endian, representation === 0 ? 8 : 4);
+        return this.decodeFrom(r);
+    },
+    keyHash(s: Money): Uint8Array {
+        return new Uint8Array(16);
+    },
+};
+
 }
 

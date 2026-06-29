@@ -18,7 +18,7 @@ using Omg.Types;
 using combo;
 
 const string GoldenPathDefault =
-    "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens/csharp.bin";
+    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/csharp.bin";
 
 // ---- the canonical sample (identical values across every language PSM) ----
 static Telemetry Canonical()

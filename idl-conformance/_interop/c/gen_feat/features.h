@@ -134,6 +134,11 @@ typedef struct feat_Prim_s {
     char ch;
 } feat_Prim_t;
 
+typedef struct feat_Money_s {
+    struct { uint8_t bcd[3]; } price;
+    struct { uint8_t bcd[3]; } qty;
+} feat_Money_t;
+
 static int feat_Tree_write_body(const feat_Tree_t* v, uint8_t** w_buf_pp, size_t* w_len_pp, size_t* w_cap_pp, int representation);
 static int feat_Tree_read_body(const uint8_t* buf, size_t len, size_t* pos_pp, feat_Tree_t* v, int zd_be, int representation);
 
@@ -2194,6 +2199,86 @@ static int feat_Prim_decode_core(const uint8_t* buf, size_t len, void* out_sampl
 static void feat_Prim_sample_free(void* sample) {
     if (sample == NULL) return;
     feat_Prim_t* s = (feat_Prim_t*)sample;
+    (void)s;
+}
+
+static int feat_Money_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len);
+static int feat_Money_decode(const uint8_t* buf, size_t len, void* out_sample);
+static int feat_Money_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be);
+static int feat_Money_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample);
+static void feat_Money_sample_free(void* sample);
+
+static const char feat_Money_type_name[] = "feat::Money";
+static const zerodds_typesupport_t feat_Money_typesupport = {
+    .type_hash = {0},
+    .type_name = feat_Money_type_name,
+    .is_keyed = 0,
+    .extensibility = 1,
+    ._reserved = {0},
+    .encode = feat_Money_encode,
+    .decode = feat_Money_decode,
+    .key_hash = NULL,
+    .sample_free = feat_Money_sample_free,
+    .decode_repr = feat_Money_decode_repr,
+};
+
+static int feat_Money_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation);
+static int feat_Money_encode(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len) { return feat_Money_encode_repr(sample, out_buf, out_cap, out_len, 1); }
+static int feat_Money_encode_repr(const void* sample, uint8_t* out_buf, size_t out_cap, size_t* out_len, int representation) {
+    const feat_Money_t* s = (const feat_Money_t*)sample;
+    (void)s;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    /* Two-pass: grow the buffer, then copy. */
+    uint8_t* w_buf = NULL;
+    size_t w_len = 0;
+    size_t w_cap = 0;
+    if (out_buf == NULL && out_cap > 0) goto fail;
+    size_t dheader_pos = 0; (void)dheader_pos;
+    if (representation) {
+        if (zerodds_xcdr2_c_grow(&w_buf, &w_cap, w_len + 4) != 0) goto fail;
+        dheader_pos = w_len; w_len += 4;
+    }
+    size_t body_start = w_len;
+    for (size_t __fi = 0; __fi < 3; __fi++) { if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, (uint8_t)((s->price).bcd[__fi])) != 0) goto fail; }
+    for (size_t __fi = 0; __fi < 3; __fi++) { if (zerodds_xcdr2_c_write_u8(&w_buf, &w_len, &w_cap, (uint8_t)((s->qty).bcd[__fi])) != 0) goto fail; }
+    if (representation) {
+        zerodds_xcdr2_c_put_u32_at(w_buf, dheader_pos, (uint32_t)(w_len - body_start));
+    }
+    if (out_len) *out_len = w_len;
+    if (out_buf == NULL || out_cap < w_len) { free(w_buf); return -13; }
+    if (w_len > 0) memcpy(out_buf, w_buf, w_len);
+    free(w_buf);
+    return 0;
+fail:
+    free(w_buf);
+    return -1;
+}
+
+static int feat_Money_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation);
+static int feat_Money_decode(const uint8_t* buf, size_t len, void* out_sample) { return feat_Money_decode_core(buf, len, out_sample, 0, 1); }
+static int feat_Money_decode_e(const uint8_t* buf, size_t len, void* out_sample, int zd_be) { return feat_Money_decode_core(buf, len, out_sample, zd_be, 1); }
+static int feat_Money_decode_repr(const uint8_t* buf, size_t len, uint8_t representation, void* out_sample) { return feat_Money_decode_core(buf, len, out_sample, 0, representation ? 1 : 0); }
+static int feat_Money_decode_core(const uint8_t* buf, size_t len, void* out_sample, int zd_be, int representation) {
+    feat_Money_t* s = (feat_Money_t*)out_sample;
+    size_t pos = 0;
+    size_t zd_ma = representation ? 4 : 8; (void)zd_ma;
+    size_t body_end = len;
+    if (representation) {
+        uint32_t dheader = 0;
+        if (zerodds_xcdr2_c_read_u32(buf, len, &pos, &dheader, zd_be) != 0) return -7;
+        body_end = pos + dheader;
+        if (body_end > len) return -7;
+    }
+    for (size_t __fi = 0; __fi < 3; __fi++) { uint8_t __fb; if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &__fb, zd_be) != 0) return -7; (s->price).bcd[__fi] = __fb; }
+    for (size_t __fi = 0; __fi < 3; __fi++) { uint8_t __fb; if (zerodds_xcdr2_c_read_u8(buf, len, &pos, &__fb, zd_be) != 0) return -7; (s->qty).bcd[__fi] = __fb; }
+    if (representation) pos = body_end;
+    (void)s;
+    return 0;
+}
+
+static void feat_Money_sample_free(void* sample) {
+    if (sample == NULL) return;
+    feat_Money_t* s = (feat_Money_t*)sample;
     (void)s;
 }
 

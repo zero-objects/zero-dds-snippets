@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 #define GOLDEN_PATH \
-    "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens/c.bin"
+    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/c.bin"
 
 /* Build the canonical combo::Telemetry sample — EXACT values, shared across
  * all language PSMs so the encoded bytes must match byte-for-byte. */

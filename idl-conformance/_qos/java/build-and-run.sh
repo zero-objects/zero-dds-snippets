@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the org.omg.dds Java PSM jar, compile + run the QoS conformance harness.
 set -euo pipefail
-REPO=/Users/sandrakessler/projects/zerodds
+REPO="${REPO:-/path/to/zerodds}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home)}"
 export JAVA_HOME

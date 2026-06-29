@@ -19,7 +19,7 @@ using Omg.Types;
 using feat;
 
 const string Dir =
-    "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
+    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
 
 // ---- canonical samples (EXACT values from CANONICAL.md) --------------------
 

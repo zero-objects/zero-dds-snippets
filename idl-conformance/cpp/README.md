@@ -43,8 +43,8 @@ cargo build -p zerodds-c-api --release
 The generated header in `gen/` is checked in. To regenerate it from the IDL:
 
 ```sh
-/Users/sandrakessler/projects/zerodds/target/debug/zerodds-idlc generate \
-    /Users/sandrakessler/projects/zerodds/tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl \
+/path/to/zerodds/target/debug/zerodds-idlc generate \
+    /path/to/zerodds/tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl \
     --cpp -o gen </dev/null
 ```
 
@@ -53,12 +53,12 @@ Compile and run (from this directory):
 ```sh
 clang++ -std=c++17 combo_roundtrip.cpp \
   -I . \
-  -I /Users/sandrakessler/projects/zerodds/crates/cpp/include \
-  -I /Users/sandrakessler/projects/zerodds/crates/zerodds-c-api/include \
-  -L /Users/sandrakessler/projects/zerodds/target/release -lzerodds \
+  -I /path/to/zerodds/crates/cpp/include \
+  -I /path/to/zerodds/crates/zerodds-c-api/include \
+  -L /path/to/zerodds/target/release -lzerodds \
   -o combo_roundtrip
 
-DYLD_LIBRARY_PATH=/Users/sandrakessler/projects/zerodds/target/release ./combo_roundtrip
+DYLD_LIBRARY_PATH=/path/to/zerodds/target/release ./combo_roundtrip
 ```
 
 Or just `sh build.sh` then run the printed command.

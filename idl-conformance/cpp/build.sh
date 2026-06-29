@@ -3,7 +3,7 @@
 # Run from this directory. Assumes the ZeroDDS checkout two levels up.
 set -e
 
-ZERODDS=/Users/sandrakessler/projects/zerodds
+ZERODDS="${ZERODDS:-/path/to/zerodds}"
 
 # (Re)generate the typed header from the conformance fixture.
 #   "$ZERODDS/target/debug/zerodds-idlc" generate \

@@ -34,7 +34,7 @@ import java.util.List;
 public final class FeaturesInterop {
 
     private static final String DIR =
-        "/Users/sandrakessler/projects/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
+        "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
 
     // ---- canonical samples (EXACT values from CANONICAL.md) ----
 

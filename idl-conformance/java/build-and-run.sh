@@ -4,7 +4,7 @@
 # the idl-java runtime support + App.java, then runs the roundtrip.
 set -euo pipefail
 
-REPO=/Users/sandrakessler/projects/zerodds
+REPO="${REPO:-/path/to/zerodds}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home -v 21)}"
 export JAVA_HOME
