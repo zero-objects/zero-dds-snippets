@@ -1,0 +1,16 @@
+{
+  "name": "shapes-bridge",
+  "routes": [
+    {
+      "name": "square-forward",
+      "input":  { "domain": 0, "topic": "Square", "type_name": "ShapeType" },
+      "output": { "domain": 1, "topic": "Square", "type_name": "ShapeType" }
+    },
+    {
+      "name": "circle-rename",
+      "input":  { "domain": 0, "topic": "Circle", "type_name": "ShapeType" },
+      "output": { "domain": 1, "topic": "CircleMirror", "type_name": "ShapeType" },
+      "preserve_source_timestamp": true
+    }
+  ]
+}

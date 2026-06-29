@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Same two routes as router.json, in the native XML form. The parser also
+     accepts a focused subset of the RTI Routing Service <dds><routing_service>
+     schema, so an existing RTI config is a near drop-in migration. -->
+<zerodds_routing name="shapes-bridge">
+  <route name="square-forward">
+    <input  domain="0" topic="Square" type_name="ShapeType"/>
+    <output domain="1" topic="Square" type_name="ShapeType"/>
+  </route>
+  <route name="circle-rename" preserve_source_timestamp="true">
+    <input  domain="0" topic="Circle"       type_name="ShapeType"/>
+    <output domain="1" topic="CircleMirror" type_name="ShapeType"/>
+  </route>
+</zerodds_routing>
