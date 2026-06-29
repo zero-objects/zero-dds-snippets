@@ -5,6 +5,11 @@ edition = "2024"
 
 [workspace]
 
+[features]
+# Swap the DDS-Security crypto provider to the FIPS-capable backend (aws-lc-rs)
+# across the whole security stack — `cargo run --features fips`.
+fips = ["zerodds-dcps/fips", "zerodds-security-runtime/fips"]
+
 [dependencies]
 zerodds-security = { path = "../../crates/security" }
 zerodds-security-logging = { path = "../../crates/security-logging" }

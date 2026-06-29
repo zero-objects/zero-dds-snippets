@@ -1,0 +1,9 @@
+// Out-of-band schema for `--decode` — mirrors zerodds_dcps::interop::ShapeType,
+// the OMG ShapesDemo type every vendor's demo app publishes. No compiled type
+// is needed; the recorder builds a runtime DynamicType from this IDL.
+struct ShapeType {
+  @key string<128> color;
+  long             x;
+  long             y;
+  long             shapesize;
+};
