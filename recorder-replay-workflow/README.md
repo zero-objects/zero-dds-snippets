@@ -32,16 +32,16 @@ forms replay byte-for-byte the same samples.
 
 ```bash
 # 1) capture 6 s of Square into .zddsrec + typed SQLite + typed NDJSON
-zerodds record -t Square -d 0 --duration 6s -o cap.zddsrec \
+zerodds-record record -t Square -d 0 --duration 6s -o cap.zddsrec \
   --decode --type-file shapes.idl --map Square=ShapeType \
   --out-sqlite cap.db --out-json cap.ndjson &
 # 2) feed it (any ShapesDemo publisher on domain 0 works)
 cargo run -p zerodds-dcps --example shapes_demo_publisher -- Square BLUE 0
 
-# 3) replay from each persisted form onto a fresh domain
-zerodds replay cap.zddsrec  --domain 1     # from binary
-zerodds replay cap.ndjson   --domain 1     # from NDJSON
-zerodds replay cap.db       --domain 1     # from SQLite
+# 3) re-inject from each persisted form onto a fresh domain (1)
+zerodds-replay replay cap.zddsrec --inject --inject-domain 1   # from binary
+zerodds-replay replay cap.ndjson  --inject --inject-domain 1   # from NDJSON
+zerodds-replay replay cap.db      --inject --inject-domain 1   # from SQLite
 
 # 4) watch the replayed stream
 cargo run -p zerodds-dcps --example shapes_demo_subscriber -- Square 1

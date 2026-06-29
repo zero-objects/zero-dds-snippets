@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 ROOT="$(cd ../.. && pwd)"
 
 echo "▶ building record + replay + shapes demo…"
-( cd "$ROOT" && cargo build -q -p zerodds-record -p zerodds-dcps \
+( cd "$ROOT" && cargo build -q -p zerodds-record -p zerodds-replay -p zerodds-dcps \
     --example shapes_demo_publisher --example shapes_demo_subscriber )
 REC="$ROOT/target/debug/zerodds-record"
 REPLAY="$ROOT/target/debug/zerodds-replay"
@@ -33,7 +33,7 @@ for f in cap.zddsrec cap.db cap.ndjson; do [ -s "$f" ] && echo "    ✓ $f ($(wc
 echo "▶ replaying from each persisted form onto domain 1"
 ok=0
 for art in cap.zddsrec cap.ndjson cap.db; do
-  if "$REPLAY" "$art" --domain 1 >"replay-$art.log" 2>&1; then echo "    ✓ replay $art"; ok=$((ok+1)); else echo "    ✗ replay $art — see replay-$art.log"; fi
+  if "$REPLAY" replay "$art" --inject --inject-domain 1 >"replay-$art.log" 2>&1; then echo "    ✓ replay $art"; ok=$((ok+1)); else echo "    ✗ replay $art — see replay-$art.log"; fi
 done
 echo
 [ "$ok" = 3 ] && echo "✓ PASS — captured once, replayed from all 3 formats" \
