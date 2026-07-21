@@ -18,6 +18,7 @@ One directory per snippet, grouped by language/binding:
 | `typescript-node-*` | TypeScript (Node, `@zerodds/node`) |
 | `typescript-wasm-*` | TypeScript (WASM, `@zerodds/wasm`) |
 | `cpp-*`, `c-ffi-*` | C++ / C-API |
+| `native-endpoint-sdk` | Native endpoint SDKs (ADR 0013): C / Python / Java endpoints ↔ XRCE hub, both directions |
 
 ## Building
 
