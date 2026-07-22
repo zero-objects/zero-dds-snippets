@@ -4,8 +4,8 @@
  * Example frame-hook fill for a POSIX UDP transport (ADR 0013). Encodes a
  * SensorReading, frames it as XRCE WRITE_DATA, and delivers it to a
  * host:port -- e.g. a live crates/xrce agent. This is the "full" (POSIX)
- * substrate filling zdw_transport; a bare-metal RS-485 node fills it with its
- * serial driver instead.
+ * substrate filling zdw_transport; another target fills it with its own
+ * transport instead.
  *
  * usage: udp_endpoint <host> <port>
  */

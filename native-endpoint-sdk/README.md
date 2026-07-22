@@ -5,8 +5,8 @@ no-Rust endpoints in **C89 / Python / Java** that talk to a ZeroDDS/XRCE hub
 over UDP — in both directions. Each endpoint encodes/decodes a `SensorReading`
 with the wire-core (byte-identical to the Rust core), frames it as an XRCE
 `WRITE_DATA` message, and hands the frame to a transport through the frame-hook
-(here a UDP socket; a bare-metal RS-485 node fills the same hook with its serial
-driver). The hub side is the real `zerodds-xrce`, so the endpoint frames are
+(here a UDP socket; another target fills the same hook with its own transport).
+The hub side is the real `zerodds-xrce`, so the endpoint frames are
 proven against genuine Rust XRCE over a socket. No Rust runs on the endpoint —
 the same code works on a big-endian legacy host.
 
@@ -56,10 +56,10 @@ frame          --(zdw_xrce_write_frame / language equiv.)--> XRCE WRITE_DATA
 deliver        --(frame-hook: here a UDP socket)---------->  the wire
 ```
 
-The reverse for receive: `receive → unwrap DATA → decode`. Swapping UDP for an
-RS-485↔Ethernet adapter is just a different frame-hook fill — see
+The reverse for receive: `receive → unwrap DATA → decode`. Using a different
+transport is just a different frame-hook fill — see
 `endpoints/c/src/zerodds_endpoint.c` `zdw_serial_frame` for the Annex-C HDLC
-(byte-stuffing + CRC-16) framing an RS-485 link uses.
+(byte-stuffing + CRC-16) serial framing.
 
 ## License
 

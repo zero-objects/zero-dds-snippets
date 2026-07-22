@@ -3,8 +3,8 @@
  *
  * Example receiver (ADR 0013): a native endpoint binds a UDP port, receives a
  * DATA message the hub pushes, unwraps the WRITE_DATA/DATA submessage, and
- * decodes the SensorReading. The POSIX-UDP transport fills the frame-hook; a
- * bare-metal node fills it with its RS-485 driver instead.
+ * decodes the SensorReading. The POSIX-UDP transport fills the frame-hook;
+ * another target fills it with its own transport instead.
  *   udp_receiver <port>
  */
 #include <stdio.h>
