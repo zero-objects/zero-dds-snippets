@@ -1,0 +1,25 @@
+[package]
+name = "rust-async-showcase"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+# Runtime-agnostic async DCPS API (zerodds-async-1.0). Only `futures-core` is
+# required at its core; here we drive it with Tokio (the `tokio-glue` feature
+# adds `spawn_in_tokio`). It works equally with async-std or smol.
+#
+# Built against the ZeroDDS source (git), because this example uses the
+# async surface that ships from rc.7 (SampleInfo readers, content filters,
+# derive field_value). From rc.7 on you can switch these to `version = "1.0.0-rc.7"`.
+zerodds-dcps-async = { git = "https://github.com/zero-objects/zero-dds", branch = "main", features = ["tokio-glue"] }
+zerodds-dcps = { git = "https://github.com/zero-objects/zero-dds", branch = "main" }
+zerodds-cdr-derive = { git = "https://github.com/zero-objects/zero-dds", branch = "main" }
+zerodds-cdr = { git = "https://github.com/zero-objects/zero-dds", branch = "main" }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
