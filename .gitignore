@@ -14,6 +14,9 @@ pkg-node/
 bin/
 obj/
 
+# Rust `src/bin/` holds source binaries, not .NET output — keep it tracked
+!**/src/bin/
+
 # Python
 __pycache__/
 *.pyc
