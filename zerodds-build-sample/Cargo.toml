@@ -1,0 +1,29 @@
+[package]
+name = "zerodds-build-sample"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+# Empty [workspace] isolates this from the parent zerodds workspace, same
+# as the sibling idlc-buildrs example.
+[workspace]
+
+[lib]
+name = "zerodds_build_sample"
+path = "src/lib.rs"
+
+[[bin]]
+name = "zerodds-build-sample-demo"
+path = "src/main.rs"
+
+[build-dependencies]
+zerodds-build = { path = "../../crates/zerodds-build" }
+
+[dependencies]
+# Runtime deps the zerodds-idl-rust generated code needs (DdsType,
+# TypeIdentifier, CDR codec, SQL-filter field_value()) — identical set to
+# idlc-buildrs, since the generated code shape is the same emitter.
+zerodds-cdr = { path = "../../crates/cdr" }
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-sql-filter = { path = "../../crates/sql-filter" }

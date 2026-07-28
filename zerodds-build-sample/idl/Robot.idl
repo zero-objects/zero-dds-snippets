@@ -1,0 +1,13 @@
+#include "Pose.idl"
+
+struct Unit {
+    long id;
+    Pose pose;
+};
+
+// Cyclone/OpenSplice/RTI pragma spelling of `@key` — proves the
+// zerodds-build pipeline (zerodds-idl-compose) applies vendor
+// key-pragmas, not just OMG-IDL-4.2 `@key` annotations. A build.rs that
+// called `zerodds_idl::parse` + `zerodds_idl_rust::generate_rust_module`
+// directly (the ad hoc pattern zerodds-build replaces) never saw this.
+#pragma keylist Unit id
