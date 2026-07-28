@@ -12,6 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install zerodds-idlc CLI (idlc-buildrs shells out to it)
+        # `^` matters here: `cargo install --version X` without an operator
+        # pins the exact version X, while `cargo install --version ^X`
+        # resolves like a Cargo.toml dependency requirement (highest
+        # matching pre-release). The rewrite below uses the latter form
+        # implicitly (Cargo.toml deps default to caret), so this uses the
+        # same explicit `^1.0.0-rc.4` to stay resolved to the same rc.
+        run: cargo install zerodds-idlc --version "^1.0.0-rc.4"
       - name: Build every cargo example against the published crates
         run: |
           set -e
