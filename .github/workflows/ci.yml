@@ -31,8 +31,24 @@ jobs:
           # running the pub/sub examples needs live DDS infra not present in CI.
           find . -name Cargo.toml -not -path '*/target/*' -exec \
             sed -i -E 's#path = "\.\./\.\./(crates|tools)/[^"]*"#version = "1.0.0-rc.4"#g' {} +
+          # zerodds-build-sample depends on crates/zerodds-build, a monorepo
+          # crate that exists on main but has never been published to
+          # crates.io (crates.io API for it: "crate `zerodds-build` does not
+          # exist"). The path-dep rewrite above can't turn that into a
+          # resolvable `version = ...` requirement, so this example can't
+          # build against crates.io yet — skip it loudly here, pending
+          # zerodds-build's first publish (tracked for the rc7 crates.io
+          # cut). Not a masked failure: every skip is logged as a warning.
+          UNPUBLISHED_DEP_EXAMPLES="zerodds-build-sample"
           for dir in */; do
             [ -f "$dir/Cargo.toml" ] || continue
+            name="${dir%/}"
+            case " $UNPUBLISHED_DEP_EXAMPLES " in
+              *" $name "*)
+                echo "::warning::skipping $name — depends on a crate not yet published to crates.io (see workflow comment)"
+                continue
+                ;;
+            esac
             echo "::group::$dir"
             ( cd "$dir" && cargo build )
             echo "::endgroup::"
