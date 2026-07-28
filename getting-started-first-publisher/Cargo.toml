@@ -1,0 +1,21 @@
+[package]
+name = "getting-started-first-publisher"
+version = "0.1.0"
+edition = "2024"
+
+# Empty [workspace] isolates this from the parent zerodds workspace.
+[workspace]
+
+[[bin]]
+name = "pub"
+path = "src/bin/pub.rs"
+
+[[bin]]
+name = "sub"
+path = "src/bin/sub.rs"
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-qos = { path = "../../crates/qos" }
+zerodds-rtps = { path = "../../crates/rtps" }
+zerodds-types = { path = "../../crates/types" }
