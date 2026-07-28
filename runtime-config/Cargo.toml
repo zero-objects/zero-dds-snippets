@@ -1,0 +1,12 @@
+[package]
+name = "runtime-config"
+version = "0.1.0"
+edition = "2024"
+
+# Empty [workspace] isolates this from the parent zerodds workspace.
+[workspace]
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-foundation = { path = "../../crates/foundation" }
+zerodds-rtps = { path = "../../crates/rtps" }

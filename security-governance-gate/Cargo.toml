@@ -1,0 +1,14 @@
+[package]
+name = "security-governance-gate"
+version = "0.1.0"
+edition = "2024"
+
+# Empty [workspace] isolates this from the parent zerodds workspace.
+[workspace]
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps", features = ["security"] }
+zerodds-rtps = { path = "../../crates/rtps" }
+zerodds-security-runtime = { path = "../../crates/security-runtime" }
+zerodds-security-permissions = { path = "../../crates/security-permissions" }
+zerodds-security-crypto = { path = "../../crates/security-crypto" }

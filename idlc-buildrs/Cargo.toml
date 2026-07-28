@@ -1,0 +1,24 @@
+[package]
+name = "idlc-buildrs"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+# Empty [workspace] isolates this from the parent zerodds workspace.
+[workspace]
+
+[lib]
+name = "idlc_buildrs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "idlc-buildrs-demo"
+path = "src/main.rs"
+
+[dependencies]
+# Runtime deps the zerodds-idlc --rust backend's generated code needs
+# (DdsType, TypeIdentifier, CDR codec, SQL-filter field_value()).
+zerodds-cdr = { path = "../../crates/cdr" }
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-sql-filter = { path = "../../crates/sql-filter" }
