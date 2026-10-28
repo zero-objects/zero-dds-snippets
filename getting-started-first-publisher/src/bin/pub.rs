@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use zerodds_dcps::runtime::{DcpsRuntime, RuntimeConfig, UserWriterConfig};
 use zerodds_qos::{
-    DeadlineQosPolicy, DurabilityKind, LifespanQosPolicy, LivelinessQosPolicy, OwnershipKind,
+    DeadlineQosPolicy, DestinationOrderQosPolicy, DurabilityKind, LatencyBudgetQosPolicy,
+    LifespanQosPolicy, LivelinessQosPolicy, OwnershipKind, PresentationQosPolicy,
 };
 use zerodds_rtps::wire_types::GuidPrefix;
 use zerodds_types::{PrimitiveKind, TypeIdentifier};
@@ -22,7 +23,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         type_name: "RawBytes".into(),
         reliable: true,
         durability: DurabilityKind::Volatile,
+        durability_service: zerodds_qos::DurabilityServiceQosPolicy::default(),
         deadline: DeadlineQosPolicy::default(),
+        // RxO-matched pairs, DDS 1.4 §2.2.3.10 and §2.2.3.18: a writer
+        // offers and a reader requests, and a mismatch is a
+        // non-match rather than a silent downgrade.
+        latency_budget: LatencyBudgetQosPolicy::default(),
+        destination_order: DestinationOrderQosPolicy::default(),
         lifespan: LifespanQosPolicy::default(),
         liveliness: LivelinessQosPolicy::default(),
         ownership: OwnershipKind::Shared,
@@ -32,6 +39,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         topic_data: vec![],
         group_data: vec![],
         type_identifier: TypeIdentifier::Primitive(PrimitiveKind::UInt8),
+        // Publisher/Subscriber group scope, DDS 1.4 §2.2.3.6: INSTANCE,
+        // no coherent or ordered access.
+        presentation: PresentationQosPolicy::default(),
         data_representation_offer: None,
     })?;
 

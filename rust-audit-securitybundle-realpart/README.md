@@ -1,6 +1,6 @@
 # rust-audit-securitybundle-realpart
 
-Shows the **correct** participant wiring for an audit `SecurityBundle`, fixing the docs snippet. The plugin construction (`StderrLoggingPlugin`, `JsonLinesLoggingPlugin::open`, `FanOutLoggingPlugin::new().with(..)`, `SecurityBundle::builder().logging_plugin(..).build()`) is real and verified; but the website's `DomainParticipantFactory::create(0).with_security(bundle).build()` chain does not exist. The real path — `RuntimeConfig::default().with_security_bundle(&bundle)` + `create_participant_with_config` — is what this demo runs.
+Runs the website's audit `SecurityBundle` snippet as written: the plugin construction (`StderrLoggingPlugin`, `JsonLinesLoggingPlugin::open`, `FanOutLoggingPlugin::new().with(..)`, `SecurityBundle::builder().logging_plugin(..).build()`) and the participant wiring `DomainParticipantFactory::create(0).with_security(bundle).build()` (feature `security` of `zerodds-dcps`). The builder is the same as `RuntimeConfig::default().with_security_bundle(&bundle)` passed to `create_participant_with_config`.
 
 ## Build & run
 
@@ -31,7 +31,7 @@ crate for the umbrella definition.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Audit logging](https://zerodds.de/topics/audit-logging/)**.
+- Explained on the website: [Audit Logging Cookbook](https://zerodds.org/topics/audit-logging/)
+- This example in the repository: [zero-dds-snippets/rust-audit-securitybundle-realpart](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-audit-securitybundle-realpart)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

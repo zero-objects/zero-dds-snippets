@@ -49,3 +49,10 @@ live mode the streams are waker-driven via `spawn_in_tokio`.
 | Python (`asyncio`) | [`../python-aio`](../python-aio) |
 | C# (`async`/`await`) | [`../csharp-async`](../csharp-async) |
 | TypeScript (Node) | [`../typescript-node-async`](../typescript-node-async) |
+
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/rust-async-showcase](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-async-showcase)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

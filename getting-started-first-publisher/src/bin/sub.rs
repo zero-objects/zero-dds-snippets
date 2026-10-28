@@ -4,7 +4,10 @@
 use std::time::Duration;
 
 use zerodds_dcps::runtime::{DcpsRuntime, RuntimeConfig, UserReaderConfig, UserSample};
-use zerodds_qos::{DeadlineQosPolicy, DurabilityKind, LivelinessQosPolicy, OwnershipKind};
+use zerodds_qos::{
+    DeadlineQosPolicy, DestinationOrderQosPolicy, DurabilityKind, LatencyBudgetQosPolicy,
+    LivelinessQosPolicy, OwnershipKind, PresentationQosPolicy, ResourceLimitsQosPolicy,
+};
 use zerodds_rtps::wire_types::GuidPrefix;
 use zerodds_types::{PrimitiveKind, TypeIdentifier, qos::TypeConsistencyEnforcement};
 
@@ -19,6 +22,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         reliable: true,
         durability: DurabilityKind::Volatile,
         deadline: DeadlineQosPolicy::default(),
+        // RxO-matched pairs, DDS 1.4 §2.2.3.10 and §2.2.3.18: a writer
+        // offers and a reader requests, and a mismatch is a
+        // non-match rather than a silent downgrade.
+        latency_budget: LatencyBudgetQosPolicy::default(),
+        destination_order: DestinationOrderQosPolicy::default(),
         liveliness: LivelinessQosPolicy::default(),
         ownership: OwnershipKind::Shared,
         partition: vec![],
@@ -26,7 +34,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         topic_data: vec![],
         group_data: vec![],
         type_identifier: TypeIdentifier::Primitive(PrimitiveKind::UInt8),
+        // Publisher/Subscriber group scope, DDS 1.4 §2.2.3.6: INSTANCE,
+        // no coherent or ordered access.
+        presentation: PresentationQosPolicy::default(),
         type_consistency: TypeConsistencyEnforcement::default(),
+        // RESOURCE_LIMITS, DDS 1.4 §2.2.3.19: how much this reader is
+        // willing to hold. `max_samples` reaches the reliable receive
+        // cache; LENGTH_UNLIMITED — the default — leaves the runtime's
+        // own bound in place, because a cache needs one.
+        resource_limits: ResourceLimitsQosPolicy::default(),
         data_representation_offer: None,
     })?;
 
@@ -39,6 +55,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Ok(UserSample::Lifecycle { key_hash, kind }) => {
                 println!("lifecycle: {:?} {:?}", kind, key_hash);
+            }
+
+            // End-of-coherent-set, DDSI-RTPS 2.5 §8.7.6: the writer closed
+            // the set that starts at `set_first_sn`. It carries no user
+            // data, and a reader without `coherent_access` has nothing to
+            // release — but the arm is written out rather than swept into a
+            // `_ =>`, so a future variant is a compile error here and not a
+            // sample this loop drops without saying so.
+            Ok(UserSample::CoherentSetEnd { set_first_sn, .. }) => {
+                println!("coherent set ending at {set_first_sn} closed");
             }
 
             Err(_) => {}

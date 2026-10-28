@@ -1,14 +1,16 @@
 # idl-conformance / cpp
 
-A standalone, runnable **real-DCPS** conformance example for the ZeroDDS C++
-binding. It publishes one fully-populated sample of a multi-feature IDL type
-over a real ZeroDDS DCPS participant (domain 0, loopback) and reads it back,
-asserting every recovered field equals what was published — proving the data
-survived the XCDR2 **wire**, not just an in-memory encode/decode.
+A standalone, runnable **DCPS** conformance example for the ZeroDDS C++
+binding. It writes two fully-populated samples of a multi-feature IDL type
+through `zerodds::TypedWriter<T>` over a ZeroDDS participant and takes them
+back through `zerodds::TypedReader<T>`, asserting every recovered field equals
+what was written — the first with the optional present and the union's
+`MODE_ACTIVE` case, the second with the optional absent and the union's
+default case.
 
-The type is `combo::Telemetry` from the conformance fixture
-[`tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl`](../../../tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl),
-generated with `zerodds-idlc ... --cpp` into [`gen/`](gen/).
+The type is `combo::Telemetry` from [`combo.idl`](combo.idl); `build.sh`
+generates `gen/combo.hpp` from it with `zerodds-idlc generate --lang c++` on
+every run (not committed).
 
 ## IDL features exercised (all round-trip over DCPS)
 
@@ -18,14 +20,14 @@ One keyed topic type combines:
 |-------------------------------|-----------------------------|----------------------------|
 | `@key` integer                | `@key long unitId`          | `unitId`                   |
 | `@key` bounded string         | `@key string<32> region`    | `region`                   |
-| enum                          | `Mode mode`                 | `mode`                     |
+| enum                          | `combo::Mode mode`          | `mode`                     |
 | typedef → primitive           | `CurrentInAmpsType battery` | `batteryCurrent`           |
 | sequence of nested struct     | `sequence<Sample> history`  | each `history[i].{seq,value}` |
 | nested struct                 | `struct Sample`             | (inside the sequence)      |
 | map<string,long>              | `map<string,long> counters` | `counters[ok/err/retry]`   |
 | `@optional`                   | `@optional double calibration` | presence + value        |
 | fixed array                   | `long window[4]`            | all 4 elements             |
-| union (enum discriminator)    | `union Reading switch (Mode)` | `reading._d()` + active arm `activeRate` |
+| union (enum discriminator)    | `union Reading switch (Mode)` | `reading._d` + `activeRate` or `faultCode` |
 | `@appendable` extensibility   | `struct Telemetry`          | DHEADER framing            |
 
 Each of these is asserted equal after the DCPS roundtrip; the program prints a
@@ -33,55 +35,14 @@ Each of these is asserted equal after the DCPS roundtrip; the program prints a
 
 ## Build & run
 
-The C-API cdylib `libzerodds.dylib` must exist under `target/release` (it is
-already built in this checkout). To (re)build it from the ZeroDDS checkout:
-
 ```sh
-cargo build -p zerodds-c-api --release
+./build.sh
 ```
 
-The generated header in `gen/` is checked in. To regenerate it from the IDL:
-
-```sh
-/path/to/zerodds/target/debug/zerodds-idlc generate \
-    /path/to/zerodds/tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl \
-    --cpp -o gen </dev/null
-```
-
-Compile and run (from this directory):
-
-```sh
-clang++ -std=c++17 combo_roundtrip.cpp \
-  -I . \
-  -I /path/to/zerodds/crates/cpp/include \
-  -I /path/to/zerodds/crates/zerodds-c-api/include \
-  -L /path/to/zerodds/target/release -lzerodds \
-  -o combo_roundtrip
-
-DYLD_LIBRARY_PATH=/path/to/zerodds/target/release ./combo_roundtrip
-```
-
-Or just `sh build.sh` then run the printed command.
-
-Expected output ends with:
-
-```
-ROUNDTRIP OK: all wire-supported combo features survived DCPS.
-```
-
-## Known limitations
-
-1. **Byte-oriented write path drops the XCDR representation tag.** When you
-   publish via the byte-oriented C-API (`zerodds_writer_write`) and read back
-   with `zerodds_reader_take`, the `out_repr` out-param comes back `0` (XCDR1)
-   even though the payload was encoded as XCDR2 — the wire bytes are
-   byte-identical, only the representation tag is lost. `zerodds::TypedReader<T>`
-   trusts that tag and would decode with the wrong alignment (XCDR1 `max_align=8`
-   vs XCDR2 `max_align=4`), causing a `buffer underrun`. This example therefore
-   uses the byte-oriented `zerodds::Writer` / `zerodds::Reader` and decodes
-   explicitly with the same `XcdrVersion::Xcdr2` it encoded with. This is a
-   c-api/runtime layer gap, not a codegen gap; it is worked around here without
-   modifying any binding source.
+`build.sh` builds `zerodds-c-api` and `zerodds-idlc` in the ZeroDDS checkout
+this directory sits in (or `$ZERODDS_SRC`), generates `gen/combo.hpp`, builds
+`runtime/cpp`'s wire library, compiles `combo_roundtrip.cpp` with
+`-Wall -Werror` and runs it on domain 177 (`DOMAIN` overrides it).
 
 ## Reference
 

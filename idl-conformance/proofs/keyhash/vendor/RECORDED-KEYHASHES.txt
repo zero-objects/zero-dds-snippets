@@ -1,5 +1,5 @@
 Recorded vendor KeyHashes for the canonical keyed instances.
-Captured 2026-06-22 on host "codepit" (Debian 13, x86_64).
+Captured on a Debian 13 x86_64 host.
 
 Vendor versions
 ---------------
@@ -63,6 +63,7 @@ Bounded-string divergence (separate type, see README finding F1)
   Type @final struct BS { @key string<8> code; long payload; }, code="AB".
   BE keyholder = 00 00 00 03 41 42 00  (len=3 BE + "AB" + NUL, max 13 <= 16).
     CycloneDDS (own CDR engine): 00000003414200000000000000000000  (zero-pad)
-    ZeroDDS                    : afe1514800e44535d0f8280b7d11b82f  (MD5)  <-- DIFF
-  ZeroDDS treats every string key as unbounded -> MD5; the spec + Cyclone
-  zero-pad when the bounded max <= 16. These never correlate.
+    ZeroDDS                    : 00000003414200000000000000000000  (zero-pad)
+  Case (e) of the harness. ZeroDDS used to treat every string key as
+  unbounded and hash it (afe1514800e44535d0f8280b7d11b82f); it now zero-pads
+  a bounded key whose maximum is <= 16, as the spec and Cyclone do.

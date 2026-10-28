@@ -2,8 +2,7 @@
 //!
 //! Reuses the generated `combo::Telemetry` codec (the SAME bodies DDS uses on
 //! the wire) to:
-//!   * ENCODE         -> write the canonical sample's raw XCDR2-LE bytes to the
-//!                       shared golden file.
+//!   * ENCODE <file>  -> write the canonical sample's raw XCDR2-LE bytes.
 //!   * DECODE <file>  -> read the bytes back, reconstruct the sample, and assert
 //!                       EVERY field == the canonical sample. Exit 0 on match,
 //!                       nonzero + a diff otherwise.
@@ -17,13 +16,14 @@ use std::process::ExitCode;
 
 use zerodds_dcps::DdsType;
 
-#[path = "../generated/20_mixed_combo.rs"]
-mod generated;
+// `zerodds-build` writes the module into OUT_DIR; the lint allows sit on the
+// wrapping module because `include!` splices the tokens into this file.
+#[allow(non_snake_case, non_camel_case_types, unused_imports, dead_code, clippy::all)]
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/combo.rs"));
+}
 
 use generated::combo::{Mode, Reading, Sample, Telemetry};
-
-const GOLDEN: &str =
-    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/rust.bin";
 
 /// The canonical sample — IDENTICAL values across every language PSM, so the
 /// encoded bytes must match byte-for-byte.
@@ -50,12 +50,18 @@ fn canonical() -> Telemetry {
     }
 }
 
-fn encode_golden() -> ExitCode {
+fn encode_to(path: &str) -> ExitCode {
     let sample = canonical();
     let mut bytes = Vec::new();
-    sample.encode(&mut bytes).expect("encode canonical sample");
-    std::fs::write(GOLDEN, &bytes).expect("write golden");
-    println!("ENCODE: wrote {} bytes -> {GOLDEN}", bytes.len());
+    if let Err(e) = <Telemetry as DdsType>::encode(&sample, &mut bytes) {
+        eprintln!("FAIL: encode error: {e:?}");
+        return ExitCode::FAILURE;
+    }
+    if let Err(e) = std::fs::write(path, &bytes) {
+        eprintln!("FAIL: write {path}: {e}");
+        return ExitCode::FAILURE;
+    }
+    println!("ENCODE: wrote {} bytes -> {path}", bytes.len());
     print!("hex:");
     for (i, b) in bytes.iter().enumerate() {
         if i % 16 == 0 {
@@ -93,10 +99,16 @@ fn diff(expected: &Telemetry, got: &Telemetry) -> Vec<String> {
 }
 
 fn decode_check(path: &str) -> ExitCode {
-    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    let bytes = match std::fs::read(path) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("FAIL: read {path}: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
     println!("DECODE: read {} bytes <- {path}", bytes.len());
 
-    let got = match Telemetry::decode(&bytes) {
+    let got = match <Telemetry as DdsType>::decode(&bytes) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("FAIL: decode error: {e:?}");
@@ -120,14 +132,11 @@ fn decode_check(path: &str) -> ExitCode {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
-    match args.get(1).map(String::as_str) {
-        Some("ENCODE") => encode_golden(),
-        Some("DECODE") => {
-            let path = args.get(2).map(String::as_str).unwrap_or(GOLDEN);
-            decode_check(path)
-        }
+    match (args.get(1).map(String::as_str), args.get(2)) {
+        (Some("ENCODE"), Some(path)) => encode_to(path),
+        (Some("DECODE"), Some(path)) => decode_check(path),
         _ => {
-            eprintln!("usage: combo_interop ENCODE | DECODE <file>");
+            eprintln!("usage: combo_interop ENCODE <file> | DECODE <file>");
             ExitCode::FAILURE
         }
     }

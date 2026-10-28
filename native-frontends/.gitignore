@@ -1,0 +1,6 @@
+# generated at run time (machine-specific ZERODDS_ROOT replace path)
+go/*/go.mod
+go/*/go.sum
+
+# generated at run time from ping.idl via `zerodds-idlc --<lang>`
+go/pingpong/types.go

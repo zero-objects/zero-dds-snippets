@@ -19,23 +19,31 @@ The point is twofold:
 
 [`ShapeType.idl`](ShapeType.idl) — `@final`, `@key string color`, three `long`s.
 `@final` is the canonical ShapesDemo wire form and the one that interoperates
-across all four stacks (see [`fastdds/README.md`](fastdds/README.md) for why the
+across all five stacks (see [`fastdds/README.md`](fastdds/README.md) for why the
 extensibility annotation matters).
 
 ## Interop matrix (verified live)
 
-Host: single Linux box, RTPS-UDP, domain 0, topic `Square`.
+Host: single Linux box, RTPS-UDP, topic `Square`. Each `run.sh` uses a domain of
+its own (Cyclone 70, Fast DDS 71, OpenDDS 72, OpenSplice 73, RTI 91; `DOMAIN`
+overrides it) and
+aborts if that domain's port band is in use: a DDS domain is a UDP port band
+(RTPS 2.5 §9.6.1.1), so a run on domain 0 counts whatever else is on the host as
+its own result.
 
 | Peer | Vendor → ZeroDDS sub | ZeroDDS pub → Vendor | Notes |
 |---|:---:|:---:|---|
-| **CycloneDDS 11.0.1** | ✅ | ✅ | Cyclone's writer defaults to **XCDR1** for `@final` — the case that motivated the `DataRepresentation` reader fix (Bug DR1). |
-| **Fast DDS 3.x** | ✅ | ✅ | Strictest XTypes matcher: the reader must opt into XCDR2 (`INCOMPATIBLE_QOS` policy 23 otherwise) — the mirror of Bug DR1. See `fastdds/`. |
-| **OpenDDS 3.34** | ✅ | ✅ | A late-joining OpenDDS writer's first sample to us is mid-stream; a best-effort ZeroDDS reader must skip the leading SN gap (ZeroDDS Bug BE-GAP). See `opendds/`. |
-| **RTI Connext 7.7** | ✅ | ✅ | `rtiddsgen` console pub/sub. The RTI reader needs XCDR2 added to its representation (same as Fast DDS). See `rti/`. |
+| **CycloneDDS 11.0.1** | ✅ 69 | ✅ 59 | Cyclone's writer defaults to **XCDR1** for `@final` — the case that motivated the `DataRepresentation` reader fix (Bug DR1). |
+| **Fast DDS 3.x** | ✅ 46 | ✅ 58 | Strictest XTypes matcher: the reader must opt into XCDR2 (`INCOMPATIBLE_QOS` policy 23 otherwise) — the mirror of Bug DR1. See `fastdds/`. |
+| **OpenDDS 3.34** | ✅ 68 | ✅ 52 | A late-joining OpenDDS writer's first sample to us is mid-stream; a best-effort ZeroDDS reader must skip the leading SN gap (ZeroDDS Bug BE-GAP). Its IDL writes `@must_understand` on the key, which opendds_idl does not set by itself. See `opendds/`. |
+| **OpenSplice CE 6.9** | ✅ 58 | ✅ 59 | No XTypes: `idlpp` reads keys through `#pragma keylist` only and the product writes XCDR1 only, so its peer is built from a keylist copy of the type. The domain comes from the configuration file `OSPL_URI` names. See `opensplice/`. |
+| **RTI Connext 7.7** | ✅ 11 | ✅ 40 | `rtiddsgen` console pub/sub. The RTI reader needs XCDR2 added to its representation (same as Fast DDS), the two profile names the generated example looks up have to keep their names, and `rtiddsgen` needs `-unboundedSupport` or it bounds the key at 255. See `rti/`. |
 
-✅ = verified live on one host, both directions, real samples decoded correctly.
+✅ = verified live on one host, both directions, real samples decoded
+correctly; the number is the received-sample count of the last run of
+`ci/run-examples.sh` on the Linux test host.
 
-**All four mainstream DDS stacks interoperate with ZeroDDS in both directions.**
+**All five DDS stacks interoperate with ZeroDDS in both directions.**
 Two of the cells uncovered real ZeroDDS conformance bugs, now fixed:
 
 - **Bug DR1** — a ZeroDDS *reader* announced only XCDR2 and silently dropped a
@@ -60,14 +68,28 @@ reader accepts **both** — which is exactly what these projects exercise. See
 
 ## Running
 
-Each project has a `run.sh` that starts the ZeroDDS shapes example and the
-vendor pub/sub, runs both directions, and prints the received-sample counts.
-Build the ZeroDDS shapes examples first:
+The ZeroDDS side is [`zerodds/`](zerodds): `shapes_pub` and `shapes_sub`, with
+the type generated from the same [`ShapeType.idl`](ShapeType.idl) the peers
+use. Build it once:
 
 ```sh
-cargo build -p zerodds-dcps --example shapes_demo_publisher --example shapes_demo_subscriber
+(cd zerodds && cargo build --release)
 ```
 
-Then see the per-vendor `README.md`.
+Each vendor directory has a `run.sh` that builds the vendor's peer the first
+time, runs both directions and prints the received-sample counts:
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+```sh
+bash cyclone/run.sh     # or fastdds/, opendds/, rti/
+```
+
+`ci/run-examples.sh` runs the five legs as the rows `cross-vendor-shapes/cyclone`,
+`/fastdds`, `/opendds`, `/opensplice` and `/rti`, each after checking that the vendor's
+toolchain is on the host. The per-vendor `README.md` names what that is.
+
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/cross-vendor-shapes](https://github.com/zero-objects/zero-dds-snippets/tree/main/cross-vendor-shapes)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

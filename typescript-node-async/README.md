@@ -24,7 +24,7 @@ tsx src/run.ts        # observe writeAsync/takeAsync/streamSamples end-to-end
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[TypeScript / Node bindings](https://zerodds.de/bindings/typescript-node/)**.
+- Explained on the website: [TypeScript (Node.js)](https://zerodds.org/bindings/typescript-node/)
+- This example in the repository: [zero-dds-snippets/typescript-node-async](https://github.com/zero-objects/zero-dds-snippets/tree/main/typescript-node-async)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

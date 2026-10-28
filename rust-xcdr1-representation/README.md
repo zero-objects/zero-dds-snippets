@@ -28,11 +28,14 @@ of them, so it can interoperate either way.
 
 ## How it works
 
-- `Reading` is generated from [`demo.idl`](demo.idl) at build time by the
-  ZeroDDS IDL→Rust backend (see [`build.rs`](build.rs)) — the same `idlc --rust`
-  code path, in `cdr_only` mode (just the type + its `CdrEncode`/`CdrDecode`).
-- The representation is selected by the `BufferWriter`'s **max alignment**:
-  `with_max_alignment(4)` for XCDR2, `with_max_alignment(8)` for XCDR1.
+- `Reading` is generated from [`demo.idl`](demo.idl) at build time by
+  `zerodds-build` (see [`build.rs`](build.rs)), which runs the same
+  composition pipeline the `zerodds-idlc` CLI runs. `dds_type_impls(true)`
+  is what emits the second codec pair, `encode_xcdr1`/`decode_xcdr1`,
+  beside `encode`/`decode`.
+- The representation is the alignment cap the `zerodds_wire::Writer` and
+  `Reader` were built with, XTypes 1.3 §7.4.1: `with_max_align(…, 4)` for
+  XCDR2, `with_max_align(…, 8)` for XCDR1.
 - A reader and writer must agree on the representation (a mismatch would
   mis-align `value`). In DDS this is negotiated via the `DataRepresentation`
   QoS and signalled by the RTPS encapsulation id (`CDR_LE` 0x0001 for XCDR1,
@@ -55,4 +58,9 @@ runs on any platform. Requires a checked-out
 [zero-dds](https://github.com/zero-objects/zero-dds) source tree next to this
 repo (the build deps reach into `../../crates`).
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/rust-xcdr1-representation](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-xcdr1-representation)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

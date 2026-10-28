@@ -1,0 +1,9 @@
+[package]
+name = "crate-websocket-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-websocket-bridge = { path = "../../crates/websocket-bridge" }

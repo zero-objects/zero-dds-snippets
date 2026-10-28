@@ -27,7 +27,7 @@ LD_LIBRARY_PATH=/path/to/zerodds/target/release ./hello
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[C FFI bindings](https://zerodds.de/bindings/c-ffi/)**.
+- Explained on the website: [C-FFI](https://zerodds.org/bindings/c-ffi/)
+- This example in the repository: [zero-dds-snippets/c-ffi-hello](https://github.com/zero-objects/zero-dds-snippets/tree/main/c-ffi-hello)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

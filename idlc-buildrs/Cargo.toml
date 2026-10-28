@@ -15,10 +15,16 @@ path = "src/lib.rs"
 name = "idlc-buildrs-demo"
 path = "src/main.rs"
 
+[build-dependencies]
+# The `build.rs` helper the IDL handbook shows: it runs the same
+# composition pipeline the `zerodds-idlc` CLI runs, as a library call.
+zerodds-build = { path = "../../crates/zerodds-build" }
+
 [dependencies]
-# Runtime deps the zerodds-idlc --rust backend's generated code needs
-# (DdsType, TypeIdentifier, CDR codec, SQL-filter field_value()).
-zerodds-cdr = { path = "../../crates/cdr" }
+# Runtime deps the generated code names: the `DdsType` trait, the
+# TypeIdentifier/TypeObject, the wire runtime the codec calls, and the
+# SQL-filter `field_value()`.
+zerodds-wire = { path = "../../crates/wire" }
 zerodds-dcps = { path = "../../crates/dcps" }
 zerodds-types = { path = "../../crates/types" }
 zerodds-sql-filter = { path = "../../crates/sql-filter" }

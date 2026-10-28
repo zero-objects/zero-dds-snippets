@@ -14,8 +14,8 @@ fn main() {
     };
 
     let mut bytes = Vec::new();
-    pose.encode(&mut bytes).expect("encode");
-    let decoded = Pose::decode(&bytes).expect("decode");
+    <Pose as DdsType>::encode(&pose, &mut bytes).expect("encode");
+    let decoded = <Pose as DdsType>::decode(&bytes).expect("decode");
     assert_eq!(decoded, pose);
 
     println!(

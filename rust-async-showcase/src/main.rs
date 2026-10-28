@@ -13,7 +13,7 @@
 //!   * `AsyncDataReader`: `take`, `read`, `take_with_info`, `read_with_info`,
 //!     `wait_for_matched_publication`, counts, `qos`
 //!   * Streams: `take_stream`, `take_stream_with_info`, `data_available_stream`,
-//!     `publication_matched_stream`
+//!     `subscription_matched_stream`
 //!   * Content filtering: `create_datareader_filtered` (closure) and a SQL
 //!     `ContentFilteredTopic` via `create_contentfilteredtopic` +
 //!     `create_datareader_cft`
@@ -105,11 +105,11 @@ async fn main() -> Result<()> {
     }
     drop(available);
 
-    // 9. publication_matched_stream(): fired when the matched-writer count changes.
-    let mut matched = reader.publication_matched_stream();
+    // 9. subscription_matched_stream(): fired when the reader's matched-writer count changes.
+    let mut matched = reader.subscription_matched_stream();
     if let Ok(Some(status)) = timeout(T, matched.next()).await {
         println!(
-            "8) publication_matched_stream(): current={} total={}",
+            "8) subscription_matched_stream(): current={} total={}",
             status.current_count, status.total_count
         );
     }

@@ -1,0 +1,10 @@
+# ros2.spatial_bridge, one direction: SpatialDDS FramedPose on
+# sdds/default/FramedPose <-> geometry_msgs/PoseStamped on /robot1/pose.
+ros2:
+  spatial_bridge:
+    enabled: true
+    mappings:
+      - message: pose_stamped
+        spatial_topic: sdds/default/FramedPose
+        ros_topic: /robot1/pose
+        direction: ros_to_dds

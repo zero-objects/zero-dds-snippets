@@ -26,10 +26,14 @@ module feat {
     bitfield<3> kind;
     bitfield<5> prio;
   };
+  // The members name their types with a scoped name: IDL has a single
+  // namespace per scope and compares identifiers without regard to case
+  // (OMG IDL 4.2 §7.2.3), so `Perm perm;` would put two spellings of one
+  // name in the struct's scope.
   @appendable
   struct Bits {
-    Perm  perm;
-    Flags flags;
+    feat::Perm  perm;
+    feat::Flags flags;
   };
 
   // --- recursion (self-referential via sequence) ---

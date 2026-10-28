@@ -15,7 +15,7 @@ uses) to turn raw samples into JSON:
 ```
 $ zerodds-spy -t TrackTopic --type-file dyn.idl --decode
 zerodds-spy: attached topic=TrackTopic type=dyn::Track
-[1] writer=… type=dyn::Track {"color":2,"command":{"speed":7006},"id":106,"name":"track-6","path":[6,12,18]}
+[1] writer=… type=dyn::Track {"command":{"speed":7006},"hue":2,"id":106,"name":"track-6","path":[6,12,18]}
 ```
 
 The `--type-file` is an out-of-band schema, not a compiled type — ZeroDDS never
@@ -35,12 +35,23 @@ module dyn {
   @appendable struct Track {
     @key long       id;
     string          name;
-    Color           color;                     // enum
+    Color           hue;                       // enum
     sequence<long>  path;                       // sequence
     Cmd             command;                     // union member
   };
 };
 ```
+
+The enum member is `hue` and not `color`, and that is not cosmetic. IDL 4.2
+§7.2.2 gives each scope a single namespace and compares identifiers **without
+regard to case**, so `Color color;` declares two names that collide inside
+`module dyn`. `rtiddsgen` and `fastddsgen` accept it anyway; ZeroDDS's frontend
+refuses it by name (`` `color` and `Color` are in one scope and differ only in
+case ``) and `zerodds-spy --type-file` therefore could not load the schema at
+all. `opendds/dyn.idl` had already been renamed by hand for the same reason;
+it differs from `dyn_app.idl` in `@topic`, which opendds_idl needs to generate
+the type support, and in `@must_understand` on the key, which opendds_idl 3.34
+does not set by itself (see the comment in it).
 
 Two IDL variants ship here because the vendor IDL compilers disagree on what they
 accept:
@@ -55,7 +66,9 @@ accept:
 ## Results — all four vendors, both XCDR dialects
 
 ZeroDDS-spy reflectively decoded each vendor's live `TrackTopic`, including **every
-union branch** (`speed` / `angle` / `flag`):
+union branch** (`speed` / `angle` / `flag`). Last run of `ci/run-examples.sh`
+(rows `cross-vendor-dynamic-xtypes/{cyclone,fastdds,opendds,rti}`): Cyclone 49,
+Fast DDS 39, OpenDDS 39, RTI 44 samples, each with all three branches.
 
 | publisher | XCDR version | union | decoded sample (abridged) |
 |---|---|---|---|
@@ -93,18 +106,25 @@ against a live vendor sample exposed them:
 
 ## Running it
 
-Each `*/` holds the vendor publisher. Build it against that vendor's SDK, run it on
-a domain, and run `zerodds-spy` against the same domain:
+Each `*/` holds the vendor publisher and a `run.sh` that generates and builds it
+the first time, starts `zerodds-spy` on a domain of its own (Cyclone 79,
+Fast DDS 80, OpenDDS 81; `DOMAIN` overrides it) and counts the decoded branches:
 
+```sh
+cargo build --release -p zerodds-spy      # in the main repository
+bash cyclone/run.sh                       # or fastdds/, opendds/, rti/
 ```
-# vendor side (example: CycloneDDS)
-cc -I<cyclone>/include cyclone/pub.c dyn.c -L<cyclone>/lib -lddsc -o cyc_pub && ./cyc_pub 0
 
-# ZeroDDS side — reflective decode, no compiled type
-zerodds-spy -t TrackTopic --type-file dyn_app.idl --decode
-```
+The Fast DDS leg runs the spy with `--dialect fastdds`: Fast DDS writes the
+`@mutable` union in XCDR1 `PL_CDR` with bare parameter ids, true lengths and a
+bare `0x3f02` sentinel, and the spy reads that only when told to.
 
 Per-vendor build notes (SDK paths, the IDL-compiler quirks, the RTI transport/QoS
 flags) are in each subdirectory's `README.md`.
 
-Part of **[ZeroDDS](https://zerodds.de)**.
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/cross-vendor-dynamic-xtypes](https://github.com/zero-objects/zero-dds-snippets/tree/main/cross-vendor-dynamic-xtypes)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

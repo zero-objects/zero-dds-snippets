@@ -10,13 +10,25 @@ Two OpenDDS-specific gotchas, both fixed here:
    but no `TrackTypeSupport`, so `dyn::TrackTypeSupport_var` does not exist. See
    [`dyn.idl`](dyn.idl).
 
-`tao_idl` is also case-insensitive: the member `color` collides with the enum
-`Color`, so the OpenDDS variant renames it to `hue` (a member rename is invisible
-on the wire — the reflective decode is positional — so ZeroDDS still labels it
-`color` from its own `dyn_app.idl`).
+`tao_idl` is also case-insensitive: a member `color` collides with the enum
+`Color`, so the member is `hue`, in `../dyn_app.idl` as well.
+
+The key member carries `@must_understand`, which XTypes 1.3 §7.2.2.4.4.4.8
+makes implicit and opendds_idl 3.34 sets only when it is written; without it
+the two minimal TypeObjects hash differently and OpenDDS matches identical type
+identifiers only.
+
+`run.sh` does the build the first time and runs the publisher against
+`zerodds-spy` on domain 81:
 
 ```
-source <opendds-secure>/setenv.sh
-cmake -B build -DOpenDDS_DIR=<opendds-secure>/cmake && cmake --build build
-./build/od_pub -DCPSConfigFile rtps.ini
+DDS_ROOT=<opendds> bash run.sh
+```
+
+By hand:
+
+```
+source <opendds>/setenv.sh
+cmake -S . -B build/cmake -DOpenDDS_ROOT=<opendds> && cmake --build build/cmake
+./build/cmake/od_pub -DCPSConfigFile rtps.ini 81
 ```

@@ -4,12 +4,11 @@ Live RTPS interop on the ShapesDemo `Square` topic, **both directions**, using
 CycloneDDS's own Python binding as the peer.
 
 ```
-=== A) CycloneDDS pub -> ZeroDDS sub ===
-ZeroDDS received from Cyclone: 59
-  <- color=   GREEN x= 120 y= 225 size=30
-=== B) ZeroDDS pub -> CycloneDDS sub ===
+=== A) Cyclone DDS pub -> ZeroDDS sub ===
+ZeroDDS received from Cyclone: 69
+=== B) ZeroDDS pub -> Cyclone DDS sub ===
 Cyclone received from ZeroDDS: 59
-RESULT: PASS (both directions)
+RESULT: PASS (both directions; A=69 B=59)
 ```
 
 ## What this exercises
@@ -39,11 +38,10 @@ and XCDR2 (OMG XTypes 1.3 §7.6.2). See
    `from __future__ import annotations` must **not** be present (it breaks the
    idl type resolver).
 
-2. **ZeroDDS shapes examples.**
+2. **The ZeroDDS side**, generated from the same `ShapeType.idl`:
 
    ```sh
-   cargo build -p zerodds-dcps --example shapes_demo_publisher \
-                               --example shapes_demo_subscriber
+   (cd ../zerodds && cargo build --release)
    ```
 
 3. **Multicast.** SPDP discovery uses IP multicast. On a single host over
@@ -53,14 +51,14 @@ and XCDR2 (OMG XTypes 1.3 §7.6.2). See
 ## Run
 
 ```sh
-./run.sh
+bash run.sh            # domain 70; DOMAIN and PYTHON override
 ```
 
 Or drive the pieces by hand — e.g. CycloneDDS publisher → ZeroDDS subscriber:
 
 ```sh
-./../../../target/debug/examples/shapes_demo_subscriber Square 0 &
-python3 shapes_pub.py Square GREEN 0
+../zerodds/target/release/shapes_sub Square 70 &
+python3 shapes_pub.py Square GREEN 70
 ```
 
 Part of **[ZeroDDS](https://zerodds.de)**.

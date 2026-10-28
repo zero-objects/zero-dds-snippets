@@ -12,7 +12,7 @@
 // <type>.{minimal,complete}.hash (28 hex chars) into the directory given by
 // argv[1].
 //
-// Build (codepit):
+// Build (on the vendor host):
 //   g++ -std=c++17 fastdds_extract.cpp \
 //       /tmp/oracle-typeobj/typeobjectTypeObjectSupport.cxx \
 //       -I/tmp/oracle-typeobj -I/opt/fastdds/include \

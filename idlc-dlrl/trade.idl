@@ -1,0 +1,20 @@
+// DDS 1.2 §8 DLRL: two object types, their keys, a relation, and
+// attributes: `price` mono-valued, `tags`, `fills` and `fees` multi-valued
+// (a list, a list, a map keyed by string).
+struct Trade {
+  long id;
+  string venue;
+  double price;
+  sequence<string> tags;
+  long fills[3];
+  map<string, double> fees;
+};
+struct Leg {
+  long id;
+};
+#pragma DCPS_DATA_TYPE "Trade"
+#pragma DCPS_DATA_KEY "Trade id"
+#pragma DCPS_DATA_KEY "Trade venue"
+#pragma DCPS_DLRL_RELATION "Trade legs Leg"
+#pragma DCPS_DATA_TYPE "Leg"
+#pragma DCPS_DATA_KEY "Leg id"

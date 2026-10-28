@@ -16,9 +16,7 @@
       "@zerodds/node": [
         "../../crates/ts-node/dist/index.d.ts"
       ],
-      "@zerodds/cdr": [
-        "../../crates/ts-node/dist/cdr/index.d.ts"
-      ]
+      "@zerodds/wire": ["../../runtime/typescript/dist/index.d.ts"]
     }
   },
   "include": [

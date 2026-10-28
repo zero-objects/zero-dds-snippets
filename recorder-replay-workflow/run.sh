@@ -6,10 +6,13 @@ cd "$(dirname "$0")"
 ROOT="$(cd ../.. && pwd)"
 
 echo "▶ building record + replay + shapes demo…"
-( cd "$ROOT" && cargo build -q -p zerodds-record -p zerodds-replay -p zerodds-dcps \
-    --example shapes_demo_publisher --example shapes_demo_subscriber )
-REC="$ROOT/target/debug/zerodds-record"
-REPLAY="$ROOT/target/debug/zerodds-replay"
+# Two builds: a target selection such as `--example` limits the whole call to
+# those targets, so the tools' binaries have to be asked for on their own.
+( cd "$ROOT" && cargo build -q -p zerodds-record -p zerodds-replay --bins \
+    && cargo build -q -p zerodds-dcps --example shapes_demo_publisher --example shapes_demo_subscriber )
+TARGET="${CARGO_TARGET_DIR:-$ROOT/target}"
+REC="$TARGET/debug/zerodds-record"
+REPLAY="$TARGET/debug/zerodds-replay"
 
 pids=(); cleanup(){ for p in "${pids[@]:-}"; do kill "$p" 2>/dev/null || true; done; }
 trap cleanup EXIT INT TERM

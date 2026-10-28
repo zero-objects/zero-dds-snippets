@@ -14,7 +14,7 @@ No features to enable. Depends only on `zerodds-transport` via a path dep into t
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Transport reference](https://zerodds.de/topics/transport-reference/)**.
+- Explained on the website: [Transport Reference](https://zerodds.org/topics/transport-reference/)
+- This example in the repository: [zero-dds-snippets/rust-transport-trait](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-transport-trait)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

@@ -1,13 +1,13 @@
 //! Real-DCPS IDL conformance roundtrip for the ZeroDDS Rust binding.
 //!
-//! Generates a richly-combined IDL type with `zerodds-idlc --rust`, then over a
+//! Generates a richly-combined IDL type with `zerodds-build` (see
+//! `build.rs`), then over a
 //! REAL DomainParticipant + pub/sub (UDP loopback, two participants in one
 //! process, same domain) publishes one fully-populated sample and reads it
 //! back, asserting every field survived the XCDR2 wire roundtrip.
 //!
-//! Combined IDL features exercised by `combo::Telemetry` (the FULL upstream
-//! `tools/idlc/tests/conformance/fixtures/20_mixed_combo.idl`, copied verbatim
-//! into `idl/20_mixed_combo.idl`):
+//! Combined IDL features exercised by `combo::Telemetry`
+//! (`idl/20_mixed_combo.idl`):
 //!   * enum                 (`Mode`)
 //!   * typedef-to-primitive (`CurrentInAmpsType` = double)
 //!   * nested struct        (`Sample`)
@@ -28,9 +28,11 @@ use zerodds_dcps::{
     SubscriberQos, TopicQos,
 };
 
-// Pull the generated module in as a child module of this crate.
-#[path = "../generated/20_mixed_combo.rs"]
-mod generated;
+// The type, its codec and its `DdsType` impl, written by `build.rs`
+// from `idl/20_mixed_combo.idl` into `OUT_DIR`.
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/20_mixed_combo.rs"));
+}
 
 use generated::combo::{Mode, Reading, Sample, Telemetry};
 
@@ -38,14 +40,14 @@ fn make_sample() -> Telemetry {
     Telemetry {
         unitId: 4242,
         region: "eu-central-1".to_string(),
-        mode: Mode::MODE_ACTIVE,
+        operatingMode: Mode::MODE_ACTIVE,
         batteryCurrent: 13.75_f64,
         history: vec![
             Sample { seq: 1, value: 0.5 },
             Sample { seq: 2, value: 1.5 },
             Sample { seq: 3, value: -2.25 },
         ],
-        reading: Reading::FaultCode("E_OVERHEAT".to_string()),
+        latest: Reading::FaultCode("E_OVERHEAT".to_string()),
         counters: {
             let mut m = std::collections::BTreeMap::new();
             m.insert("packets".to_string(), 100_i32);
@@ -65,7 +67,15 @@ fn main() {
         ..RuntimeConfig::default()
     };
     let factory = DomainParticipantFactory::instance();
-    let domain = 0;
+    // A DDS domain is a UDP port band (RTPS 2.5 §9.6.1.1), so two
+    // programs on one domain read each other's traffic and count it as
+    // their own. This example used domain 0 — the default, and therefore
+    // the busiest one on any host that runs more than this. `DOMAIN`
+    // overrides; 88 is outside every band `tools/interop-gate` declares.
+    let domain: i32 = std::env::var("DOMAIN")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(88);
 
     let pub_p = factory
         .create_participant_with_config(domain, DomainParticipantQos::default(), cfg.clone())
@@ -113,13 +123,16 @@ fn main() {
     // Field-by-field equality assertions over the wire roundtrip.
     assert_eq!(got.unitId, sent.unitId, "unitId (@key long)");
     assert_eq!(got.region, sent.region, "region (@key string<32>)");
-    assert_eq!(got.mode, sent.mode, "mode (enum)");
+    assert_eq!(
+        got.operatingMode, sent.operatingMode,
+        "operatingMode (enum)"
+    );
     assert_eq!(
         got.batteryCurrent, sent.batteryCurrent,
         "batteryCurrent (typedef double)"
     );
     assert_eq!(got.history, sent.history, "history (sequence<Sample>)");
-    assert_eq!(got.reading, sent.reading, "reading (union over enum)");
+    assert_eq!(got.latest, sent.latest, "latest (union over enum)");
     assert_eq!(got.counters, sent.counters, "counters (map<string,long>)");
     assert_eq!(
         got.calibration, sent.calibration,

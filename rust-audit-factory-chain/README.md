@@ -14,7 +14,7 @@ The `security` feature on `zerodds-dcps` is already enabled in `Cargo.toml`. The
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Audit reference](https://zerodds.de/topics/audit-reference/)**.
+- Explained on the website: [Audit & Logging Reference](https://zerodds.org/topics/audit-reference/)
+- This example in the repository: [zero-dds-snippets/rust-audit-factory-chain](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-audit-factory-chain)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

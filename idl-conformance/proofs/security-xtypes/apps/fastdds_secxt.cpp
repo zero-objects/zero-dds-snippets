@@ -54,7 +54,7 @@ void apply_security(DomainParticipantQos& pqos) {
     const char* sec = std::getenv("ZERODDS_BENCH_SECURITY");
     if (!sec || std::string(sec) != "1") return;
     const char* sec_dir = std::getenv("ZERODDS_BENCH_SEC_DIR");
-    if (!sec_dir) sec_dir = "/root/bench-security";
+    if (!sec_dir) sec_dir = "security";
     const char* who = std::getenv("ZERODDS_BENCH_SEC_NAME");
     if (!who) who = "ping";
     auto& props = pqos.properties().properties();

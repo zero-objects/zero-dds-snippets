@@ -3,10 +3,12 @@
 Fast DDS is the only one of the four whose IDL compiler accepts the `@mutable`
 union in [`../dyn.idl`](../dyn.idl) directly, so it carries the mutable-union proof.
 
+`run.sh` generates the type support with `fastddsgen`, builds the publisher
+into `build/` the first time and runs it against `zerodds-spy --dialect fastdds`
+on domain 80:
+
 ```
-fastddsgen -replace dyn.idl          # generates dyn{,PubSubTypes,TypeObjectSupport}
-cmake -B build -DCMAKE_PREFIX_PATH=<fastdds-install> && cmake --build build
-./build/dyn_fd_pub 0                  # domain 0
+bash run.sh            # FASTDDS_HOME, FASTDDSGEN and DOMAIN override
 ```
 
 - Fast DDS defaults to **XCDR1**. To exercise the XCDR2 path, set the writer's

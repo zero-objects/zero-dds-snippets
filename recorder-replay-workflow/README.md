@@ -63,3 +63,10 @@ downstream tool kept.
 - Point step 2 at a **CycloneDDS / Fast DDS / RTI / OpenDDS** ShapesDemo and
   capture a *foreign* vendor's stream with the same command — the reflective
   codec follows their wire type.
+
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/recorder-replay-workflow](https://github.com/zero-objects/zero-dds-snippets/tree/main/recorder-replay-workflow)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

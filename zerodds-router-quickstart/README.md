@@ -29,7 +29,7 @@ needed in the router — it forwards the CDR payload verbatim. Add a `filter` or
 
 | File | What |
 |------|------|
-| `router.json` | The route config in JSON (`--config` default format). |
+| `router.json` | The route config in JSON (`--routes` reads a file not ending in `.xml` as JSON). |
 | `router.xml`  | The same config in the native `<zerodds_routing>` XML form. The parser also accepts a subset of the **RTI Routing Service** `<dds><routing_service>` schema, so an existing RTI config is a near drop-in migration. |
 | `run.sh`      | One-shot demo: subscriber on domain 1, router, publisher on domain 0. |
 
@@ -37,7 +37,7 @@ needed in the router — it forwards the CDR payload verbatim. Add a `filter` or
 
 ```bash
 cargo run -p zerodds-routing-service --bin zerodds-router -- \
-  validate --config router.json
+  validate --routes router.json
 # config 'shapes-bridge' OK — 2 route(s):
 #   square-forward: domain 0 'Square' → domain 1 'Square'
 #   circle-rename: domain 0 'Circle' → domain 1 'CircleMirror'
@@ -56,7 +56,7 @@ cargo run -p zerodds-routing-service --bin zerodds-router -- \
 cargo run -p zerodds-dcps --example shapes_demo_subscriber -- Square 1
 
 # 2) the router (bridges domain 0 → domain 1)
-cargo run -p zerodds-routing-service --bin zerodds-router -- run --config router.json
+cargo run -p zerodds-routing-service --bin zerodds-router -- run --routes router.json
 
 # 3) publisher on the INPUT domain (0)
 cargo run -p zerodds-dcps --example shapes_demo_publisher -- Square BLUE 0
@@ -78,5 +78,12 @@ router. Publish `Circle` on domain 0 and it arrives on domain 1 as
   reflectively to evaluate the DDS SQL grammar.
 - Point `output.domain` at a different transport/partition to bridge isolated
   segments.
-- Swap `--config router.json` for `--config router.xml` to drive the same
+- Swap `--routes router.json` for `--routes router.xml` to drive the same
   topology from the RTI-compatible XML.
+
+## Reference
+
+- Explained on the website: [Tools & tooling](https://zerodds.org/tools/)
+- This example in the repository: [zero-dds-snippets/zerodds-router-quickstart](https://github.com/zero-objects/zero-dds-snippets/tree/main/zerodds-router-quickstart)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

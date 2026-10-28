@@ -5,7 +5,7 @@
 //
 // Targets Fast-DDS 3.6 (TopicDataType uses SerializedPayload_t).
 //
-// Build (codepit):
+// Build (on the vendor host):
 //   g++ -std=c++17 fastdds_hello.cpp -o fastdds_hello \
 //       -I/opt/fastdds/include -L/opt/fastdds/lib \
 //       -lfastdds -lfastcdr -Wl,-rpath,/opt/fastdds/lib

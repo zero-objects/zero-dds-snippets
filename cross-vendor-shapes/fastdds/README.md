@@ -4,110 +4,53 @@ Live RTPS interop on the ShapesDemo `Square` topic using a Fast DDS C++ peer.
 
 ```
 === A) Fast DDS pub -> ZeroDDS sub ===
-ZeroDDS received from Fast DDS: 49
+ZeroDDS received from Fast DDS: 46
 === B) ZeroDDS pub -> Fast DDS sub ===
-Fast DDS received from ZeroDDS: 40
-  BLUE Shape with size 30 at X:120, Y:225 RECEIVED
-RESULT: PASS (both directions)
+Fast DDS received from ZeroDDS: 58
+RESULT: PASS (both directions; A=46 B=58)
 ```
 
-**Status:** verified live **both directions** against Fast DDS 3.x — once the
-reader is told to accept both wire representations (see step 2 below). That one
-QoS line is the whole story of this project: Fast DDS is the strictest XTypes
-matcher, and getting it right is the proof we understand its defaults.
+## The peer
 
-## The peer: Fast DDS `topic_instances` example, regenerated `@final`
+[`pub.cxx`](pub.cxx) and [`sub.cxx`](sub.cxx), with the type support
+`fastddsgen` generates from the `@final` [`../ShapeType.idl`](../ShapeType.idl)
+and built with [`CMakeLists.txt`](CMakeLists.txt). `run.sh` does the generation
+and the build the first time, into `build/`.
 
-Fast DDS ships a ShapeType console pub/sub in
-`examples/cpp/topic_instances`. Two adjustments make it interoperate with the
-canonical ShapesDemo wire form (and reveal exactly how Fast DDS differs):
+Both endpoints are `RELIABLE` and `VOLATILE`. The reader lists both data
+representations:
 
-1. **Extensibility.** The upstream example declares the type
-   `@extensibility(APPENDABLE)`. CycloneDDS, RTI ShapesDemo and ZeroDDS use
-   **`@final`**. These two *do* match — Fast DDS reports no incompatible QoS — but
-   they have **different wire forms**: `@final` is `PLAIN_CDR2` (no DHEADER) while
-   `@appendable` is delimited `D_CDR2` (with a per-sample DHEADER). So an
-   `@appendable` reader matches the ZeroDDS `@final` writer yet decodes **zero**
-   of its samples. *(Verified live: `@appendable` reader → `matched=1`, 0 received;
-   `@final` reader → 40 received.)* We therefore regenerate the type from the
-   `@final` [`ShapeType.idl`](ShapeType.idl) in this directory:
-
-   ```sh
-   fastddsgen -replace ShapeType.idl     # or: java -jar fastddsgen.jar -replace ShapeType.idl
-   ```
-
-   This rewrites `ShapeType*.{hpp,cxx,ipp}`. Copy them over the example's
-   generated files (keep the example's `*App.cpp`, `CLIParser.hpp`, `main.cpp`,
-   `CMakeLists.txt`).
-
-2. **QoS.** The example sets `history().depth = sample_limit`, and `sample_limit`
-   defaults to `0` — which Fast DDS rejects (`KEEP_LAST` needs depth > 0). Pass
-   `-s <N>` (e.g. `-s 50`), or clamp the depth in `PublisherApp.cpp` /
-   `SubscriberApp.cpp`:
-
-   ```cpp
-   writer_qos.history().depth = (sample_limit > 0) ? sample_limit : 10;
-   ```
-
-   The subscriber also defaults to `TRANSIENT_LOCAL` durability; a plain
-   ShapesDemo publisher is `VOLATILE`, and a `TRANSIENT_LOCAL` reader will not
-   match a `VOLATILE` writer (RxO: reader request ≤ writer offer). Set the reader
-   to `VOLATILE` for the ZeroDDS-publisher direction.
-
-   **Data representation (the key one).** An empty `DataRepresentationQosPolicy`
-   on a reader defaults to **XCDR1 only** (XTypes 1.3 §7.6.2 — an empty list
-   *is* `{XCDR_DATA_REPRESENTATION}`). ZeroDDS's `@final` writer sends **XCDR2**,
-   so the stock Fast DDS reader rejects it with `INCOMPATIBLE_QOS`
-   `last_policy_id = 23` (DATA_REPRESENTATION) and never matches. CycloneDDS's
-   reader is lenient and accepts both; Fast DDS follows the strict literal. Make
-   the reader accept both — what a robust ShapesDemo reader does anyway:
-
-   ```cpp
-   reader_qos.representation().m_value.push_back(DataRepresentationId_t::XCDR_DATA_REPRESENTATION);
-   reader_qos.representation().m_value.push_back(DataRepresentationId_t::XCDR2_DATA_REPRESENTATION);
-   ```
-
-   This is the mirror image of ZeroDDS's own Bug DR1 (where *our* reader had to
-   learn to accept both) — the same XTypes rule, seen from the other side.
-
-## Build
-
-```sh
-cd <fast-dds>/examples/cpp/topic_instances
-# (after dropping in the @final-regenerated ShapeType* files + QoS tweaks)
-cmake -B build -DCMAKE_PREFIX_PATH=<fastdds-install> -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
+```cpp
+rq.representation().m_value.push_back(XCDR_DATA_REPRESENTATION);
+rq.representation().m_value.push_back(XCDR2_DATA_REPRESENTATION);
 ```
 
-Verified against **Fast DDS 3.x** (`fastddsgen` from the matching release).
+An empty `DataRepresentationQosPolicy` on a reader is **XCDR1 only** (XTypes
+1.3 §7.6.2: an empty list *is* `{XCDR_DATA_REPRESENTATION}`). A ZeroDDS writer
+that sends XCDR2 is then refused with `INCOMPATIBLE_QOS`
+`last_policy_id = 23` (DATA_REPRESENTATION) and never matches. Cyclone DDS's
+reader accepts both; Fast DDS follows the literal rule. This is the mirror image
+of ZeroDDS's own Bug DR1 (where *our* reader had to learn to accept both).
 
 ## Run
 
-ZeroDDS shapes examples first:
-
 ```sh
-cargo build -p zerodds-dcps --example shapes_demo_publisher --example shapes_demo_subscriber
+(cd ../zerodds && cargo build --release)
+bash run.sh            # domain 71; DOMAIN, FASTDDS_HOME and FASTDDSGEN override
 ```
 
-Fast DDS publisher → ZeroDDS subscriber (the proven direction):
-
-```sh
-./../../../target/debug/examples/shapes_demo_subscriber Square 0 &
-LD_LIBRARY_PATH=<fastdds-install>/lib \
-  ./build/topic_instances publisher -d 0 -n Square -i 1 -s 50
-```
-
-`run.sh` automates both directions; set `FASTDDS_BIN` and `FASTDDS_LIB`.
+Needs Fast DDS 3 under `FASTDDS_HOME` (default `/opt/fastdds`), `fastddsgen` on
+`PATH` and cmake.
 
 ## What we learned about Fast DDS
 
-Fast DDS is the strictest XTypes matcher of the four stacks here, and each of the
-three tweaks above is a place where its defaults differ from the de-facto
-ShapesDemo wire form:
+An earlier version of this leg used Fast DDS's own ShapeType console example,
+`examples/cpp/topic_instances`. Three of its defaults differ from the
+de-facto ShapesDemo wire form, and each failed in its own way:
 
 | Tweak | Fast DDS default | What interoperates | How it fails otherwise (verified) |
 |---|---|---|---|
-| Extensibility | `@appendable` (this example) | `@final` | matches, but **0 samples** (D_CDR2 DHEADER vs PLAIN_CDR2) |
+| Extensibility | `@appendable` (`topic_instances`) | `@final` | matches, but **0 samples** (D_CDR2 DHEADER vs PLAIN_CDR2) |
 | Reader durability | `TRANSIENT_LOCAL` | `VOLATILE` | `INCOMPATIBLE_QOS` **policy 2** (DURABILITY), no match |
 | Reader representation | empty ⇒ `{XCDR1}` | `{XCDR1, XCDR2}` | `INCOMPATIBLE_QOS` **policy 23** (DATA_REPRESENTATION), no match |
 

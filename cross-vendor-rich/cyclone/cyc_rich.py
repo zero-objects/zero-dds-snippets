@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from cyclonedds.idl import IdlStruct
 from cyclonedds.idl.annotations import keylist, mutable, appendable, final
-from cyclonedds.idl.types import sequence, uint32, float64, uint8
+from cyclonedds.idl.types import sequence, uint32, float64, byte
 
 @final
 @keylist(["id"])
@@ -9,7 +9,7 @@ from cyclonedds.idl.types import sequence, uint32, float64, uint8
 class RichF(IdlStruct, typename="RichF"):
     id: uint32 = 0
     value: float64 = 0.0
-    blob: sequence[uint8] = field(default_factory=list)
+    blob: sequence[byte] = field(default_factory=list)
 
 @appendable
 @keylist(["id"])
@@ -17,7 +17,7 @@ class RichF(IdlStruct, typename="RichF"):
 class RichA(IdlStruct, typename="RichA"):
     id: uint32 = 0
     value: float64 = 0.0
-    blob: sequence[uint8] = field(default_factory=list)
+    blob: sequence[byte] = field(default_factory=list)
 
 @mutable
 @keylist(["id"])
@@ -25,6 +25,6 @@ class RichA(IdlStruct, typename="RichA"):
 class RichM(IdlStruct, typename="RichM"):
     id: uint32 = 0
     value: float64 = 0.0
-    blob: sequence[uint8] = field(default_factory=list)
+    blob: sequence[byte] = field(default_factory=list)
 
 TYPES = {"f": ("RichF", RichF), "a": ("RichA", RichA), "m": ("RichM", RichM)}

@@ -1,0 +1,12 @@
+// The request and reply types the website's docs/rpc.html snippet names but
+// does not define. DDS-RPC 1.0 section 7.5: a request/reply pair is two plain
+// DDS topic types.
+module calculator {
+  @final struct MyRequest {
+    long a;
+    long b;
+  };
+  @final struct MyReply {
+    long sum;
+  };
+};

@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 [workspace]
 [dependencies]
-zerodds-dcps-async = "1.0.0-rc.3"
-zerodds-dcps = "1.0.0-rc.3"
+zerodds-dcps-async = "1.0.0-rc.6"
+zerodds-dcps = "1.0.0-rc.6"
 tokio = { version = "1", features = ["full"] }

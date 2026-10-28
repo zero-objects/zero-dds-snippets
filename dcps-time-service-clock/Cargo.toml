@@ -1,0 +1,11 @@
+[package]
+name = "dcps-time-service-clock"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-time-service = { path = "../../crates/time-service" }

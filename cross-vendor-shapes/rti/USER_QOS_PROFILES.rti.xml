@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!-- The QoS the RTI peer needs to talk to a foreign stack.
+
+     The profile *names* are not free: `rtiddsgen -example` emits a publisher
+     and a subscriber that look up `ShapeType_Library::Participant_Profile` and
+     `ShapeType_Library::Periodic_Best_Effort_Profile` by name, and a
+     QosProvider that cannot find them throws before the participant exists
+     ("Profile 'ShapeType_Library::Participant_Profile' not found"). So this
+     file redefines those two profiles rather than adding a third.
+
+     It is kept under this name because `rtiddsgen -example` overwrites
+     USER_QOS_PROFILES.xml on every regeneration; run.sh copies this over it
+     afterwards.
+
+     What is set, and why:
+
+     * transport_builtin UDPv4 — same-host, RTI prefers its shared-memory
+       transport, which no foreign peer can read. Restricting the participant
+       keeps the samples on the wire, where a capture can see them.
+     * the reader's representation — RTI's DataReader defaults to XCDR1 alone
+       and silently drops the ZeroDDS writer's XCDR2. OMG XTypes 1.3 §7.6.2
+       has a default reader accept both; RTI's does not, so it is named here.
+       The mirror of this project's own Bug DR1.
+     * best-effort on both — the ZeroDDS shapes examples are best-effort, and a
+       reliable RTI reader would not match a best-effort ZeroDDS writer for
+       data (only for discovery).
+-->
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://community.rti.com/schema/current/rti_dds_qos_profiles.xsd">
+  <qos_library name="ShapeType_Library">
+
+    <qos_profile name="Participant_Profile" base_name="BuiltinQosLib::Generic.Common">
+      <domain_participant_qos>
+        <transport_builtin><mask>UDPv4</mask></transport_builtin>
+      </domain_participant_qos>
+    </qos_profile>
+
+    <qos_profile name="Periodic_Best_Effort_Profile" base_name="BuiltinQosLib::Generic.Common">
+      <base_name>
+        <element>BuiltinQosSnippetLib::QosPolicy.Reliability.BestEffort</element>
+        <element>BuiltinQosSnippetLib::QosPolicy.History.KeepLast_1</element>
+      </base_name>
+      <datawriter_qos>
+        <publication_name><name>ShapeType_PBE_DataWriter</name></publication_name>
+      </datawriter_qos>
+      <datareader_qos>
+        <subscription_name><name>ShapeType_PBE_DataReader</name></subscription_name>
+        <representation>
+          <value>
+            <element>XCDR_DATA_REPRESENTATION</element>
+            <element>XCDR2_DATA_REPRESENTATION</element>
+          </value>
+        </representation>
+        <history>
+          <kind>KEEP_LAST_HISTORY_QOS</kind>
+          <depth>100</depth>
+        </history>
+      </datareader_qos>
+    </qos_profile>
+
+  </qos_library>
+</dds>

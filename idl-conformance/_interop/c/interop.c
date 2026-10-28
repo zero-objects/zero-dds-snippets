@@ -1,176 +1,133 @@
-/*
- * XCDR2 wire-interop driver for the C PSM — combo::Telemetry.
+/* SPDX-License-Identifier: Apache-2.0
+ * idl-conformance / _interop / c — the combo::Telemetry column.
  *
- * Two modes:
- *   ENCODE          -> serialise the canonical sample to raw XCDR2-LE bytes,
- *                      write them to the golden path.
- *   DECODE <file>   -> read raw bytes, decode, assert EVERY field == canonical;
- *                      exit 0 on full match, nonzero (with a diff) otherwise.
+ *   interop ENCODE <out.bin>   write the canonical sample as raw XCDR2-LE
+ *   interop DECODE <in.bin>    decode, assert every field == canonical
  *
- * The bytes ARE the wire: we use the generated combo_Telemetry_encode/_decode
- * (XCDR2 DHEADER framing, the ZeroDDS default LE codec) directly — no live
- * pub/sub. Identical canonical values across every language => identical bytes.
+ * gen_combo/combo.h is `zerodds-idlc generate --lang c` output of
+ * ../combo.idl over runtime/c; values are CANONICAL.md.
  */
-#include "combo.h"
+#include "gen_combo/combo.h"
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
-#define GOLDEN_PATH \
-    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/c.bin"
+#define SAMPLE_CAPACITY 4096u
 
-/* Build the canonical combo::Telemetry sample — EXACT values, shared across
- * all language PSMs so the encoded bytes must match byte-for-byte. */
-static void build_canonical(combo_Telemetry_t* s,
-                            combo_Sample_t hist[3],
-                            char* counter_keys[2], int32_t counter_vals[2]) {
+static void canonical(combo_Telemetry *s, combo_Sample history[3],
+                      zd_map_zd_string_long_entry counters[2]) {
     memset(s, 0, sizeof(*s));
-
-    s->unitId         = 4242;                       /* @key long            */
-    s->region         = "eu-central-1";             /* @key string<32>      */
-    s->mode           = combo_Mode_MODE_ACTIVE;     /* enum idx 1           */
-    s->batteryCurrent = 13.75;                      /* typedef double       */
-
-    hist[0].seq = 1; hist[0].value = 0.5;
-    hist[1].seq = 2; hist[1].value = 1.5;
-    hist[2].seq = 3; hist[2].value = -2.25;
-    s->history.len   = 3;
-    s->history.elems = hist;
-
-    s->reading._d              = combo_Mode_MODE_ACTIVE;   /* -> activeRate */
-    s->reading._u.activeRate   = 60.0;
-
-    /* map key-sorted: "drops" < "packets" */
-    counter_keys[0] = "drops";   counter_vals[0] = 3;
-    counter_keys[1] = "packets"; counter_vals[1] = 100;
-    s->counters.len  = 2;
-    s->counters.keys = counter_keys;
-    s->counters.vals = counter_vals;
-
-    s->calibration         = 0.001;                 /* @optional, PRESENT   */
-    s->calibration_present = 1;
-
-    s->window[0] = 10; s->window[1] = 20;
-    s->window[2] = 30; s->window[3] = 40;
+    s->unitId = 4242;
+    s->region = "eu-central-1";
+    s->mode = combo_MODE_ACTIVE;
+    s->batteryCurrent = 13.75;
+    history[0] = (combo_Sample){1, 0.5};
+    history[1] = (combo_Sample){2, 1.5};
+    history[2] = (combo_Sample){3, -2.25};
+    s->history._length = 3;
+    s->history._buffer = history;
+    s->reading._d = combo_MODE_ACTIVE;
+    s->reading._u.activeRate = 60.0;
+    counters[0] = (zd_map_zd_string_long_entry){"drops", 3};
+    counters[1] = (zd_map_zd_string_long_entry){"packets", 100};
+    s->counters._length = 2;
+    s->counters._buffer = counters;
+    s->_has_calibration = true;
+    s->calibration = 0.001;
+    for (int i = 0; i < 4; ++i) s->window[i] = (i + 1) * 10;
 }
 
-static int do_encode(const char* path) {
-    combo_Telemetry_t s;
-    combo_Sample_t hist[3];
-    char* ckeys[2]; int32_t cvals[2];
-    build_canonical(&s, hist, ckeys, cvals);
-
-    /* size pass */
-    size_t need = 0;
-    if (combo_Telemetry_encode(&s, NULL, 0, &need) != -13) {
-        /* -13 = "buffer too small / NULL", but out_len is set: that's the
-         * sizing contract of the generated encoder. */
+static int encode(const char *path) {
+    combo_Telemetry sample;
+    combo_Sample history[3];
+    zd_map_zd_string_long_entry counters[2];
+    canonical(&sample, history, counters);
+    uint8_t bytes[SAMPLE_CAPACITY];
+    zdw_writer writer;
+    zdw_writer_init(&writer, bytes, sizeof bytes, ZD_ENDIANNESS, 4);
+    zd_enc_combo_Telemetry(&writer, &sample);
+    if (zdw_writer_status(&writer) != ZDW_OK) {
+        fprintf(stderr, "ENCODE: %s\n", zdw_status_name(zdw_writer_status(&writer)));
+        return 1;
     }
-    if (need == 0) { fprintf(stderr, "ENCODE: size pass produced 0 bytes\n"); return 1; }
-
-    uint8_t* buf = (uint8_t*)malloc(need);
-    if (!buf) { fprintf(stderr, "ENCODE: OOM\n"); return 1; }
-    size_t got = 0;
-    int rc = combo_Telemetry_encode(&s, buf, need, &got);
-    if (rc != 0 || got != need) {
-        fprintf(stderr, "ENCODE: encode failed rc=%d got=%zu need=%zu\n", rc, got, need);
-        free(buf); return 1;
+    const size_t length = zdw_writer_length(&writer);
+    FILE *file = fopen(path, "wb");
+    if (!file) { perror("ENCODE open"); return 1; }
+    const size_t written = fwrite(bytes, 1, length, file);
+    const int closed = fclose(file);
+    if (written != length || closed != 0) {
+        fprintf(stderr, "ENCODE: incomplete output\n");
+        return 1;
     }
-
-    FILE* f = fopen(path, "wb");
-    if (!f) { fprintf(stderr, "ENCODE: cannot open %s\n", path); free(buf); return 1; }
-    size_t wrote = fwrite(buf, 1, got, f);
-    fclose(f);
-    free(buf);
-    if (wrote != got) { fprintf(stderr, "ENCODE: short write\n"); return 1; }
-
-    printf("ENCODE OK: wrote %zu bytes -> %s\n", got, path);
+    printf("ENCODE OK: %zu bytes -> %s\n", length, path);
     return 0;
 }
 
-static int do_decode(const char* path) {
-    FILE* f = fopen(path, "rb");
-    if (!f) { fprintf(stderr, "DECODE: cannot open %s\n", path); return 1; }
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (sz <= 0) { fprintf(stderr, "DECODE: empty file\n"); fclose(f); return 1; }
-    uint8_t* buf = (uint8_t*)malloc((size_t)sz);
-    if (!buf) { fclose(f); return 1; }
-    if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) {
-        fprintf(stderr, "DECODE: short read\n"); free(buf); fclose(f); return 1;
+static int decode(const char *path) {
+    /* This driver accepts one canonical sample, not unbounded input files. */
+    uint8_t bytes[SAMPLE_CAPACITY];
+    FILE *file = fopen(path, "rb");
+    if (!file) { perror("DECODE open"); return 1; }
+    const size_t length = fread(bytes, 1, sizeof bytes, file);
+    const int extra = fgetc(file);
+    const int read_error = ferror(file);
+    const int closed = fclose(file);
+    if (length == 0 || extra != EOF || read_error || closed != 0) {
+        fprintf(stderr, "DECODE: empty, oversized or unreadable input\n");
+        return 1;
     }
-    fclose(f);
-
-    combo_Telemetry_t in;
-    memset(&in, 0, sizeof(in));
-    int rc = combo_Telemetry_decode(buf, (size_t)sz, &in);
-    free(buf);
-    if (rc != 0) { fprintf(stderr, "DECODE: decode failed rc=%d\n", rc); return 1; }
-
-    /* canonical reference */
-    combo_Telemetry_t ref;
-    combo_Sample_t rhist[3];
-    char* rkeys[2]; int32_t rvals[2];
-    build_canonical(&ref, rhist, rkeys, rvals);
-
+    /* Variable-length values borrow this aligned arena until checks finish. */
+    _Alignas(16) uint8_t arena[SAMPLE_CAPACITY];
+    zdw_reader reader;
+    zdw_reader_init(&reader, bytes, length, ZD_ENDIANNESS, 4);
+    zdw_reader_set_heap(&reader, arena, sizeof arena);
+    combo_Telemetry got = {0};
+    zd_dec_combo_Telemetry(&reader, &got, ZDW_TC_DISCARD);
+    if (zdw_reader_status(&reader) != ZDW_OK || zdw_reader_position(&reader) != length) {
+        fprintf(stderr, "DECODE: %s, consumed %zu/%zu bytes\n",
+                zdw_status_name(zdw_reader_status(&reader)),
+                zdw_reader_position(&reader), length);
+        return 1;
+    }
+    combo_Telemetry expected;
+    combo_Sample history[3];
+    zd_map_zd_string_long_entry counters[2];
+    canonical(&expected, history, counters);
     int ok = 1;
-#define CHECK(cond, what) do { if (!(cond)) { ok = 0; fprintf(stderr, "MISMATCH %s\n", what); } } while (0)
-    CHECK(in.unitId == ref.unitId, "unitId (@key long)");
-    CHECK(in.region && strcmp(in.region, ref.region) == 0, "region (@key string<32>)");
-    CHECK(in.mode == ref.mode, "mode (enum)");
-    CHECK(in.batteryCurrent == ref.batteryCurrent, "batteryCurrent (typedef double)");
-    CHECK(in.history.len == ref.history.len, "history.len (sequence)");
-    if (in.history.len == ref.history.len) {
-        for (uint32_t i = 0; i < ref.history.len; ++i) {
-            char w[48];
-            snprintf(w, sizeof w, "history[%u].seq", i);
-            CHECK(in.history.elems[i].seq == ref.history.elems[i].seq, w);
-            snprintf(w, sizeof w, "history[%u].value", i);
-            CHECK(in.history.elems[i].value == ref.history.elems[i].value, w);
+#define CHECK(test, label) do { if (!(test)) { fprintf(stderr, "MISMATCH %s\n", label); ok = 0; } } while (0)
+    CHECK(got.unitId == expected.unitId, "unitId");
+    CHECK(got.region && strcmp(got.region, expected.region) == 0, "region");
+    CHECK(got.mode == expected.mode, "mode");
+    CHECK(got.batteryCurrent == expected.batteryCurrent, "batteryCurrent");
+    CHECK(got.history._length == expected.history._length, "history.length");
+    if (got.history._length == expected.history._length) {
+        for (uint32_t i = 0; i < expected.history._length; ++i) {
+            CHECK(got.history._buffer[i].seq == history[i].seq, "history.seq");
+            CHECK(got.history._buffer[i].value == history[i].value, "history.value");
         }
     }
-    CHECK(in.reading._d == ref.reading._d, "reading._d (union discriminator)");
-    CHECK(in.reading._u.activeRate == ref.reading._u.activeRate, "reading.activeRate (union double)");
-    CHECK(in.counters.len == ref.counters.len, "counters.len (map)");
-    if (in.counters.len == ref.counters.len) {
-        for (uint32_t i = 0; i < ref.counters.len; ++i) {
-            char w[48];
-            snprintf(w, sizeof w, "counters[%u].key", i);
-            CHECK(in.counters.keys[i] && strcmp(in.counters.keys[i], ref.counters.keys[i]) == 0, w);
-            snprintf(w, sizeof w, "counters[%u].val", i);
-            CHECK(in.counters.vals[i] == ref.counters.vals[i], w);
+    CHECK(got.reading._d == expected.reading._d, "reading.discriminator");
+    if (got.reading._d == expected.reading._d)
+        CHECK(got.reading._u.activeRate == expected.reading._u.activeRate, "reading.activeRate");
+    CHECK(got.counters._length == expected.counters._length, "counters.length");
+    if (got.counters._length == expected.counters._length) {
+        for (uint32_t i = 0; i < expected.counters._length; ++i) {
+            const zd_map_zd_string_long_entry entry = got.counters._buffer[i];
+            CHECK(entry.key && strcmp(entry.key, counters[i].key) == 0, "counters.key");
+            CHECK(entry.value == counters[i].value, "counters.value");
         }
     }
-    CHECK(in.calibration_present == ref.calibration_present, "calibration_present (@optional flag)");
-    CHECK(in.calibration == ref.calibration, "calibration (@optional double)");
-    for (int i = 0; i < 4; ++i) {
-        char w[32];
-        snprintf(w, sizeof w, "window[%d]", i);
-        CHECK(in.window[i] == ref.window[i], w);
-    }
+    CHECK(got._has_calibration == expected._has_calibration, "calibration.present");
+    CHECK(got.calibration == expected.calibration, "calibration.value");
+    for (int i = 0; i < 4; ++i) CHECK(got.window[i] == expected.window[i], "window");
 #undef CHECK
-
-    combo_Telemetry_sample_free(&in);
-
-    if (ok) {
-        printf("DECODE OK: every field == canonical "
-               "(key long+string, enum, typedef-double, sequence<struct>, "
-               "union, map, @optional, long[4] all survived the wire)\n");
-        return 0;
-    }
-    fprintf(stderr, "DECODE FAIL: field mismatch\n");
-    return 1;
+    if (!ok) return 1;
+    printf("DECODE OK: %zu bytes, every field equals canonical\n", length);
+    return 0;
 }
 
-int main(int argc, char** argv) {
-    if (argc >= 2 && strcmp(argv[1], "ENCODE") == 0) {
-        return do_encode(argc >= 3 ? argv[2] : GOLDEN_PATH);
-    }
-    if (argc >= 2 && strcmp(argv[1], "DECODE") == 0) {
-        if (argc < 3) { fprintf(stderr, "usage: %s DECODE <file>\n", argv[0]); return 2; }
-        return do_decode(argv[2]);
-    }
-    fprintf(stderr, "usage: %s ENCODE [out] | DECODE <file>\n", argv[0]);
+int main(int argc, char **argv) {
+    if (argc == 3 && strcmp(argv[1], "ENCODE") == 0) return encode(argv[2]);
+    if (argc == 3 && strcmp(argv[1], "DECODE") == 0) return decode(argv[2]);
+    fprintf(stderr, "usage: %s ENCODE <output> | DECODE <input>\n", argv[0]);
     return 2;
 }

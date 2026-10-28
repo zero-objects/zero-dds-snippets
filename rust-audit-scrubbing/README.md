@@ -14,7 +14,7 @@ No features to enable. Watch the stderr output — the leaked key prints as `[RE
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Audit logging](https://zerodds.de/topics/audit-logging/)**.
+- Explained on the website: [Audit Logging Cookbook](https://zerodds.org/topics/audit-logging/)
+- This example in the repository: [zero-dds-snippets/rust-audit-scrubbing](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-audit-scrubbing)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

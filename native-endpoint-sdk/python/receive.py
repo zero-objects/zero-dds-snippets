@@ -14,17 +14,22 @@ import zerodds_endpoint as ze
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 7447
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(10)
     s.bind(("0.0.0.0", port))
     print("python receiver: listening on udp/%d" % port)
     data, _ = s.recvfrom(2048)
     body = ze.xrce_read_frame(data)
-    r = zw.Reader(body, zw.LE)
+    r = zw.Reader(body, zw.LE, zw.XCDR2)
     sample = {
         "id": r.get_u32(), "kind": r.get_u16(), "flags": r.get_u8(),
         "value": r.get_f32(), "stamp": r.get_u64(), "label": r.get_string(),
         "raw": r.get_seq_u8(),
     }
-    assert sample["id"] == 0xA1B2C3D4 and sample["label"] == u"bay-12"
+    assert sample == {
+        "id": 0xA1B2C3D4, "kind": 0x1234, "flags": 0x5A,
+        "value": 3.5, "stamp": 0x0102030405060708, "label": u"bay-12",
+        "raw": bytearray([0xDE, 0xAD, 0xBE, 0xEF]),
+    }
     print("PYTHON RECEIVER OK: id=0x%08X label=%s value=%g"
           % (sample["id"], sample["label"], sample["value"]))
     s.close()

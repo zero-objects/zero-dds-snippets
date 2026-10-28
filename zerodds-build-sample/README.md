@@ -1,65 +1,65 @@
 # zerodds-build-sample
 
-Runnable companion for the `zerodds-build` crate (`crates/zerodds-build`) — a
-[`prost-build`](https://docs.rs/prost-build)-style `build.rs` helper that
-compiles `.idl` -> Rust via the shared `zerodds-idl-compose` pipeline
-(`#include` tracking, vendor key-pragmas, default-extensibility, TypeObject
-lowering), the same pipeline `zerodds-idlc` itself runs.
+Executable companion for [zerodds-build](../../crates/zerodds-build/README.md)
+and the [IDL compiler handbook](../../documentation/04-idl/idlc-handbook.md#6-buildrs-integration-rust).
+Like [idlc-buildrs](../idlc-buildrs/README.md), this example invokes the
+build helper as a library, not the IDLC executable. Neither companion needs
+`zerodds-idlc` on `PATH`.
 
-Compare this with the sibling [`../idlc-buildrs`](../idlc-buildrs): that one
-shells out to the compiled `zerodds-idlc` binary (needs it on `PATH`) and
-follows the `documentation/04-idl/idlc-handbook.md` "6 build.rs integration"
-doc snippet verbatim. This one calls `zerodds-build` as a normal
-`[build-dependencies]` crate — no external binary, no `PATH` requirement,
-and it additionally exercises `#include` + a vendor `#pragma keylist` to
-prove the composition pipeline the ad hoc `build.rs` pattern (documented in
-`zerodds-idl-compose`'s crate docs) never ran.
+## Checkout layout
 
-## What the IDL demonstrates
+The [Cargo.toml](Cargo.toml) expects this separate Examples repository nested
+at `zerodds/zerodds-examples/`. Its `../../crates/...` dependencies and
+the handbook backlink resolve against that parent ZeroDDS checkout.
+For another layout, adapt those paths explicitly.
 
-- `idl/Pose.idl`: a plain `@appendable struct Pose`.
-- `idl/Robot.idl`: `#include "Pose.idl"`, a `struct Unit { long id; Pose pose; }`,
-  and `#pragma keylist Unit id` — the Cyclone/OpenSplice/RTI pragma spelling
-  of `@key`, not the OMG-IDL-4.2 annotation.
+## What is exercised
 
-`build.rs` calls:
+- [idl/Pose.idl](idl/Pose.idl) declares `geometry::Pose`.
+- [idl/Robot.idl](idl/Robot.idl) includes that file, declares `Unit`, and
+  marks `Unit::id` as a key with `#pragma keylist Unit id`.
+- [build.rs](build.rs) uses the composition pipeline and requests the
+  generated Rust `DdsType` bridge:
 
 ```rust
-zerodds_build::Config::new()
-    .include_dir("idl")
-    .strip_inner_attrs_for_include(true)
-    .compile(&["idl/Robot.idl"])
+fn main() -> Result<(), zerodds_build::Error> {
+    zerodds_build::Config::new()
+        .include_dir("idl")
+        .dds_type_impls(true)
+        .compile(&["idl/Robot.idl"])
+}
 ```
 
-`src/lib.rs` then `include!`s `$OUT_DIR/Robot.rs`, and the roundtrip test
-asserts both that `Unit`'s wire form carries the CDR key encoding the
-pragma should have produced, and that the TypeObject block
-(`type_objects::UNIT`) is non-empty — proof the full five-step pipeline ran,
-not a bare `zerodds_idl::parse` + `generate_rust_module` call.
+[src/lib.rs](src/lib.rs) includes `OUT_DIR/Robot.rs` inside a module with
+outer lint attributes, then exports `geometry::Pose` and `Unit`.
+There is no `strip_inner_attrs_for_include` call or generated-text patch.
 
-## Byte-for-byte check against the CLI
+The test `generated_unit_roundtrips_and_carries_typeobject` checks that a
+constructed `Unit` survives the explicitly qualified `DdsType` codec
+round-trip, has type name `Unit`, has a key, and supplies a TypeObject.
+It does not assert that helper output is byte-identical to CLI output.
+The helper requests metadata and a runtime bridge that are not selected
+by the CLI's generation flags.
 
-`zerodds-build`'s raw output (before `strip_inner_attrs_for_include`) is
-byte-identical to `zerodds-idlc generate idl/Robot.idl --rust -I idl -o <dir>`
-for the same IDL — verified as part of this crate's validation, not
-re-asserted here (would require the `zerodds-idlc` binary on `PATH`, which
-this example deliberately does not need).
+The build helper emits Cargo rebuild dependencies for included files.
+This example uses `zerodds-wire` and the current DCPS/types/filter crates
+from the same local tree, not the removed legacy CDR emitter path.
 
-## Build & run
+## Build and run
 
-Needs a checked-out [ZeroDDS source tree](https://github.com/zero-objects/zero-dds)
-next to this repo (path deps into `crates/zerodds-build`, `crates/cdr`,
-`crates/dcps`, `crates/types`, `crates/sql-filter`).
+From this example directory:
 
 ```sh
-cargo test   # roundtrip + TypeObject unit test on the lib target
-cargo run --bin zerodds-build-sample-demo
+cargo test -j 1
+cargo run -j 1 --bin zerodds-build-sample-demo
 ```
 
-Expected output:
+[src/main.rs](src/main.rs) constructs and prints the demonstration value.
+The current manifest isolates this crate from the parent's Cargo workspace
+and uses local path dependencies. It does not require published RC7 packages.
 
-```text
-zerodds-build-sample-demo: 36 bytes on the wire, roundtripped Unit { id: 7, pose: Pose { x: 1.0, y: 2.0, theta: 0.5 } }
-```
-
-Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.
+This README was checked against source during the internal RC7
+documentation pass; that pass did not rerun these commands. A local codec
+round-trip and a nonempty local TypeObject do not establish network
+discovery, TypeLookup delivery, or vendor interoperability. Measure those
+separately against the exact release candidate.

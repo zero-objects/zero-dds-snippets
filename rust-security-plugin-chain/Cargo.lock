@@ -138,6 +138,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "if-addrs"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69b2eeee38fef3aa9b4cc5f1beea8a2444fc00e7377cafae396de3f5c2065e24"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -187,7 +197,7 @@ dependencies = [
  "getrandom",
  "libc",
  "untrusted",
- "windows-sys",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -248,7 +258,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
 dependencies = [
  "libc",
- "windows-sys",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -333,6 +343,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "windows-sys"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
+dependencies = [
+ "windows-targets",
+]
+
+[[package]]
 name = "windows-targets"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -409,18 +428,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "zerodds-cdr"
-version = "1.0.0-rc.3"
+name = "zerodds-ast"
+version = "1.0.0-rc.7"
 dependencies = [
- "zerodds-foundation",
+ "zerodds-ast-core",
+]
+
+[[package]]
+name = "zerodds-ast-core"
+version = "1.0.0-rc.7"
+
+[[package]]
+name = "zerodds-ast-layout"
+version = "1.0.0-rc.7"
+dependencies = [
+ "zerodds-ast",
+ "zerodds-ast-core",
 ]
 
 [[package]]
 name = "zerodds-dcps"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "libc",
- "zerodds-cdr",
+ "zerodds-ast",
+ "zerodds-ast-core",
  "zerodds-discovery",
  "zerodds-foundation",
  "zerodds-monitor",
@@ -434,57 +466,62 @@ dependencies = [
  "zerodds-transport-tcp",
  "zerodds-transport-udp",
  "zerodds-types",
+ "zerodds-wire",
 ]
 
 [[package]]
 name = "zerodds-discovery"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
- "zerodds-cdr",
  "zerodds-monitor",
  "zerodds-qos",
  "zerodds-rtps",
  "zerodds-security",
  "zerodds-types",
+ "zerodds-wire",
 ]
 
 [[package]]
+name = "zerodds-float128"
+version = "1.0.0-rc.7"
+
+[[package]]
 name = "zerodds-foundation"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 
 [[package]]
 name = "zerodds-monitor"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-foundation",
 ]
 
 [[package]]
 name = "zerodds-qos"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
- "zerodds-cdr",
+ "zerodds-wire",
 ]
 
 [[package]]
 name = "zerodds-rtps"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "portable-atomic",
- "zerodds-cdr",
  "zerodds-foundation",
  "zerodds-monitor",
  "zerodds-qos",
  "zerodds-types",
+ "zerodds-wire",
 ]
 
 [[package]]
 name = "zerodds-security"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 
 [[package]]
 name = "zerodds-security-crypto"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "ring",
  "zerodds-monitor",
@@ -493,7 +530,7 @@ dependencies = [
 
 [[package]]
 name = "zerodds-security-keyexchange"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "ring",
  "zerodds-security",
@@ -501,14 +538,14 @@ dependencies = [
 
 [[package]]
 name = "zerodds-security-logging"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-security",
 ]
 
 [[package]]
 name = "zerodds-security-permissions"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "cms",
  "const-oid",
@@ -526,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "zerodds-security-pki"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -534,18 +571,19 @@ dependencies = [
  "x509-cert",
  "zerodds-security",
  "zerodds-security-keyexchange",
+ "zerodds-security-logging",
 ]
 
 [[package]]
 name = "zerodds-security-rtps"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-security",
 ]
 
 [[package]]
 name = "zerodds-security-runtime"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-qos",
  "zerodds-rtps",
@@ -558,18 +596,18 @@ dependencies = [
 
 [[package]]
 name = "zerodds-sql-filter"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 
 [[package]]
 name = "zerodds-transport"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-rtps",
 ]
 
 [[package]]
 name = "zerodds-transport-tcp"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-rtps",
  "zerodds-transport",
@@ -577,8 +615,9 @@ dependencies = [
 
 [[package]]
 name = "zerodds-transport-udp"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
+ "if-addrs",
  "libc",
  "socket2",
  "zerodds-monitor",
@@ -588,10 +627,31 @@ dependencies = [
 
 [[package]]
 name = "zerodds-types"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
- "zerodds-cdr",
- "zerodds-foundation",
+ "zerodds-ast",
+ "zerodds-ast-core",
+ "zerodds-float128",
+ "zerodds-wire",
+ "zerodds-wire-codec",
+]
+
+[[package]]
+name = "zerodds-wire"
+version = "1.0.0-rc.7"
+dependencies = [
+ "zerodds-float128",
+]
+
+[[package]]
+name = "zerodds-wire-codec"
+version = "1.0.0-rc.7"
+dependencies = [
+ "zerodds-ast",
+ "zerodds-ast-core",
+ "zerodds-ast-layout",
+ "zerodds-float128",
+ "zerodds-wire",
 ]
 
 [[package]]

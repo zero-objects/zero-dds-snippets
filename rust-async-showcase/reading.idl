@@ -1,0 +1,9 @@
+// The keyed topic type the async showcase writes and reads. `@key` on
+// `id` is what makes `register_instance` / `dispose` /
+// `unregister_instance` meaningful: each `id` is its own instance.
+module async_showcase {
+  @final struct Reading {
+    @key unsigned long id;
+    long               value;
+  };
+};

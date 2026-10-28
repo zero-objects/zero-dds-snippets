@@ -20,7 +20,7 @@ Drop the `vite.config.ts` contents into a real Vite project that depends on
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[TypeScript / WASM bindings](https://zerodds.de/bindings/typescript-wasm/)**.
+- Explained on the website: [TypeScript (Browser/WASM)](https://zerodds.org/bindings/typescript-wasm/)
+- This example in the repository: [zero-dds-snippets/typescript-wasm-vite-config](https://github.com/zero-objects/zero-dds-snippets/tree/main/typescript-wasm-vite-config)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

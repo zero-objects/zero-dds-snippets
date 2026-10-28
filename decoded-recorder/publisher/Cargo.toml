@@ -1,0 +1,17 @@
+[package]
+name = "decoded-recorder-publisher"
+version = "0.0.0"
+edition = "2021"
+build = "build.rs"
+publish = false
+[workspace]
+[[bin]]
+name = "reading_pub"
+path = "src/main.rs"
+[dependencies]
+zerodds-dcps = { path = "../../../crates/dcps" }
+zerodds-wire = { path = "../../../crates/wire" }
+zerodds-types = { path = "../../../crates/types" }
+zerodds-sql-filter = { path = "../../../crates/sql-filter" }
+[build-dependencies]
+zerodds-build = { path = "../../../crates/zerodds-build" }

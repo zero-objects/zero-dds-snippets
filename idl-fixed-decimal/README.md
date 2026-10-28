@@ -92,4 +92,9 @@ cargo test -p zerodds-idl-rust --test wire_roundtrip -- --ignored wire_fixed
 cargo test -p zerodds-idl-cpp  --test clang_roundtrip -- --ignored fixed_member
 ```
 
-Part of **[ZeroDDS](https://zerodds.de)**.
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/idl-fixed-decimal](https://github.com/zero-objects/zero-dds-snippets/tree/main/idl-fixed-decimal)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

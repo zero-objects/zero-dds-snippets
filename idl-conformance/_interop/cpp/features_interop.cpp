@@ -2,9 +2,23 @@
 //
 //   <feature> ENCODE <out.bin>   -> write canonical feat::<T> as raw XCDR2-LE
 //   <feature> DECODE <in.bin>    -> decode, assert == canonical, exit 0/1
+//   -         BE                 -> decode the big-endian goldens of
+//                                   ../../proofs/endianness, assert == canonical
 //
-// feature ∈ wstr|mut|bits|tree|arr|prim. Values are the CANONICAL.md samples.
+//   -         XCDR1              -> built with -DFEATURES_XCDR1: decode the
+//                                   XCDR1 goldens of ../../proofs/endianness,
+//                                   little- and big-endian
+//
+// gen_feat/features.hpp is `zerodds-idlc generate --lang c++` output over
+// runtime/cpp, gen_x1/features.hpp the same with `--encoding xcdr1`;
+// `dds::topic::topic_type_support<T>` is the codec. Values are CANONICAL.md.
+#ifdef FEATURES_XCDR1
+#include "gen_x1/features.hpp"
+static constexpr auto kEncoding = zerodds::wire::Encoding::PlainCdr1;
+#else
 #include "gen_feat/features.hpp"
+static constexpr auto kEncoding = zerodds::wire::Encoding::PlainCdr2;
+#endif
 
 #include <cstdint>
 #include <cstdio>
@@ -14,275 +28,179 @@
 #include <string>
 #include <vector>
 
-namespace x = dds::topic::xcdr2;
 template <class T> using TS = dds::topic::topic_type_support<T>;
 
 static int g_fail = 0;
-template <typename A, typename B>
-static void chk(const char* what, const A& got, const B& want) {
-    if (!(got == want)) { ++g_fail; std::cout << "  [FAIL] " << what << "\n"; }
-}
+#define CHK(cond, what) do { if (!(cond)) { ++g_fail; std::fprintf(stderr, "  [FAIL] %s\n", what); } } while (0)
 
-// ---- canonical samples (CANONICAL.md) ----------------------------------
-static feat::WStr canon_wstr() {
-    feat::WStr v;
-    v.label(std::wstring{L'c', L'a', L'f', wchar_t(0x00E9)});            // café
-    v.text(std::wstring{wchar_t(0x65E5), wchar_t(0x672C), wchar_t(0x8A9E),
-                        wchar_t(0x1F389)});                              // 日本語🎉
-    return v;
-}
-static feat::Mut canon_mut() {
-    feat::Mut v; v.a(1000000); v.b(2.5); v.c("ok"); return v;
-}
-static feat::Bits canon_bits() {
-    feat::Bits v;
-    v.perm(::feat::Perm(0x05));    // READ|EXEC
-    ::feat::Flags fl; fl.kind(5); fl.prio(20); v.flags(fl);
-    return v;
-}
-static feat::Tree canon_tree() {
-    feat::Tree root; root.value(1);
-    feat::Tree k0; k0.value(2);
-    feat::Tree gc; gc.value(4);
-    k0.kids(std::vector<feat::Tree>{gc});
-    feat::Tree k1; k1.value(3);
-    root.kids(std::vector<feat::Tree>{k0, k1});
-    return root;
-}
-static feat::Arr canon_arr() {
-    feat::Arr v;
-    std::array<std::array<int32_t,3>,2> g{{{{10,11,12}},{{13,14,15}}}};
-    v.grid(g);
-    feat::Pt p0; p0.x(1); p0.y(2);
-    feat::Pt p1; p1.x(3); p1.y(4);
-    std::array<feat::Pt,2> sh{{p0,p1}};
-    v.shape(sh);
-    return v;
-}
+// ---- canonical samples (CANONICAL.md) ---------------------------------------
+static feat::WStr canon_wstr() { return {"caf\xc3\xa9", "\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e\xf0\x9f\x8e\x89"}; }
+static feat::Mut canon_mut() { return {1000000, 2.5, "ok"}; }
+static feat::MutNest canon_mutnest() { return {9, {100, 1.25}, {{1, 0.5}, {2, 0.25}}}; }
+static feat::OuterKey canon_outerkey() { return {{0x01020304, 0x05060708}, 999}; }
+static feat::Bits canon_bits() { return {feat::READ | feat::EXEC, {5, 20}}; }
+static feat::Tree canon_tree() { return {1, {{2, {{4, {}}}}, {3, {}}}}; }
+static feat::Arr canon_arr() { return {{{{10, 11, 12}, {13, 14, 15}}}, {{{1, 2}, {3, 4}}}}; }
 static feat::Prim canon_prim() {
-    feat::Prim v;
-    v.i8(-128); v.u8(255); v.i16(-32768); v.u16(65535);
-    v.i32(-2147483648); v.u32(4294967295u);
-    v.i64(INT64_MIN); v.u64(UINT64_MAX);
-    v.f32(3.5f); v.f64(-1234.5); v.b(true); v.o(0xAB); v.ch('Z');
+    feat::Prim v{};
+    v.i8 = -128; v.u8 = 255; v.i16 = -32768; v.u16 = 65535;
+    v.i32 = INT32_MIN; v.u32 = UINT32_MAX; v.i64 = INT64_MIN; v.u64 = UINT64_MAX;
+    v.f32 = 3.5f; v.f64 = -1234.5; v.b = true; v.o = 0xAB; v.ch = 'Z';
     return v;
 }
-// nested @mutable (mutable-in-mutable + sequence<@mutable>): EMHEADER LC=5
-// reuse — leaf/list members each begin with a DHEADER that doubles as NEXTINT.
-static feat::MutNest canon_mutnest() {
-    feat::MutNest v;
-    v.tag(9);
-    feat::MutLeaf leaf; leaf.u(100); leaf.v(1.25); v.leaf(leaf);
-    feat::MutLeaf e0; e0.u(1); e0.v(0.5);
-    feat::MutLeaf e1; e1.u(2); e1.v(0.25);
-    v.list(std::vector<feat::MutLeaf>{e0, e1});
-    return v;
-}
-// nested-struct @key (@final outer + @nested @final NestedKey): plain flat
-// XCDR2 (no EMHEADER); the @key only drives the keyhash, not these wire bytes.
-static feat::OuterKey canon_outerkey() {
-    feat::OuterKey v;
-    feat::NestedKey k; k.hi(0x01020304); k.lo(0x05060708); v.k(k);
-    v.payload(999);
-    return v;
-}
-// @bit_bound(16) enum (2-byte holder) + map<long,Pt> (map of struct) +
-// sequence<Sel> (sequence of union). h=H_BLUE(2); m={3:{11,12}}; sels=[Sel::n=9].
+// @bit_bound enum + map<long,Pt> + sequence<Sel>: h=BLUE; m={3:{11,12}}; sels=[Sel{_d=2,n=9}].
 static feat::MapEnum canon_mapenum() {
-    feat::MapEnum v;
-    v.h(feat::Hue::H_BLUE);
-    feat::Pt p; p.x(11); p.y(12);
-    std::map<int32_t, feat::Pt> m; m[3] = p; v.m(m);
-    feat::Sel s; s._d(2); s.value() = static_cast<int32_t>(9);
-    v.sels(std::vector<feat::Sel>{s});
-    return v;
+    feat::Sel sel{};
+    sel._d = 2; sel.n = 9;
+    return {feat::Hue::H_BLUE, {{3, {11, 12}}}, {sel}};
 }
-// map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5). m={7:42,8:99}.
-static feat::MapPrim canon_mapprim() {
-    feat::MapPrim v;
-    std::map<int32_t, int32_t> m; m[7] = 42; m[8] = 99; v.m(m);
-    return v;
+// map<long,long> primitive-valued, no collection DHEADER (XCDR2 §7.4.3.5): m={7:42,8:99}.
+static feat::MapPrim canon_mapprim() { return {{{7, 42}, {8, 99}}}; }
+// fixed<P,S> as its decimal text: price=123.45 (wire 12 34 5c), qty=1234 (01 23 4c).
+static feat::Money canon_fixed() { return {"123.45", "1234"}; }
+
+// ---- checks -------------------------------------------------------------------
+static void check(const feat::WStr& g) {
+    auto w = canon_wstr();
+    CHK(g.label == w.label, "wstr.label"); CHK(g.text == w.text, "wstr.text");
+}
+static void check(const feat::Mut& g) { CHK(g.a == 1000000 && g.b == 2.5 && g.c == "ok", "mut"); }
+static void check(const feat::MutNest& g) {
+    CHK(g.tag == 9 && g.leaf.u == 100 && g.leaf.v == 1.25, "mutnest.tag/leaf");
+    CHK(g.list.size() == 2 && g.list[0].u == 1 && g.list[0].v == 0.5 && g.list[1].u == 2 && g.list[1].v == 0.25,
+        "mutnest.list");
+}
+static void check(const feat::OuterKey& g) { CHK(g.k.hi == 0x01020304 && g.k.lo == 0x05060708 && g.payload == 999, "outerkey"); }
+static void check(const feat::Bits& g) {
+    CHK(g.perm == (feat::READ | feat::EXEC), "bits.perm"); CHK(g.flags.kind == 5 && g.flags.prio == 20, "bits.flags");
+}
+static void check(const feat::Tree& g) {
+    CHK(g.value == 1 && g.kids.size() == 2, "tree.root");
+    if (g.kids.size() == 2) {
+        CHK(g.kids[0].value == 2 && g.kids[0].kids.size() == 1 && g.kids[0].kids[0].value == 4, "tree.k0");
+        CHK(g.kids[1].value == 3 && g.kids[1].kids.empty(), "tree.k1");
+    }
+}
+static void check(const feat::Arr& g) {
+    auto w = canon_arr();
+    CHK(g.grid == w.grid, "arr.grid");
+    CHK(g.shape[0].x == 1 && g.shape[0].y == 2 && g.shape[1].x == 3 && g.shape[1].y == 4, "arr.shape");
+}
+static void check(const feat::Prim& g) {
+    auto w = canon_prim();
+    CHK(g.i8 == w.i8 && g.u8 == w.u8 && g.i16 == w.i16 && g.u16 == w.u16, "prim.8/16");
+    CHK(g.i32 == w.i32 && g.u32 == w.u32 && g.i64 == w.i64 && g.u64 == w.u64, "prim.32/64");
+    CHK(g.f32 == w.f32 && g.f64 == w.f64 && g.b == w.b && g.o == w.o && g.ch == w.ch, "prim.rest");
+}
+static void check(const feat::MapEnum& g) {
+    CHK(g.h == feat::Hue::H_BLUE, "mapenum.h");
+    CHK(g.m.size() == 1 && g.m[0].first == 3 && g.m[0].second.x == 11 && g.m[0].second.y == 12, "mapenum.m");
+    CHK(g.sels.size() == 1 && g.sels[0]._d == 2 && g.sels[0].n == 9, "mapenum.sels");
+}
+static void check(const feat::MapPrim& g) {
+    CHK(g.m.size() == 2 && g.m[0] == std::make_pair(7, 42) && g.m[1] == std::make_pair(8, 99), "mapprim.m");
+}
+static void check(const feat::Money& g) { CHK(g.price == "123.45" && g.qty == "1234", "fixed"); }
+
+// ---- drivers -----------------------------------------------------------------
+static bool read_file(const std::string& path, std::vector<std::uint8_t>& out) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return false;
+    out.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    return !out.empty();
 }
 
-// fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c).
-static feat::Money canon_fixed() {
-    feat::Money v;
-    v.price(::dds::core::Fixed<5, 2>::from_string("123.45"));
-    v.qty(::dds::core::Fixed<4, 0>::from_string("1234"));
-    return v;
-}
-static void verify_fixed(const feat::Money& g, const feat::Money& w) {
-    chk("price", g.price().to_string(), w.price().to_string());
-    chk("qty", g.qty().to_string(), w.qty().to_string());
-}
-
-static std::vector<uint8_t> readfile(const char* p) {
-    std::ifstream f(p, std::ios::binary);
-    return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)),
-                                std::istreambuf_iterator<char>());
-}
-static int writefile(const char* p, const std::vector<uint8_t>& b) {
-    std::ofstream f(p, std::ios::binary);
+template <class T> static int encode_to(const char* path, const T& v) {
+    auto bytes = TS<T>::encode(v);
+    std::ofstream f(path, std::ios::binary);
     if (!f) return 1;
-    f.write(reinterpret_cast<const char*>(b.data()), b.size());
-    return f ? 0 : 1;
-}
-
-template <class T>
-static int do_encode(const char* path, const T& v) {
-    auto wire = TS<T>::encode(v, x::XcdrVersion::Xcdr2);
-    if (writefile(path, wire)) { std::cerr << "write fail\n"; return 2; }
-    std::cout << "ENCODE OK: " << wire.size() << " bytes -> " << path << "\n";
+    f.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    std::printf("ENCODE OK: %zu bytes -> %s\n", bytes.size(), path);
     return 0;
 }
 
-static void verify_wstr(const feat::WStr& g, const feat::WStr& w) {
-    chk("label", g.label(), w.label());
-    chk("text", g.text(), w.text());
-}
-static void verify_mut(const feat::Mut& g, const feat::Mut& w) {
-    chk("a", g.a(), w.a()); chk("b", g.b(), w.b()); chk("c", g.c(), w.c());
-}
-static void verify_bits(const feat::Bits& g, const feat::Bits& w) {
-    chk("perm", uint32_t(g.perm()), uint32_t(w.perm()));
-    chk("flags.kind", uint32_t(g.flags().kind()), uint32_t(w.flags().kind()));
-    chk("flags.prio", uint32_t(g.flags().prio()), uint32_t(w.flags().prio()));
-}
-static void verify_tree(const feat::Tree& g, const feat::Tree& w) {
-    chk("value", g.value(), w.value());
-    chk("kids.size", g.kids().size(), w.kids().size());
-    if (g.kids().size() == w.kids().size())
-        for (size_t i = 0; i < g.kids().size(); ++i) verify_tree(g.kids()[i], w.kids()[i]);
-}
-static void verify_arr(const feat::Arr& g, const feat::Arr& w) {
-    for (int i = 0; i < 2; ++i) for (int j = 0; j < 3; ++j)
-        chk("grid", g.grid()[i][j], w.grid()[i][j]);
-    for (int i = 0; i < 2; ++i) {
-        chk("shape.x", g.shape()[i].x(), w.shape()[i].x());
-        chk("shape.y", g.shape()[i].y(), w.shape()[i].y());
+template <class T> static void decode_check(const std::vector<std::uint8_t>& bytes, bool be) {
+    try {
+        check(TS<T>::decode(bytes.data(), bytes.size(), kEncoding, be));
+    } catch (const std::exception& e) {
+        ++g_fail;
+        std::fprintf(stderr, "  [FAIL] decode: %s\n", e.what());
     }
 }
-static void verify_prim(const feat::Prim& g, const feat::Prim& w) {
-    chk("i8", g.i8(), w.i8()); chk("u8", g.u8(), w.u8());
-    chk("i16", g.i16(), w.i16()); chk("u16", g.u16(), w.u16());
-    chk("i32", g.i32(), w.i32()); chk("u32", g.u32(), w.u32());
-    chk("i64", g.i64(), w.i64()); chk("u64", g.u64(), w.u64());
-    chk("f32", g.f32(), w.f32()); chk("f64", g.f64(), w.f64());
-    chk("b", g.b(), w.b()); chk("o", uint32_t(g.o()), uint32_t(w.o()));
-    chk("ch", g.ch(), w.ch());
-}
-static void verify_mutnest(const feat::MutNest& g, const feat::MutNest& w) {
-    chk("tag", g.tag(), w.tag());
-    chk("leaf.u", g.leaf().u(), w.leaf().u());
-    chk("leaf.v", g.leaf().v(), w.leaf().v());
-    chk("list.size", g.list().size(), w.list().size());
-    if (g.list().size() == w.list().size())
-        for (size_t i = 0; i < g.list().size(); ++i) {
-            chk("list.u", g.list()[i].u(), w.list()[i].u());
-            chk("list.v", g.list()[i].v(), w.list()[i].v());
-        }
-}
-static void verify_outerkey(const feat::OuterKey& g, const feat::OuterKey& w) {
-    chk("k.hi", g.k().hi(), w.k().hi());
-    chk("k.lo", g.k().lo(), w.k().lo());
-    chk("payload", g.payload(), w.payload());
-}
 
-// Big-endian DECODE: read the ZeroDDS-Rust reference big-endian wire (the
-// `proofs/endianness` BE golden — an INDEPENDENT, vendor-anchored encoder) and
-// decode it with zd_be=true, asserting every field == the canonical sample.
-// This proves the generated C++ decoder reads big-endian end to end.
-template <class T, class V>
-static void be_rt(const char* name, const T& canon, V verify) {
-    std::string path = std::string("../../proofs/endianness/goldens/") + name + ".xcdr2-be.rust.bin";
-    auto buf = readfile(path.c_str());
-    if (buf.empty()) { std::cout << "  " << name << " be: SKIP (no golden)\n"; return; }
-    auto back = TS<T>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2, /*zd_be=*/true);
-    int before = g_fail;
-    verify(back, canon);
-    std::cout << "  " << name << " be: " << (g_fail == before ? "OK" : "FAIL") << "\n";
-}
-
-// Big-endian ENCODE: `encode_be(canon)` must be byte-for-byte identical to the
-// same independent, vendor-anchored Rust BE golden the decoder is checked
-// against. This proves the generated C++ encoder emits the DHEADER / EMHEADER1
-// / NEXTINT framing words in big-endian (ambient stream order, XTypes §7.4.3.4)
-// — the @mutable/@appendable framing that used to be little-endian-hardcoded.
-template <class T>
-static void be_enc(const char* name, const T& canon) {
-    std::string path = std::string("../../proofs/endianness/goldens/") + name + ".xcdr2-be.rust.bin";
-    auto golden = readfile(path.c_str());
-    if (golden.empty()) { std::cout << "  " << name << " be-enc: SKIP (no golden)\n"; return; }
-    auto wire = TS<T>::encode_be(canon);
-    bool ok = (wire == golden);
-    if (!ok) g_fail++;
-    std::cout << "  " << name << " be-enc: " << (ok ? "OK" : "FAIL")
-              << " (" << wire.size() << "B vs " << golden.size() << "B golden)\n";
+static int decode_one(const std::string& feat, const std::vector<std::uint8_t>& b, bool be) {
+    if (feat == "wstr") decode_check<feat::WStr>(b, be);
+    else if (feat == "mut") decode_check<feat::Mut>(b, be);
+    else if (feat == "mutnest") decode_check<feat::MutNest>(b, be);
+    else if (feat == "outerkey") decode_check<feat::OuterKey>(b, be);
+    else if (feat == "bits") decode_check<feat::Bits>(b, be);
+    else if (feat == "tree") decode_check<feat::Tree>(b, be);
+    else if (feat == "arr") decode_check<feat::Arr>(b, be);
+    else if (feat == "prim") decode_check<feat::Prim>(b, be);
+    else if (feat == "mapenum") decode_check<feat::MapEnum>(b, be);
+    else if (feat == "mapprim") decode_check<feat::MapPrim>(b, be);
+    else if (feat == "fixed") decode_check<feat::Money>(b, be);
+    else { std::fprintf(stderr, "unknown feature %s\n", feat.c_str()); return 2; }
+    return 0;
 }
 
 int main(int argc, char** argv) {
-    if (argc < 3) { std::cerr << "usage: <feature> ENCODE|DECODE|BE <file>\n"; return 2; }
-    std::string feat = argv[1], mode = argv[2];
+    if (argc < 3) { std::fprintf(stderr, "usage: <feature> ENCODE|DECODE <file> | - BE\n"); return 2; }
+    const std::string feat = argv[1];
+    const std::string mode = argv[2];
     const char* file = argc > 3 ? argv[3] : nullptr;
 
     if (mode == "ENCODE") {
-        if (feat == "wstr") return do_encode(file, canon_wstr());
-        if (feat == "mut")  return do_encode(file, canon_mut());
-        if (feat == "bits") return do_encode(file, canon_bits());
-        if (feat == "tree") return do_encode(file, canon_tree());
-        if (feat == "arr")  return do_encode(file, canon_arr());
-        if (feat == "prim") return do_encode(file, canon_prim());
-        if (feat == "mutnest")  return do_encode(file, canon_mutnest());
-        if (feat == "outerkey") return do_encode(file, canon_outerkey());
-        if (feat == "mapenum")  return do_encode(file, canon_mapenum());
-        if (feat == "mapprim")  return do_encode(file, canon_mapprim());
-        if (feat == "fixed")    return do_encode(file, canon_fixed());
-    } else if (mode == "DECODE") {
-        auto buf = readfile(file);
-        if (buf.empty()) { std::cerr << "empty/missing " << file << "\n"; return 2; }
-        if (feat == "wstr") verify_wstr(TS<feat::WStr>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_wstr());
-        else if (feat == "mut") verify_mut(TS<feat::Mut>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_mut());
-        else if (feat == "bits") verify_bits(TS<feat::Bits>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_bits());
-        else if (feat == "tree") verify_tree(TS<feat::Tree>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_tree());
-        else if (feat == "arr") verify_arr(TS<feat::Arr>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_arr());
-        else if (feat == "prim") verify_prim(TS<feat::Prim>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_prim());
-        else if (feat == "mutnest") verify_mutnest(TS<feat::MutNest>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_mutnest());
-        else if (feat == "outerkey") verify_outerkey(TS<feat::OuterKey>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_outerkey());
-        else if (feat == "fixed") verify_fixed(TS<feat::Money>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2), canon_fixed());
-        else if (feat == "mapenum") { auto v = TS<feat::MapEnum>::decode(buf.data(), buf.size(), x::XcdrVersion::Xcdr2); auto re = TS<feat::MapEnum>::encode(v, x::XcdrVersion::Xcdr2); if (re != buf) { g_fail++; std::cerr << "  [FAIL] mapenum roundtrip re-encode != golden\n"; } }
-        else { std::cerr << "unknown feature\n"; return 2; }
-        if (g_fail == 0) { std::cout << "DECODE OK: " << feat << "\n"; return 0; }
-        std::cout << "DECODE FAILED: " << g_fail << " mismatch(es)\n"; return 1;
-    } else if (mode == "BE") {
-        be_rt("wstr", canon_wstr(), verify_wstr);
-        be_rt("mut", canon_mut(), verify_mut);
-        be_rt("bits", canon_bits(), verify_bits);
-        be_rt("tree", canon_tree(), verify_tree);
-        be_rt("arr", canon_arr(), verify_arr);
-        be_rt("prim", canon_prim(), verify_prim);
-        be_rt("mutnest", canon_mutnest(), verify_mutnest);
-        be_rt("outerkey", canon_outerkey(), verify_outerkey);
-        be_rt("mapenum", canon_mapenum(), [](const feat::MapEnum& g, const feat::MapEnum& w) {
-            chk("mapenum.h", int32_t(g.h()), int32_t(w.h()));
-            chk("mapenum.m.size", g.m().size(), w.m().size());
-            chk("mapenum.sels.size", g.sels().size(), w.sels().size());
-            if (!g.sels().empty() && !w.sels().empty())
-                chk("mapenum.sel0._d", g.sels()[0]._d(), w.sels()[0]._d());
-        });
-        if (g_fail == 0) { std::cout << "BE/LE roundtrip PASS\n"; return 0; }
-        std::cout << "BE FAILED: " << g_fail << " mismatch(es)\n"; return 1;
-    } else if (mode == "BEENC") {
-        be_enc("wstr", canon_wstr());
-        be_enc("mut", canon_mut());
-        be_enc("bits", canon_bits());
-        be_enc("tree", canon_tree());
-        be_enc("arr", canon_arr());
-        be_enc("prim", canon_prim());
-        be_enc("mutnest", canon_mutnest());
-        be_enc("outerkey", canon_outerkey());
-        be_enc("mapenum", canon_mapenum());
-        if (g_fail == 0) { std::cout << "BE-ENCODE PASS\n"; return 0; }
-        std::cout << "BE-ENCODE FAILED: " << g_fail << " mismatch(es)\n"; return 1;
+        if (!file) return 2;
+        if (feat == "wstr") return encode_to(file, canon_wstr());
+        if (feat == "mut") return encode_to(file, canon_mut());
+        if (feat == "mutnest") return encode_to(file, canon_mutnest());
+        if (feat == "outerkey") return encode_to(file, canon_outerkey());
+        if (feat == "bits") return encode_to(file, canon_bits());
+        if (feat == "tree") return encode_to(file, canon_tree());
+        if (feat == "arr") return encode_to(file, canon_arr());
+        if (feat == "prim") return encode_to(file, canon_prim());
+        if (feat == "mapenum") return encode_to(file, canon_mapenum());
+        if (feat == "mapprim") return encode_to(file, canon_mapprim());
+        if (feat == "fixed") return encode_to(file, canon_fixed());
+        std::fprintf(stderr, "unknown feature\n"); return 2;
     }
-    std::cerr << "bad args\n"; return 2;
+    if (mode == "DECODE") {
+        std::vector<std::uint8_t> b;
+        if (!file || !read_file(file, b)) { std::fprintf(stderr, "missing/empty %s\n", file ? file : "(none)"); return 2; }
+        int rc = decode_one(feat, b, false);
+        if (rc) return rc;
+        if (g_fail == 0) { std::printf("DECODE OK: %s\n", feat.c_str()); return 0; }
+        std::printf("DECODE FAILED: %d mismatch(es)\n", g_fail); return 1;
+    }
+    if (mode == "XCDR1") {
+        // XCDR1 DECODE of the same Rust reference goldens, both byte orders.
+        for (const char* f : {"wstr", "mut", "bits", "tree", "arr", "prim", "mapenum"}) {
+            for (const char* tag : {"xcdr1-le", "xcdr1-be"}) {
+                std::vector<std::uint8_t> b;
+                std::string p = std::string("../../proofs/endianness/goldens/") + f + "." + tag + ".rust.bin";
+                if (!read_file(p, b)) { std::printf("  %s %s: MISSING %s\n", f, tag, p.c_str()); ++g_fail; continue; }
+                int before = g_fail;
+                decode_one(f, b, std::string(tag) == "xcdr1-be");
+                std::printf("  %s %s: %s\n", f, tag, g_fail == before ? "OK" : "FAIL");
+            }
+        }
+        if (g_fail == 0) { std::printf("XCDR1 PASS\n"); return 0; }
+        std::printf("XCDR1 FAILED: %d mismatch(es)\n", g_fail); return 1;
+    }
+    if (mode == "BE") {
+        // Big-endian DECODE of the ZeroDDS-Rust reference big-endian wire
+        // (proofs/endianness BE goldens — an independent encoder).
+        for (const char* f : {"wstr", "mut", "bits", "tree", "arr", "prim", "mapenum"}) {
+            std::vector<std::uint8_t> b;
+            std::string p = std::string("../../proofs/endianness/goldens/") + f + ".xcdr2-be.rust.bin";
+            if (!read_file(p, b)) { std::printf("  %s be: MISSING %s\n", f, p.c_str()); ++g_fail; continue; }
+            int before = g_fail;
+            decode_one(f, b, true);
+            std::printf("  %s be: %s\n", f, g_fail == before ? "OK" : "FAIL");
+        }
+        if (g_fail == 0) { std::printf("BE/LE roundtrip PASS\n"); return 0; }
+        std::printf("BE FAILED: %d mismatch(es)\n", g_fail); return 1;
+    }
+    std::fprintf(stderr, "bad args\n"); return 2;
 }

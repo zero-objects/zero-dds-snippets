@@ -57,11 +57,11 @@ dependencies = [
 
 [[package]]
 name = "zerodds-security"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 
 [[package]]
 name = "zerodds-security-logging"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-security",
 ]

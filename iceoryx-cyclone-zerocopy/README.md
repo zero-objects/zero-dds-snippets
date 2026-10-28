@@ -69,5 +69,9 @@ PROOF: bidirectional ZeroDDS <-> Cyclone iceoryx SHM — PASS
 | `roudi.toml` | iceoryx daemon shared-memory pool config |
 | `run.sh` | builds both peers, starts roudi, runs READ + WRITE |
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
-The ZeroDDS reader/writer bins live in the `zerodds-iceoryx-cyclone` crate.
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/iceoryx-cyclone-zerocopy](https://github.com/zero-objects/zero-dds-snippets/tree/main/iceoryx-cyclone-zerocopy)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

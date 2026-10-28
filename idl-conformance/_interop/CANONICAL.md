@@ -7,8 +7,7 @@ per language.** Two tiers:
   every implementation (Cyclone, RTI, FastDDS, OpenDDS, ZeroDDS), document where
   they diverge, and from that decide ZeroDDS's *default* wire (its default feature
   set). Vendors genuinely disagree on some constructs — see
-  `proofs/endianness/vendor-{cyclone,fastcdr,rti}/` and
-  `internal/idl-codegen/sx2-vendor-extensibility-divergence.md` (e.g. unannotated
+  `proofs/endianness/vendor-{cyclone,fastcdr,rti}/` (e.g. unannotated
   nested-struct default extensibility: Cyclone=final/48 B, RTI=52 B, FastDDS=56 B;
   ZeroDDS default = appendable/56 B = FastDDS, `--default-extensibility final` = 48 B
   = Cyclone).
@@ -21,7 +20,8 @@ per language.** Two tiers:
 
   The per-language encoder outputs (`<feature>.<lang>.bin`) are **ephemeral**
   verification artifacts (git-ignored), produced by `verify.sh` and `cmp`'d against
-  the golden. `goldens/combo.golden.bin` is the same model for `combo::Telemetry`.
+  the golden. `goldens/combo.golden.bin` is the same model for `combo::Telemetry`
+  of `combo.idl` (the feature `combo` in `verify.sh`).
 
 The golden wire is XCDR2-LE, default representation; the rust PSM (running through
 the cross-vendor-validated `zerodds-cdr` core) regenerates it.
@@ -41,12 +41,14 @@ the cross-vendor-validated `zerodds-cdr` core) regenerates it.
 - tag  (@id 10, long)              = 9
 - leaf (@id 20, MutLeaf)           = { u=100, v=1.25 }
 - list (@id 30, sequence<MutLeaf>) = [ {u=1,v=0.5}, {u=2,v=0.25} ]
-- EMHEADER LengthCode rule (XTypes 1.3 §7.4.3.4.2): a member whose body begins
-  with a 4-byte length word REUSES it as the NEXTINT via **LengthCode 5** (no
-  separate NEXTINT). So `tag` (primitive) = LC2, `leaf` (nested @mutable DHEADER)
-  = LC5, `list` (non-primitive sequence DHEADER) = LC5. Result = 100 bytes,
-  byte-identical to FastDDS's universal-LC5 form. A @final nested struct (no
-  DHEADER) and a `sequence<primitive>` (bare count) would stay LC4.
+- EMHEADER LengthCode (XTypes 1.3 §7.4.3.4.2) under ZeroDDS's default
+  `LengthCodePolicy::Compact`, which is what Cyclone DDS writes: `tag`
+  (primitive) = LC2; `leaf` (nested @mutable, DHEADER) = LC4 with an explicit
+  NEXTINT, because Compact does not reuse a nested aggregate's DHEADER; `list`
+  (non-primitive sequence, DHEADER) = LC5, reusing the sequence's own leading
+  word. Result = **104 bytes**. RTI (`ReuseNestedDelimiter`) and Fast DDS
+  (`ShortWhereItFits`) also reuse `leaf`'s DHEADER as LC5 and write 100 bytes;
+  every code decodes, since the code is in the header.
 
 ## feat::OuterKey  (golden `outerkey.<lang>.bin`)  — nested-struct @key
 - NestedKey is `@nested @final { @key long hi; @key long lo; }`.
@@ -103,3 +105,17 @@ For every feature F and every language L in {rust,cpp,python,java,ts,c,csharp}:
 `verify.sh` runs all 7 languages and checks both directions against the single
 golden. There is no per-language golden to drift; a language that regresses fails
 (1) against the golden directly.
+
+## combo::Telemetry  (golden `combo.golden.bin`)  — one keyed @appendable struct over many features
+- unitId (@key long)            = 4242
+- region (@key string<32>)      = `"eu-central-1"`
+- mode (enum Mode)              = MODE_ACTIVE (1)
+- batteryCurrent (typedef double) = 13.75
+- history (sequence<Sample>)    = [ {1, 0.5}, {2, 1.5}, {3, -2.25} ]
+- reading (union Reading switch(Mode)) = MODE_ACTIVE → activeRate = 60.0
+- counters (map<string, long>)  = { "drops": 3, "packets": 100 }  (key-sorted)
+- calibration (@optional double) = 0.001, present
+- window (long[4])              = [10, 20, 30, 40]
+- `Sample` and `Reading` are unannotated and take ZeroDDS's default, appendable,
+  so each `Sample` element and the union carry a DHEADER: **180 bytes**. With
+  `--default-extensibility final` the same sample is 164 bytes (3 × 4 + 4 fewer).

@@ -1,18 +1,14 @@
-// audit-reference block 3/7 — the REAL portion only.
+// audit-reference block 3/7.
 //
-// The website snippet's plugin construction is real and verified here:
+// The website snippet, verified end to end: the plugin construction
 //   StderrLoggingPlugin::with_level / JsonLinesLoggingPlugin::open /
 //   FanOutLoggingPlugin::new().with(...) / SecurityBundle::builder()
 //     .logging_plugin(Box::new(fanout)).build()
-//
-// What the website snippet gets WRONG (kept out of this demo, surfaced as a
-// question) is the participant wiring:
+// and the participant wiring
 //     DomainParticipantFactory::create(0).with_security(bundle).build()
-// None of `create`, `with_security`, `build` exist on the factory. The real
-// wiring is shown below: RuntimeConfig::with_security_bundle + a
-// create_participant_with_config call.
-use zerodds_dcps::qos::DomainParticipantQos;
-use zerodds_dcps::runtime::RuntimeConfig;
+// (`zerodds-dcps` feature `security`). The same participant comes from
+// RuntimeConfig::with_security_bundle + create_participant_with_config,
+// which is what the builder does underneath.
 use zerodds_dcps::DomainParticipantFactory;
 use zerodds_security::logging::LogLevel;
 use zerodds_security_logging::{FanOutLoggingPlugin, JsonLinesLoggingPlugin, StderrLoggingPlugin};
@@ -33,11 +29,9 @@ fn main() -> zerodds_dcps::Result<()> {
 
     assert!(security_bundle.has_logging());
 
-    // REAL participant wiring (what the website snippet should show):
-    let cfg = RuntimeConfig::default().with_security_bundle(&security_bundle);
-    let factory = DomainParticipantFactory::instance();
-    let participant =
-        factory.create_participant_with_config(0, DomainParticipantQos::default(), cfg)?;
+    let participant = DomainParticipantFactory::create(0)
+        .with_security(security_bundle)
+        .build()?;
 
     let _ = participant;
     println!("security bundle wired, audit ndjson at {}", audit_path.display());

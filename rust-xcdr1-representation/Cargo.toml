@@ -9,12 +9,20 @@ build = "build.rs"
 [workspace]
 
 [dependencies]
-# CDR runtime: BufferWriter/BufferReader (the max-alignment selects XCDR1 vs
-# XCDR2) + the CdrEncode/CdrDecode traits the generated `Reading` implements.
-zerodds-cdr = { path = "../../crates/cdr" }
+# `zerodds-wire` is the runtime the generated codec calls: the `Writer`
+# and `Reader` that hold the alignment rules. The representation this
+# example demonstrates is a property of those two, not of the type.
+zerodds-wire = { path = "../../crates/wire" }
+# The other three come with `dds_type_impls(true)` in build.rs: the
+# `DdsType` trait, the `TypeIdentifier`/`TypeObject` it announces, and
+# the SQL-filter glue. That option is also what emits the second codec
+# pair (`encode_xcdr1`/`decode_xcdr1`) this example compares.
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-sql-filter = { path = "../../crates/sql-filter" }
 
 [build-dependencies]
-# The IDL parser + the Rust code generator (the `idlc --rust` backend), invoked
-# from build.rs to generate the `Reading` binding from demo.idl.
-zerodds-idl = { path = "../../crates/idl" }
-zerodds-idl-rust = { path = "../../crates/idl-rust" }
+# `zerodds-build` runs the same composition pipeline the `zerodds-idlc`
+# CLI runs — preprocessing, vendor key pragmas, default extensibility,
+# TypeObjects — so a build script gets CLI-feature-equivalent types.
+zerodds-build = { path = "../../crates/zerodds-build" }

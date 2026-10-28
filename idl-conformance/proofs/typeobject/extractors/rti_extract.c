@@ -10,7 +10,7 @@
  *                          are not separately exposed by this entry point, so
  *                          only the minimal HASH is recorded here.)
  *
- * Build (codepit):
+ * Build (on the vendor host):
  *   export NDDSHOME=/opt/rti.com/rti_connext_dds-7.7.0
  *   gcc -DRTI_UNIX -DRTI_LINUX -DRTI_64BIT rti_extract.c \
  *       rti_out/typeobject.c rti_out/typeobjectPlugin.c rti_out/typeobjectSupport.c \

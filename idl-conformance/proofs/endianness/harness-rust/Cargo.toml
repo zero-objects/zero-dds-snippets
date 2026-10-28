@@ -2,6 +2,7 @@
 name = "endian-proof-rust"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 # Standalone example: empty [workspace] so it does NOT join the parent
 # zerodds workspace; path-deps reach into ../../../../../crates.
@@ -11,8 +12,15 @@ edition = "2024"
 name = "endian_proof"
 path = "src/main.rs"
 
+[build-dependencies]
+# Replaces the former `zerodds-idl` + `zerodds-idl-rust` pair.
+zerodds-build = { path = "../../../../../crates/zerodds-build" }
+
 [dependencies]
-zerodds-cdr = { path = "../../../../../crates/cdr" }
+# The wire runtime the generated codec calls (Writer/Reader) — the crate that
+# replaced `zerodds-cdr`. This harness drives the codec directly and needs no
+# DDS runtime, so `zerodds-dcps` is not in the graph.
+zerodds-wire = { path = "../../../../../crates/wire" }
 zerodds-dcps = { path = "../../../../../crates/dcps" }
 zerodds-types = { path = "../../../../../crates/types" }
 zerodds-sql-filter = { path = "../../../../../crates/sql-filter" }

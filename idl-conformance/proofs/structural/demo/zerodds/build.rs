@@ -1,10 +1,14 @@
-use std::path::PathBuf;
-fn main() {
-    println!("cargo:rerun-if-changed=MapEnum.idl");
-    let idl = std::fs::read_to_string("MapEnum.idl").expect("read");
-    let ast = zerodds_idl::parse(&idl, &zerodds_idl::config::ParserConfig::default()).expect("parse");
-    let rust = zerodds_idl_rust::generate_rust_module(&ast, &zerodds_idl_rust::RustGenOptions::default()).expect("gen");
-    let rust: String = rust.lines().filter(|l| !l.trim_start().starts_with("#![")).collect::<Vec<_>>().join("\n");
-    let out = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("mapenum.rs");
-    std::fs::write(&out, rust).expect("write");
+// The generated codec plus the `DdsType` impl for `MapEnum.idl` —
+// `create_topic::<MapEnum>` takes the `DdsType`, which is what
+// `dds_type_impls(true)` writes.
+//
+// `default_extensibility(Final)`: `feat::Pt` carries no annotation, and the
+// specification's default would put a DHEADER in front of it that the other
+// PSMs of this proof do not write.
+
+fn main() -> Result<(), zerodds_build::Error> {
+    zerodds_build::Config::new()
+        .default_extensibility(zerodds_build::DefaultExt::Final)
+        .dds_type_impls(true)
+        .compile(&["MapEnum.idl"])
 }

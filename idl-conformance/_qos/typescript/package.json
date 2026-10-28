@@ -4,6 +4,7 @@
   "type": "module",
   "description": "DDS QoS + keyed-lifecycle behavioral conformance probe for the ZeroDDS TypeScript binding over real native DCPS (@zerodds/node).",
   "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "start": "tsx qos_conformance.ts"
   }
 }

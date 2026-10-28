@@ -1,6 +1,14 @@
 // Demo binary using the `zerodds-build-sample` library's generated
-// `Robot::Unit` (see src/lib.rs) — proves the zerodds-build Config API
-// works end to end in a program, not just in `cargo test`.
+// `Unit` (see src/lib.rs) — proves the zerodds-build Config API works
+// end to end in a program, not just in `cargo test`.
+//
+// The trait calls are written out as `<Unit as DdsType>::…`: the
+// generated type carries *inherent* `encode`/`decode` over a
+// `zerodds_wire::Writer`/`Reader`, and the `DdsType` impl carries the
+// same names over a `Vec<u8>` with the encapsulation's alignment cap
+// already applied. An unqualified `unit.encode(&mut bytes)` would pick
+// the inherent one and not compile — which is the compiler saying the
+// two live at different layers, not a naming accident.
 use zerodds_build_sample::{Pose, Unit};
 use zerodds_dcps::DdsType;
 
@@ -15,8 +23,8 @@ fn main() {
     };
 
     let mut bytes = Vec::new();
-    unit.encode(&mut bytes).expect("encode");
-    let decoded = Unit::decode(&bytes).expect("decode");
+    <Unit as DdsType>::encode(&unit, &mut bytes).expect("encode");
+    let decoded = <Unit as DdsType>::decode(&bytes).expect("decode");
     assert_eq!(decoded, unit);
 
     println!(

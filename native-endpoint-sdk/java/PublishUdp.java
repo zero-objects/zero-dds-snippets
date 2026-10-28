@@ -14,7 +14,12 @@ public class PublishUdp {
         String host = a.length > 0 ? a[0] : "127.0.0.1";
         int port = a.length > 1 ? Integer.parseInt(a[1]) : 7447;
 
-        Zdw.Writer w = new Zdw.Writer(Zdw.LE);
+        // XCDR2 is the DDS default and what the C and Python endpoints in
+        // this example write: XTypes 1.3 s7.4.1 caps 8-byte primitives at a
+        // 4-byte boundary there, at 8 under XCDR1. The Java writer takes the
+        // version explicitly rather than assuming one, so a sample cannot be
+        // written as XCDR2 and framed as XCDR1 without anybody saying so.
+        Zdw.Writer w = new Zdw.Writer(Zdw.LE, Zdw.XCDR2);
         w.u32(0xA1B2C3D4L);
         w.u16(0x1234);
         w.u8(0x5A);
@@ -24,7 +29,8 @@ public class PublishUdp {
         w.seqU8(new byte[] { (byte) 0xDE, (byte) 0xAD, (byte) 0xBE, (byte) 0xEF });
 
         byte[] frame = ZdwEndpoint.xrceWriteFrame(
-            ZdwEndpoint.SESSION_NOKEY, ZdwEndpoint.STREAM_BEST_EFFORT, 1, w.bytes());
+            ZdwEndpoint.SESSION_NOKEY, ZdwEndpoint.STREAM_BEST_EFFORT, 1,
+            ZdwEndpoint.objectId(0x001, ZdwEndpoint.OBJK_DATAWRITER), w.bytes());
         DatagramSocket s = new DatagramSocket();
         s.send(new DatagramPacket(frame, frame.length, InetAddress.getByName(host), port));
         s.close();

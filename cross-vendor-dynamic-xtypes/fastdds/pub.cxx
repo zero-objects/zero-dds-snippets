@@ -21,7 +21,7 @@ int main(int argc, char** argv){
     dyn::Track t;
     t.id(100+i);
     t.name(std::string("track-")+std::to_string(i));
-    t.color(dyn::Color::BLUE);
+    t.hue(dyn::Color::BLUE);
     t.path({i, i*2, i*3});
     dyn::Cmd c;
     int k = i % 3;

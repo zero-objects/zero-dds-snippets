@@ -1,0 +1,17 @@
+[package]
+name = "rmw-spatial-bridge"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "spatial_side"
+path = "src/main.rs"
+
+[dependencies]
+rmw-zerodds-shim = { path = "../../crates/rmw-zerodds-shim" }
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-rtps = { path = "../../crates/rtps" }
+zerodds-spatial-dds = { path = "../../crates/spatial-dds" }

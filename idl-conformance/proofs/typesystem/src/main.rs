@@ -2,7 +2,7 @@
 //!
 //! Encodes the canonical samples for the wave-2 constructs (union, enum,
 //! @bit_bound enum, standalone @optional, nested @mutable, sequence<mutable>)
-//! through the cross-vendor-validated `zerodds-cdr` core — the exact bytes a
+//! through the cross-vendor-validated `zerodds-wire` core — the exact bytes a
 //! ZeroDDS DataWriter puts on the wire (XCDR2-LE, default repr) — and:
 //!
 //!   * (default)        prints len + sha256 + hexdump of each ZeroDDS encoding,
@@ -19,10 +19,12 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use zerodds_cdr::CdrEncode;
-
-#[path = "../generated/typesystem.rs"]
-mod generated;
+// `zerodds-build` writes the module into OUT_DIR; the lint allows sit on the
+// wrapping module because `include!` splices the tokens into this file.
+#[allow(non_snake_case, non_camel_case_types, unused_imports, dead_code, clippy::all)]
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/typesystem.rs"));
+}
 
 use generated::ts::{
     Color, EnumHolder, EnumUnion, Inner, LongUnion, Mid, MutLeaf, MutOuter, OptHolder, Point, Tiny,
@@ -158,11 +160,32 @@ fn sha256(data: &[u8]) -> String {
 // drivers
 // ---------------------------------------------------------------------------
 
-/// Encode a value through `zerodds-cdr` (XCDR2-LE) into a fresh buffer.
-fn encode<T: CdrEncode>(sample: &T) -> Vec<u8> {
-    let mut w = zerodds_cdr::BufferWriter::new(zerodds_cdr::Endianness::Little).xcdr2();
-    sample.encode(&mut w).expect("encode");
-    w.into_bytes()
+/// A fresh XCDR2-LE writer: little-endian with the encapsulation's four-octet
+/// alignment cap, which is what `DdsType::encode` builds for a topic type.
+fn xcdr2_writer() -> zerodds_wire::Writer {
+    zerodds_wire::Writer::with_max_align(zerodds_wire::Endianness::Little, 4)
+}
+
+/// A reader over XCDR2-LE bytes, with the same cap. Only the round-trip and
+/// vendor-decode tests read; the binary only writes.
+#[cfg_attr(not(test), allow(dead_code))]
+fn xcdr2_reader(bytes: &[u8]) -> zerodds_wire::Reader<'_> {
+    zerodds_wire::Reader::with_max_align(bytes, zerodds_wire::Endianness::Little, 4)
+}
+
+/// Encode a value through `zerodds-wire` (XCDR2-LE) into a fresh buffer.
+///
+/// A macro and not a generic function: the generated codec is a pair of
+/// *inherent* `encode`/`decode` methods, not a trait, so there is no bound to
+/// write. That is the shape `zerodds-build` emits — the trait surface is
+/// `zerodds_dcps::DdsType`, and a standalone union is not a topic type and has
+/// no `DdsType` impl.
+macro_rules! encode {
+    ($sample:expr) => {{
+        let mut w = xcdr2_writer();
+        $sample.encode(&mut w).expect("encode");
+        w.finish()
+    }};
 }
 
 fn hexdump(bytes: &[u8]) -> String {
@@ -183,17 +206,31 @@ fn write_golden(name: &str, bytes: &[u8]) {
     std::fs::write(&path, bytes).expect("write golden");
 }
 
+/// The (case, vendor) pairs README.md's "Known divergences" explains:
+/// `enum_holder` (Fast DDS writes 32-bit enums, RTI has no non-32-bit
+/// `@bit_bound`), `union_long_default` (Fast DDS's default discriminator),
+/// `opt_holder` (Fast DDS's uninitialised padding) and `mut_outer` (Fast DDS
+/// and RTI reuse the nested DHEADER as the NEXTINT).
+const KNOWN_DIVERGENCES: &[(&str, &str)] = &[
+    ("enum_holder", "fastdds"),
+    ("enum_holder", "rti"),
+    ("union_long_default", "fastdds"),
+    ("opt_holder", "fastdds"),
+    ("mut_outer", "fastdds"),
+    ("mut_outer", "rti"),
+];
+
 fn main() -> ExitCode {
     let check = std::env::args().any(|a| a == "--check");
 
     // (case-name, zerodds bytes)
     let mut cases: Vec<(&str, Vec<u8>)> = Vec::new();
-    cases.push(("enum_holder", encode(&enum_holder())));
-    cases.push(("union_long_default", encode(&union_long_default())));
-    cases.push(("union_long_struct", encode(&union_long_struct())));
-    cases.push(("union_enum_default", encode(&union_enum_default())));
-    cases.push(("opt_holder", encode(&opt_holder())));
-    cases.push(("mut_outer", encode(&mut_outer())));
+    cases.push(("enum_holder", encode!(enum_holder())));
+    cases.push(("union_long_default", encode!(union_long_default())));
+    cases.push(("union_long_struct", encode!(union_long_struct())));
+    cases.push(("union_enum_default", encode!(union_enum_default())));
+    cases.push(("opt_holder", encode!(opt_holder())));
+    cases.push(("mut_outer", encode!(mut_outer())));
 
     println!("=== ZeroDDS XCDR2-LE encodings (wave-2 type-system corpus) ===\n");
     for (name, bytes) in &cases {
@@ -209,8 +246,9 @@ fn main() -> ExitCode {
     }
 
     // Load vendor goldens: vendor/<vendor>/<case>.bin (encapsulation already stripped).
-    // EXPECTED-MATCH cases must match at least one vendor; otherwise it is a
-    // recorded DIFF and the harness explains why in README.md.
+    // Every (case, vendor) pair with a golden must MATCH unless it is one of
+    // the divergences README.md's "Known divergences" explains; a DIFF not on
+    // that list, or a listed one that now matches, fails the run.
     let vendors = ["cyclonedds", "rti", "fastdds"];
     let mut any_unexpected = false;
 
@@ -241,15 +279,28 @@ fn main() -> ExitCode {
                 }
                 None => ("n/a", "vendor cannot express / golden absent".to_string()),
             };
-            println!("{name:<20} {v:<12} {res:<8} {note}");
+            let known = KNOWN_DIVERGENCES.contains(&(*name, *v));
+            let unexpected = match r {
+                Some(true) => known,
+                Some(false) => !known,
+                None => false,
+            };
+            let flag = if unexpected {
+                any_unexpected = true;
+                if known { "  <- listed as a divergence, now MATCH" } else { "  <- not a known divergence" }
+            } else {
+                ""
+            };
+            println!("{name:<20} {v:<12} {res:<8} {note}{flag}");
         }
         println!();
     }
 
-    // The EXPECTED-MATCH set (cases where ZeroDDS is byte-identical to the
-    // vendors) is asserted in README; the harness prints the table and lets
-    // the reader read off the proven-interop vs known-DIFF classification.
-    let _ = &mut any_unexpected;
+    if any_unexpected {
+        println!("UNEXPECTED RESULT against the recorded vendor goldens (see the flags above)");
+        return ExitCode::FAILURE;
+    }
+    println!("ALL VENDOR COMPARISONS AS RECORDED ({} known divergences)", KNOWN_DIVERGENCES.len());
     ExitCode::SUCCESS
 }
 
@@ -261,24 +312,24 @@ mod tests {
     /// ZeroDDS encodes each canonical sample to a stable, self-decodable golden.
     #[test]
     fn zerodds_self_roundtrip() {
-        use zerodds_cdr::CdrDecode;
         // Topic structs go through DdsType::decode.
         macro_rules! rt_struct {
             ($ty:ty, $s:expr) => {{
                 let sample = $s;
-                let bytes = encode(&sample);
+                let bytes = encode!(sample);
                 let back = <$ty as DdsType>::decode(&bytes).expect("decode");
                 assert_eq!(sample, back, "self-roundtrip");
             }};
         }
-        // Standalone unions go through CdrDecode.
+        // A standalone union is not a topic type and carries no `DdsType`
+        // impl; it is read off the wire runtime through its own inherent
+        // `decode`.
         macro_rules! rt_union {
             ($ty:ty, $s:expr) => {{
                 let sample = $s;
-                let bytes = encode(&sample);
-                let mut r =
-                    zerodds_cdr::BufferReader::new(&bytes, zerodds_cdr::Endianness::Little).xcdr2();
-                let back = <$ty as CdrDecode>::decode(&mut r).expect("decode");
+                let bytes = encode!(sample);
+                let mut r = xcdr2_reader(&bytes);
+                let back = <$ty>::decode(&mut r).expect("decode");
                 assert_eq!(sample, back, "self-roundtrip");
             }};
         }
@@ -302,12 +353,10 @@ mod tests {
     /// element now reconstruct exactly.
     #[test]
     fn nested_mutable_self_roundtrip() {
-        use zerodds_cdr::CdrDecode;
         let sample = mut_outer();
-        let bytes = encode(&sample);
-        let mut r =
-            zerodds_cdr::BufferReader::new(&bytes, zerodds_cdr::Endianness::Little).xcdr2();
-        let back = <MutOuter as CdrDecode>::decode(&mut r).expect("decode");
+        let bytes = encode!(sample);
+        let mut r = xcdr2_reader(&bytes);
+        let back = MutOuter::decode(&mut r).expect("decode");
         assert_eq!(sample, back, "nested @mutable must round-trip");
     }
 
@@ -318,8 +367,6 @@ mod tests {
     /// consume a Cyclone/RTI/FastDDS writer's mutable/optional/union samples.
     #[test]
     fn decode_vendor_goldens() {
-        use zerodds_cdr::CdrDecode;
-
         // Structs implement DdsType::decode (encapsulation-free top-level entry).
         fn decode_vendor_struct<T: DdsType + PartialEq + std::fmt::Debug>(
             case: &str,
@@ -337,28 +384,31 @@ mod tests {
                 }
             }
         }
-        // A standalone union is a CdrDecode type (not a topic DdsType); decode
-        // it directly off an XCDR2-LE reader.
-        fn decode_vendor_union<T: CdrDecode + PartialEq + std::fmt::Debug>(
-            case: &str,
-            expected: &T,
-        ) {
-            for v in ["cyclonedds", "rti", "fastdds"] {
-                let path = dir("vendor").join(v).join(format!("{case}.bin"));
-                let Ok(bytes) = std::fs::read(&path) else { continue };
-                let mut r =
-                    zerodds_cdr::BufferReader::new(&bytes, zerodds_cdr::Endianness::Little).xcdr2();
-                match T::decode(&mut r) {
-                    Ok(got) => assert_eq!(
-                        &got, expected,
-                        "{v}/{case}: decoded value must equal canonical"
-                    ),
-                    Err(e) => panic!("{v}/{case}: ZeroDDS failed to decode vendor bytes: {e:?}"),
+        // A standalone union is not a topic type and has no `DdsType` impl;
+        // it is read directly off an XCDR2-LE reader through its own inherent
+        // `decode`. A macro rather than a generic function, for the reason the
+        // `encode!` macro above gives.
+        macro_rules! decode_vendor_union {
+            ($ty:ty, $case:expr, $expected:expr) => {{
+                let case: &str = $case;
+                for v in ["cyclonedds", "rti", "fastdds"] {
+                    let path = dir("vendor").join(v).join(format!("{case}.bin"));
+                    let Ok(bytes) = std::fs::read(&path) else { continue };
+                    let mut r = xcdr2_reader(&bytes);
+                    match <$ty>::decode(&mut r) {
+                        Ok(got) => assert_eq!(
+                            &got, $expected,
+                            "{v}/{case}: decoded value must equal canonical"
+                        ),
+                        Err(e) => {
+                            panic!("{v}/{case}: ZeroDDS failed to decode vendor bytes: {e:?}")
+                        }
+                    }
                 }
-            }
+            }};
         }
-        decode_vendor_union("union_long_struct", &union_long_struct());
-        decode_vendor_union("union_enum_default", &union_enum_default());
+        decode_vendor_union!(LongUnion, "union_long_struct", &union_long_struct());
+        decode_vendor_union!(EnumUnion, "union_enum_default", &union_enum_default());
         decode_vendor_struct("opt_holder", &opt_holder());
         // mut_outer decode is now asserted in `decode_vendor_mut_outer` below
         // (Cyclone + FastDDS — the vendors whose member bodies carry the inner
@@ -394,7 +444,7 @@ mod tests {
         for v in ["cyclonedds", "fastdds"] {
             let path = dir("vendor").join(v).join("mut_outer.bin");
             let bytes = std::fs::read(&path).expect("vendor golden");
-            let got = MutOuter::decode(&bytes)
+            let got = <MutOuter as DdsType>::decode(&bytes)
                 .unwrap_or_else(|e| panic!("{v}/mut_outer decode failed: {e:?}"));
             assert_eq!(got, expected, "{v}/mut_outer must decode to canonical");
         }

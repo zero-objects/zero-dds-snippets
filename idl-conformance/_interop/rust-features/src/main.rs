@@ -10,23 +10,60 @@
 //!                      the reconstructed value == the canonical sample.
 //!
 //! The Rust golden is the cross-PSM REFERENCE: it runs through the
-//! cross-vendor-validated `zerodds-cdr` core, so the other 6 language PSMs
+//! cross-vendor-validated `zerodds-wire` core, so the other 6 language PSMs
 //! conform to these bytes (CANONICAL.md "Convergence criterion").
+//!
+//! ## The three defects this harness found
+//!
+//! `zerodds-build` is the successor to the `zerodds-idl` + `zerodds-idl-rust`
+//! pair this file was written against, and building it against rc.7 stopped
+//! on three features the Rust column of `crates/lang-rules` refused or
+//! miscompiled. All three are fixed, and each has a regression test that
+//! compiles the generated file rather than asserting on its text:
+//!
+//! * `feat::Money` — `fixed<5,2>` / `fixed<4,0>`. `crates/lang-rules/src/encode.rs`
+//!   had no `TypeKind::Fixed` arm, so the member reached
+//!   `MemberWrite::Unsupported` and generation stopped with
+//!   `NoWriter { member: "price", kind: "fixed" }`. The column carries a
+//!   `fixed` as a decimal **string**, the way the twenty others do:
+//!   `fixed<31,2>` fits no integer Rust has, and a binary float would be the
+//!   wrong answer rather than an approximate one.
+//!   `crates/zerodds-build/tests/dds_type.rs::a_fixed_member_reaches_the_generated_type_and_round_trips`.
+//! * `feat::Perm` — a bitmask becomes `pub type Perm = u32;`, and
+//!   `dds_type_impls(true)` then wrote `impl zerodds_dcps::DdsType for
+//!   feat::Perm`, which is `impl <foreign trait> for u32` — `error[E0117]`.
+//!   `crates/zerodds-build/tests/dds_type.rs::a_bitmask_member_leaves_the_file_compiling`.
+//! * `feat::OuterKey` — a `@key` member of aggregate type made
+//!   `key_holder_be()` and `key_hash()` emit `self.k.encode(holder)` against
+//!   `fn encode(&self, w: &mut Writer)` — `error[E0308]`.
+//!   `crates/zerodds-build/tests/dds_type.rs::an_aggregate_key_member_compiles_and_hashes`.
 
 use std::process::ExitCode;
 
 use zerodds_dcps::DdsType;
 
-#[path = "../generated/features.rs"]
-mod generated;
+// `zerodds-build` writes the module into OUT_DIR; the lint allows sit on the
+// wrapping module because `include!` splices the tokens into this file.
+#[allow(
+    non_snake_case,
+    non_camel_case_types,
+    unused_imports,
+    dead_code,
+    clippy::all
+)]
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/features.rs"));
+}
 
+use generated::feat;
 use generated::feat::{
-    Arr, Bits, Flags, Hue, MapEnum, MapPrim, Money, Mut, MutLeaf, MutNest, NestedKey, OuterKey, Perm,
+    Arr, Bits, Flags, Hue, MapEnum, MapPrim, Money, Mut, MutLeaf, MutNest, NestedKey, OuterKey,
     Prim, Pt, Sel, Tree, WStr,
 };
 
-const DIR: &str =
-    "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
+/// Where the per-PSM goldens live, relative to this crate's directory —
+/// which is where `cargo run` starts.
+const DIR: &str = "../goldens";
 
 // ---------------------------------------------------------------------------
 // Canonical samples (EXACT values from CANONICAL.md; identical across all PSMs)
@@ -35,8 +72,10 @@ const DIR: &str =
 /// feat::WStr — label="café" (c a f é/U+00E9), text="日本語🎉" (🎉 = U+1F389).
 fn canonical_wstr() -> WStr {
     WStr {
-        label: zerodds_cdr::WString("café".to_string()),
-        text: zerodds_cdr::WString("日本語\u{1F389}".to_string()),
+        // A `wstring` member is a plain `String` in the generated type; the
+        // UTF-16 framing is the codec's, not the value's.
+        label: "café".to_string(),
+        text: "日本語\u{1F389}".to_string(),
     }
 }
 
@@ -64,18 +103,21 @@ fn canonical_mutnest() -> MutNest {
 /// lo=0x05060708}, payload=999. Exercises recursive @key expansion.
 fn canonical_outerkey() -> OuterKey {
     OuterKey {
-        k: NestedKey { hi: 0x0102_0304, lo: 0x0506_0708 },
+        k: NestedKey {
+            hi: 0x0102_0304,
+            lo: 0x0506_0708,
+        },
         payload: 999,
     }
 }
 
 /// feat::Bits — perm = READ|EXEC = 0x05; flags: kind=5, prio=20 -> holder 0xA5.
 fn canonical_bits() -> Bits {
-    let mut flags = Flags::new();
-    flags.set_kind(5);
-    flags.set_prio(20);
+    // A bitset is materialised as a struct with one field per named
+    // bitfield, and a bitmask as module-level `u32` constants.
+    let flags = Flags { kind: 5, prio: 20 };
     Bits {
-        perm: Perm::READ | Perm::EXEC,
+        perm: feat::READ | feat::EXEC,
         flags,
     }
 }
@@ -87,9 +129,15 @@ fn canonical_tree() -> Tree {
         kids: vec![
             Tree {
                 value: 2,
-                kids: vec![Tree { value: 4, kids: vec![] }],
+                kids: vec![Tree {
+                    value: 4,
+                    kids: vec![],
+                }],
             },
-            Tree { value: 3, kids: vec![] },
+            Tree {
+                value: 3,
+                kids: vec![],
+            },
         ],
     }
 }
@@ -122,8 +170,11 @@ fn canonical_mapenum() -> MapEnum {
 /// (01 23 4c). CORBA/GIOP §9.3.2.7 packed BCD, align 1, no length prefix.
 fn canonical_fixed() -> Money {
     Money {
-        price: zerodds_cdr::fixed::Fixed::from_str_repr("123.45").unwrap(),
-        qty: zerodds_cdr::fixed::Fixed::from_str_repr("1234").unwrap(),
+        // A decimal string, which is what the Rust column carries a `fixed`
+        // as. `zerodds-wire` writes the BCD of CORBA 3.3 part 2 §9.3.2.8
+        // from it and reads back the one spelling the declaration admits.
+        price: "123.45".to_string(),
+        qty: "1234".to_string(),
     }
 }
 
@@ -150,7 +201,7 @@ fn canonical_prim() -> Prim {
         f64: -1234.5,
         b: true,
         o: 0xAB,
-        ch: 0x5A, // 'Z'
+        ch: 'Z',
     }
 }
 
@@ -261,7 +312,7 @@ mod tests {
             ($s:expr) => {{
                 let sample = $s;
                 let mut bytes = Vec::new();
-                sample.encode(&mut bytes).expect("encode");
+                DdsType::encode(&sample, &mut bytes).expect("encode");
                 let back = ::zerodds_dcps::DdsType::decode(&bytes).expect("decode");
                 assert_eq!(sample, back, "feature golden must roundtrip");
             }};
@@ -275,6 +326,28 @@ mod tests {
         rt!(canonical_mutnest());
         rt!(canonical_outerkey());
         rt!(canonical_mapenum());
+        rt!(canonical_mapprim());
+        rt!(canonical_fixed());
+    }
+
+    /// `Money` is explicitly @appendable: XCDR2-LE prefixes the six
+    /// packed-BCD payload octets from features.idl with a four-byte DHEADER.
+    /// Independent expected bytes catch a writer and reader agreeing on
+    /// the same wrong representation, which a round trip alone cannot.
+    #[test]
+    fn fixed_golden_matches_the_declared_bcd_payload_and_xcdr2_header() {
+        let sample = canonical_fixed();
+        let expected = [0x06, 0x00, 0x00, 0x00, 0x12, 0x34, 0x5c, 0x01, 0x23, 0x4c];
+        let mut bytes = Vec::new();
+        DdsType::encode(&sample, &mut bytes).expect("encode fixed");
+        assert_eq!(
+            bytes, expected,
+            "DHEADER followed by the declared BCD digits"
+        );
+        assert_eq!(
+            <Money as DdsType>::decode(&expected).expect("decode fixed golden"),
+            sample
+        );
     }
 }
 

@@ -7,9 +7,7 @@
 //      on port 9001,
 //   4. imports the compiled app (build/app.js) unchanged.
 //
-// Run:  npx tsc src/app.ts --outDir build --module ESNext --target ES2022 \
-//            --moduleResolution Bundler --skipLibCheck --lib ES2022,DOM
-//       node run-with-bridge.mjs
+// Run:  npm install && npm run build && npm run start
 
 import { WebSocket, WebSocketServer } from 'ws';
 import { readFile } from 'node:fs/promises';

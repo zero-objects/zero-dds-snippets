@@ -1,3 +1,4 @@
+#include <ace/OS_NS_stdlib.h>
 #include "RichTypeSupportImpl.h"
 #include <dds/DCPS/Marked_Default_Qos.h>
 #include <dds/DCPS/Service_Participant.h>
@@ -21,9 +22,12 @@
   T s; for(CORBA::ULong id=1;;id++){ s.id=id; s.value=3.141592653589793*id; s.blob.length(n); for(int k=0;k<n;k++) s.blob[k]=k%251; w->write(s, DDS::HANDLE_NIL); std::cout<<"  -> id="<<id<<std::endl; ACE_OS::sleep(ACE_Time_Value(0,150000)); } }
 int ACE_TMAIN(int argc, ACE_TCHAR* argv[]) {
   auto dpf = TheParticipantFactoryWithArgs(argc, argv);
-  auto dp = dpf->create_participant(0, PARTICIPANT_QOS_DEFAULT, 0, 0);
-  std::string e = argc>1?ACE_TEXT_ALWAYS_CHAR(argv[1]):"m";
-  int n = argc>2?ACE_OS::atoi(argv[2]):50;
+  // TheParticipantFactoryWithArgs took the -DCPS* arguments; what is left
+  // is the domain id, the extensibility and, for the publisher, the blob size.
+  const int domain = argc>1?ACE_OS::atoi(argv[1]):0;
+  auto dp = dpf->create_participant(domain, PARTICIPANT_QOS_DEFAULT, 0, 0);
+  std::string e = argc>2?ACE_TEXT_ALWAYS_CHAR(argv[2]):"m";
+  int n = argc>3?ACE_OS::atoi(argv[3]):50;
   if(e=="f") RUN(RichF,"RichF") else if(e=="a") RUN(RichA,"RichA") else RUN(RichM,"RichM")
   return 0;
 }

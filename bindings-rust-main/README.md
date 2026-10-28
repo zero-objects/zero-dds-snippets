@@ -10,11 +10,11 @@ In the demo dir:
 cargo run
 ```
 
-No features needed. `Cargo.toml` depends only on `zerodds-dcps` (`1.0.0-rc.3`, from crates.io).
+No features needed. `Cargo.toml` depends only on `zerodds-dcps` (`1.0.0-rc.6`, from crates.io).
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Rust bindings](https://zerodds.de/bindings/rust/)**.
+- Explained on the website: [Rust](https://zerodds.org/bindings/rust/)
+- This example in the repository: [zero-dds-snippets/bindings-rust-main](https://github.com/zero-objects/zero-dds-snippets/tree/main/bindings-rust-main)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

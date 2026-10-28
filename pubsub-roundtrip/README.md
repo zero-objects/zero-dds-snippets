@@ -10,11 +10,11 @@ In the demo dir:
 cargo run
 ```
 
-No features to enable. Depends only on `zerodds-dcps` (`1.0.0-rc.3`, from crates.io).
+No features to enable. Depends only on `zerodds-dcps` (`1.0.0-rc.6`, from crates.io).
 
 ## Reference
 
-This demo has no dedicated website page; see the
-**[Rust bindings overview](https://zerodds.de/bindings/)**.
+- Explained on the website: [Language bindings](https://zerodds.org/bindings/)
+- This example in the repository: [zero-dds-snippets/pubsub-roundtrip](https://github.com/zero-objects/zero-dds-snippets/tree/main/pubsub-roundtrip)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

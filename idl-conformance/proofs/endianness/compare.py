@@ -12,7 +12,7 @@ Builds the repr × backend × vendor byte table:
     CycloneDDS 0.11 and eProsima FastCDR/FastDDS goldens for the same
     (feature, repr).
 
-Run after `make goldens` (ZeroDDS) and `make vendors` (codepit) have populated
+Run after `make goldens` (ZeroDDS) and `make vendors` (the vendor host) have populated
 `goldens/`, `vendor-cyclone/`, `vendor-fastcdr/`.
 """
 import hashlib

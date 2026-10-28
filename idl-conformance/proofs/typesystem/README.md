@@ -45,8 +45,8 @@ ZeroDDS XCDR2-LE vs vendor-native, encapsulation stripped. `✓` = byte-identica
 | `union_enum_default` |  8 B | ✓ | ✓ | ✓ |
 | `union_long_default` | 11 B | ✓ | ✓ | ≠ (default-disc value) |
 | `opt_holder`         | 28 B | ✓ | ✓ | ≠ (uninitialised padding) |
-| `enum_holder`        | 12 B | ≠ (`@bit_bound` width) | n/a (no `@bit_bound`) | ✓ |
-| `mut_outer`          | 100 B | ≠ (Cyclone LC mix, 104 B) | ≠ (RTI LC mix, 100 B) | ✓ |
+| `enum_holder`        |  8 B | ✓ | ≠ (no non-32-bit `@bit_bound`; 4 B) | ≠ (32-bit enums, 12 B) |
+| `mut_outer`          | 104 B | ✓ | ≠ (LC5 on the nested struct, 100 B) | ≠ (LC5 on both, 100 B) |
 
 The `--check` harness prints this table from the committed goldens.
 
@@ -55,23 +55,22 @@ The `--check` harness prints this table from the committed goldens.
 A vendor oracle is only honest if it reports the misses. Four of the six cases
 diverge from at least one vendor; here is exactly why.
 
-1. **`mut_outer` — nested `@mutable` (FIXED; byte-identical to Fast DDS).**
-   ZeroDDS now encodes `mut_outer` to **100 B, byte-identical to Fast DDS**, and
-   round-trips it through its own decoder (`nested_mutable_self_roundtrip`). Two
-   coupled defects were fixed: (a) the writer-agnostic `CdrDecode` for a nested
-   `@mutable` struct now parses the member EMHEADER frame (the `read_mutable_member`
-   loop) instead of reading the EMHEADERs as plain sequential fields; (b) the
-   encoder now uses the compact EMHEADER length-reuse form (**LengthCode 5**) for a
-   member whose body begins with a length word — a nested `@appendable`/`@mutable`
-   struct's DHEADER, a non-primitive `sequence`/`map` DHEADER, or a string length —
-   instead of the redundant separate-NEXTINT form (LengthCode 4). A `@final` nested
-   struct (no DHEADER) and a `sequence<primitive>` (bare element count) keep LC4.
+1. **`mut_outer` — nested `@mutable`: 104 B, byte-identical to Cyclone.**
+   ZeroDDS round-trips `mut_outer` through its own decoder
+   (`nested_mutable_self_roundtrip`) and writes it under its default EMHEADER
+   length-code policy, `LengthCodePolicy::Compact`: LengthCode 5 where a
+   `string`'s or a `sequence`'s own leading word can be reused as the NEXTINT
+   (the `list` member, mid 30), LengthCode 4 with an explicit NEXTINT for the
+   nested `@mutable` struct (`leaf`, mid 20), whose DHEADER Compact does not
+   reuse. That is Cyclone's form.
 
    The vendors split on *which* member gets LC5 (this is implementation latitude,
    XTypes 1.3 §7.4.3.4.2): **Fast DDS** uses LC5 on both the nested struct (mid 20)
    and the sequence (mid 30) → 100 B; **Cyclone** uses LC5 only on the sequence and
    LC4 on the nested struct → 104 B; **RTI** uses LC5 on the nested struct and LC4
-   on the sequence → 100 B. ZeroDDS matches Fast DDS's universal-LC5 form exactly.
+   on the sequence → 100 B. ZeroDDS writes Cyclone's form by default; the
+   `LengthCodePolicy` values `ReuseNestedDelimiter` (RTI) and
+   `ShortWhereItFits` (Fast DDS) are the other two.
    On DECODE, ZeroDDS reads back Cyclone's and Fast DDS's native bytes
    (`decode_vendor_mut_outer`); **RTI's** LC4 `sequence` member additionally OMITS
    the inner collection DHEADER from the member body (the NEXTINT is its sole
@@ -83,11 +82,11 @@ diverge from at least one vendor; here is exactly why.
 
 2. **`enum_holder` — `@bit_bound` enum width.** Per DDS-XTypes 1.3 §7.2.2.4.1.2 an
    `@bit_bound(8)` enum serialises as one octet and `@bit_bound(16)` as two.
-   CycloneDDS honours this (8 B total); ZeroDDS and Fast DDS both serialise every
-   enum as a 32-bit integer (12 B) and are byte-identical **to each other**. RTI
-   Connext 7.7 rejects non-32-bit `@bit_bound` enums at code-generation time, so
-   its golden carries only the 32-bit `Color`. The plain 32-bit enum
-   (the `Color` discriminator in `union_enum_default`) matches every vendor.
+   ZeroDDS and CycloneDDS honour this (8 B) and are byte-identical; Fast DDS
+   serialises every enum as a 32-bit integer (12 B). RTI Connext 7.7 rejects
+   non-32-bit `@bit_bound` enums at code-generation time, so its golden carries
+   only the 32-bit `Color`. The plain 32-bit enum (the `Color` discriminator in
+   `union_enum_default`) matches every vendor.
 
 3. **`union_long_default` — default-arm discriminator value.** When a union's
    default arm is selected, any discriminator value that is not an explicit case
@@ -103,14 +102,14 @@ diverge from at least one vendor; here is exactly why.
    Padding values are unspecified by the standard; ZeroDDS zeroes them (so its
    output is deterministic and keyhash-stable).
 
-## Vendor versions (this run, host "codepit", Debian 13, x86-64)
+## Vendor versions (this run, Debian 13, x86-64)
 
 | vendor | code generator | runtime |
 |--------|----------------|---------|
 | CycloneDDS | `idlc` (Eclipse Cyclone DDS) **11.0.1** | `libddsc` 11.0.1, public `dds_cdrstream` API, XCDR2 |
 | RTI Connext | `rtiddsgen` **4.7.0** (Connext **7.7.0**), C++11 | `to_cdr_buffer` with XCDR2 representation |
 | eProsima Fast DDS | Fast DDS-Gen (**fastddsgen**) | Fast DDS **3.6.1** / FastCDR **2.3.5**, `Cdr` with `CdrVersion::XCDRv2` |
-| ZeroDDS | `zerodds-idlc --rust` | `zerodds-cdr` core, XCDR2-LE |
+| ZeroDDS | `zerodds-build` (the `zerodds-idlc` pipeline as a library call) | `zerodds-wire` core, XCDR2-LE |
 
 ## Files
 
@@ -118,7 +117,7 @@ diverge from at least one vendor; here is exactly why.
 typesystem/
 ├── README.md                 ← this file
 ├── idl/typesystem.idl        ← the corpus (one topic type per construct)
-├── generated/typesystem.rs   ← ZeroDDS Rust, emitted by `zerodds-idlc --rust`
+├── build.rs                  ← emits the ZeroDDS Rust codec into OUT_DIR
 ├── src/main.rs               ← the harness (encode + sha256 + --check byte-diff)
 ├── Cargo.toml
 ├── goldens/*.zerodds.bin     ← ZeroDDS XCDR2-LE encodings (regenerated by the run)
@@ -156,11 +155,9 @@ cargo run --bin typesystem_proof -- --check
 cargo test
 ```
 
-Re-generate `generated/typesystem.rs` from the IDL with the ZeroDDS compiler:
-
-```sh
-cargo run -p zerodds-idlc --bin zerodds-idlc -- --rust -o generated idl/typesystem.idl
-```
+The generated module is not committed: `build.rs` re-emits it from
+`idl/typesystem.idl` on every build, so an edit to the IDL cannot leave a stale
+codec behind.
 
 ### Vendor side (to regenerate the goldens under `vendor/`)
 

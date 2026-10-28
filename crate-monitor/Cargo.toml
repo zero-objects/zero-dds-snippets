@@ -1,0 +1,10 @@
+[package]
+name = "crate-monitor"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-monitor = { path = "../../crates/monitor" }
+zerodds-foundation = { path = "../../crates/foundation" }

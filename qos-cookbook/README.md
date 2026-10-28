@@ -14,7 +14,7 @@ cargo run
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[QoS cookbook](https://zerodds.de/topics/qos-cookbook/)**.
+- Explained on the website: [QoS Cookbook](https://zerodds.org/topics/qos-cookbook/)
+- This example in the repository: [zero-dds-snippets/qos-cookbook](https://github.com/zero-objects/zero-dds-snippets/tree/main/qos-cookbook)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

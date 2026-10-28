@@ -2,6 +2,7 @@
 name = "idl-interop-rust"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 # Standalone example: empty [workspace] so it does NOT join the parent
 # zerodds workspace; path-deps reach into ../../../../crates.
@@ -11,9 +12,14 @@ edition = "2024"
 name = "combo_interop"
 path = "src/main.rs"
 
+[build-dependencies]
+# Replaces the former `zerodds-idl` + `zerodds-idl-rust` pair.
+zerodds-build = { path = "../../../../crates/zerodds-build" }
+
 [dependencies]
-# The generated encode/decode bodies call ::zerodds_cdr::{BufferWriter, ...}.
-zerodds-cdr = { path = "../../../../crates/cdr" }
+# The wire runtime the generated encode/decode bodies call — the crate that
+# replaced the former `zerodds-cdr`.
+zerodds-wire = { path = "../../../../crates/wire" }
 # Generated DdsType impls reference zerodds_dcps::{DdsType, Extensibility, ...}.
 zerodds-dcps = { path = "../../../../crates/dcps" }
 # ... and zerodds_types::TypeIdentifier.

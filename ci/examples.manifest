@@ -1,0 +1,198 @@
+# One line per example. Fields are separated by `|` and are, in order:
+#
+#   name      the directory under the repository root
+#   needs     what the run requires, comma-separated; `-` for nothing beyond
+#             a POSIX shell. Recognised: cargo curl dotnet java javac mvn node
+#             npm python3 tsc cc c++ cmake make maturin, plus
+#               zerodds-src        a zero-dds checkout at $ZERODDS_SRC
+#               zerodds-cdylib     $ZERODDS_LIB, the built C ABI shared library
+#               zerodds-jar        the OMG DDS Java binding jar
+#               maturin-installed  `import zerodds` works
+#               ts-node-build      crates/ts-node built
+#               ts-wasm-build      crates/ts-wasm built
+#               pki-files          $ZERODDS_PKI holds the six DDS-Security files
+#               rti-connext        an RTI Connext install with a runtime licence
+#                                  at $NDDSHOME. Not `peer:rti`: the example's
+#                                  own run.sh generates, builds and starts the
+#                                  RTI peer, so the toolchain is what has to be
+#                                  present and that is answerable.
+#               cyclone-py         `import cyclonedds` works (the Cyclone DDS
+#                                  Python binding)
+#               cyclone-c          idlc and the C library under $CYCLONE
+#               fastdds            fastddsgen on PATH, Fast DDS 3 under
+#                                  $FASTDDS_HOME
+#               opendds            a built OpenDDS tree at $DDS_ROOT
+#               opensplice         OpenSplice CE 6.9 at $OSPL_HOME (idlpp and
+#                                  release.com)
+#               ros2-rmw-zerodds   a ROS 2 setup.bash at $ROS_SETUP and
+#                                  rmw_zerodds_cpp installed under $RMW_PREFIX
+#               linux              a Linux kernel (sched_setscheduler and friends)
+#               peer:<impl>        a second implementation on the wire
+#               multicast          a real interface, not loopback
+#   verdict   run | build | blocked
+#               run      the command runs and its output is checked
+#               build    there is no program to run; `note` says why
+#               blocked  a named defect stops it; `note` names the defect
+#   cmd       executed with `eval` from the example's own directory; `-` when
+#             the verdict is `build`. A `blocked` row carries the command the
+#             defect stops: the harness runs it and fails the row either with
+#             its actual error or a stale-blocker diagnostic on success. The
+#             historical note alone cannot identify the current failure.
+#   expect    a fixed string the stdout must contain; `-` for none
+#   note      free text; required for `build` and `blocked`
+#
+# A missing tool is never a pass and never a silent skip: it is named and the
+# example is counted as unverified by that run.
+
+# --- Rust, types generated from IDL by build.rs + zerodds-build -------------
+idlc-buildrs|cargo,zerodds-src|run|cargo run --quiet --bin idlc-buildrs-demo && cargo test --quiet|roundtripped|-
+zerodds-build-sample|cargo,zerodds-src|run|cargo run --quiet --bin zerodds-build-sample-demo && cargo test --quiet|bytes on the wire|-
+rust-xcdr1-representation|cargo,zerodds-src|run|cargo run --quiet|both round-trip cleanly|-
+rust-typed|cargo,zerodds-src|run|cargo run --quiet|TypeObject announced|-
+rust-complex-types-roundtrip|cargo,zerodds-src|run|cargo run --quiet|all complex-type round-trips pass|Generated RC7 Rust DdsType, map and nested union, optional present/absent under both XCDRs.
+
+# --- Rust, against the published crates -------------------------------------
+hello-publisher|cargo|run|cargo run --quiet|published: Hello, DDS!|-
+pubsub-roundtrip|cargo|run|cargo run --quiet|-|-
+bindings-rust-main|cargo|run|cargo run --quiet|-|-
+async-pubsub|cargo|run|cargo run --quiet|-|-
+
+# --- Rust, path deps into the checkout --------------------------------------
+getting-started-first-publisher|cargo,zerodds-src|run|cargo run --quiet --bin pub|-|-
+observability-stderr-sink|cargo,zerodds-src|run|cargo run --quiet|-|-
+qos-cookbook|cargo,zerodds-src|run|cargo run --quiet|-|-
+qos-policies-full-writer|cargo,zerodds-src|run|cargo run --quiet|-|-
+runtime-config|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-async-showcase|cargo,zerodds-src|run|cargo run --quiet|ALL OK|-
+rust-audit-factory-chain|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-audit-loggingplugin|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-audit-otlp|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-audit-scrubbing|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-audit-securitybundle-realpart|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-audit-syslog|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-dev-install-hello|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-dev-install-runtimeconfig|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-security-plugin-chain|cargo,zerodds-src,pki-files|run|cargo run --quiet|all six dds.sec.* files accepted|-
+rust-transport-trait|cargo,zerodds-src|run|cargo run --quiet|-|-
+rust-transport-tuning|cargo,zerodds-src|run|cargo run --quiet|-|-
+security-governance-gate|cargo,zerodds-src|run|cargo run --quiet|-|-
+dcps-time-service-clock|cargo,zerodds-src|run|cargo run --quiet --release|SOURCE_TIMESTAMP follows the time service|The runtime takes its clock from a zerodds-time-service source set an hour ahead; the written source timestamp shows it.
+
+# --- C and C++ over the C ABI ----------------------------------------------
+c-ffi-hello|cc,zerodds-cdylib|run|cc -std=c11 hello.c -I "$ZERODDS_C_INC" -L "$ZERODDS_LIBDIR" -lzerodds -o hello && ./hello|-|-
+cpp-hello|c++,zerodds-src,zerodds-cdylib|run|c++ -std=c++17 hello.cpp -I "$ZERODDS_CPP_INC" -I "$ZERODDS_SRC/runtime/cpp/include" -I "$ZERODDS_C_INC" -L "$ZERODDS_LIBDIR" -lzerodds -o hello && ./hello|-|-
+cpp-typed|c++,make,zerodds-src,zerodds-cdylib|run|make -s -C "$ZERODDS_SRC/runtime/cpp" build/libzerodds_wire.a && g++ -std=c++17 typed.cpp -I . -I "$ZERODDS_CPP_INC" -I "$ZERODDS_SRC/runtime/cpp/include" -I "$ZERODDS_C_INC" "$ZERODDS_SRC/runtime/cpp/build/libzerodds_wire.a" -L "$ZERODDS_LIBDIR" -lzerodds -o /tmp/cpp_typed_demo && /tmp/cpp_typed_demo|got: celsius=23 sensor_id=A7|-
+
+# --- C# ---------------------------------------------------------------------
+csharp-quickstart|dotnet,zerodds-src,zerodds-cdylib|run|dotnet build --verbosity quiet -o out && cp "$ZERODDS_LIB" out/ && dotnet out/csharp-quickstart.dll|-|-
+csharp-async|dotnet,zerodds-src,zerodds-cdylib|run|dotnet build --verbosity quiet -o out && cp "$ZERODDS_LIB" out/ && dotnet out/csharp-async.dll|-|-
+csharp-typed|dotnet,zerodds-src,zerodds-cdylib|run|dotnet build --verbosity quiet -o out && cp "$ZERODDS_LIB" out/ && dotnet out/csharp-typed.dll|-|-
+
+# --- Java -------------------------------------------------------------------
+java-quickstart-bytes|java,javac,zerodds-jar,zerodds-cdylib|run|javac -cp "$ZERODDS_JAR" -d out App.java && java -cp "out:$ZERODDS_JAR" App|got: hello|-
+java-typed-temperature|java,javac,zerodds-jar,zerodds-cdylib|run|javac -cp "$ZERODDS_JAR" -d out App.java sensor_msgs/msg/*.java && java -cp "out:$ZERODDS_JAR" App|-|-
+java-omgpsm-pose|java,javac,zerodds-jar,zerodds-cdylib|run|javac -cp "$ZERODDS_JAR" -d out App.java Pose.java && java -cp "out:$ZERODDS_JAR" App|-|-
+java-union-codegen-illustration|java,javac|run|javac -d out src/*.java && java -cp out Smoke|-|-
+
+# --- Python -----------------------------------------------------------------
+python-hello-bytes|python3,maturin-installed|run|python3 hello.py|-|-
+python-idl-struct|python3,maturin-installed|run|python3 temp.py|sensor_id='A7'|-
+python-qos-writer|python3,maturin-installed|run|python3 qos_writer.py|-|-
+python-aio|python3,maturin-installed|run|python3 async_chatter.py|-|-
+
+# --- TypeScript / Node ------------------------------------------------------
+typescript-node-quickstart|node,npm,ts-node-build|run|npm run typecheck && npm run start|-|-
+typescript-node-typed|node,npm,ts-node-build|run|npm run typecheck && npm run start|-|-
+typescript-node-async|node,npm,ts-node-build|run|npm run typecheck && tsx src/run.ts|-|-
+typescript-node-website-snippet|node,npm,ts-node-build|build|tsc --noEmit -p tsconfig.json|-|The three files are the website's snippets verbatim and have no main. `tsc --noEmit` against the real @zerodds/node types is the whole check, and this run performed it.
+typescript-wasm-quickstart|node,npm,ts-wasm-build|run|npm install --silent --no-audit --no-fund --install-links=false && npm run typecheck && npm run build && npm run start|got: hello from browser|-
+typescript-wasm-vite-config|node,npm|build|tsc --noEmit -p tsconfig.json|-|A Vite configuration, not a program. `tsc --noEmit` is the whole check, and this run performed it.
+typescript-wasm-website-snippet|node,npm,ts-wasm-build|build|tsc --noEmit -p tsconfig.json|-|The website's browser snippet verbatim; running it needs a DOM. `tsc --noEmit` is the whole check, and this run performed it.
+
+# --- Conformance corpora ----------------------------------------------------
+idl-conformance|cargo,zerodds-src|run|cd rust && cargo run --quiet|OK: DCPS pub->sub roundtrip recovered the sample|-
+idl-conformance/_interop|cargo,cc,c++,make,java,javac,dotnet,python3,node,npm,zerodds-src,zerodds-jar,ts-node-build|run|./verify.sh|ALL LANGUAGES CONFORM TO THE GOLDEN|Rust, C, C++, C#, Java, Python and TypeScript encode the eleven features of features.idl from freshly generated code, byte for byte the Rust column's goldens, and each decodes them back.
+idl-conformance/python|python3,maturin-installed,cargo,zerodds-src|run|./run.sh|ALL ROUNDTRIPS PASSED|combo::Telemetry, generated by zerodds-idlc, written and read back over a DCPS participant twice (optional present and absent, two union cases); each sample is compared whole with ==.
+idl-conformance/typescript|node,npm,ts-node-build,cargo,zerodds-src|run|./run.sh|ROUNDTRIP OK|combo::Telemetry, generated by zerodds-idlc, type-checked with tsc and written and read back over a DCPS participant through @zerodds/node; the sample is compared with assert.deepEqual.
+idl-conformance/java|java,javac,cargo,zerodds-src,zerodds-jar|run|./build-and-run.sh|JAVA_EXAMPLE_PASS|combo::Telemetry, generated by zerodds-idlc --lang java, encoded and decoded in both byte orders and written and taken through the in-process DDS API twice (optional present and absent).
+idl-conformance/csharp|dotnet,cargo,zerodds-src,zerodds-cdylib|run|./run.sh|ROUNDTRIP PASS|confcombo::Telemetry, generated by zerodds-idlc --lang c#, written and read back over a native DDS participant twice (optional present and absent, active and default union branch); every field is compared.
+idl-conformance/cpp|c++,make,cargo,zerodds-src|run|./build.sh|ROUNDTRIP OK|combo::Telemetry, generated by zerodds-idlc --lang c++, written through TypedWriter and taken through TypedReader over a ZeroDDS participant twice (optional present and absent, active and default union case); every field is compared.
+idl-conformance/_qos/rust|cargo,zerodds-src|run|cargo run --quiet|ALL 9 QOS CHECKS VERIFIED|RELIABILITY, DURABILITY, HISTORY, DEADLINE, LIVELINESS, OWNERSHIP, PARTITION, a ContentFilteredTopic and the keyed instance lifecycle, each observed over two DCPS participants in the Rust binding.
+idl-conformance/_qos/python|python3,maturin-installed,cargo,zerodds-src|run|./run.sh|ALL 9 QOS CHECKS VERIFIED|The same nine QoS and lifecycle checks through the Python binding, over a Reading type generated by zerodds-idlc.
+idl-conformance/_qos/typescript|node,npm,ts-node-build,cargo,zerodds-src|run|./run.sh|ALL 9 QOS CHECKS VERIFIED|The nine QoS and lifecycle checks through @zerodds/node, over a Reading type generated by zerodds-idlc --lang typescript.
+idl-conformance/_qos/java|java,javac,cargo,zerodds-src,zerodds-jar|run|./build-and-run.sh|ALL 9 QOS CHECKS VERIFIED|The nine QoS and lifecycle checks through the org.omg.dds Java binding, over a Reading type generated by zerodds-idlc --lang java.
+idl-conformance/_qos/csharp|dotnet,cargo,zerodds-src,zerodds-cdylib|run|./run.sh|ALL 14 QOS CHECKS VERIFIED|The QoS and keyed-lifecycle checks through the C# binding (fourteen, the lifecycle split into alive, dispose and unregister), over a Reading type generated by zerodds-idlc --lang c#.
+idl-conformance/_qos/cpp|c++,make,cargo,zerodds-src|run|./build.sh|SUMMARY: 24/24|The QoS and keyed-lifecycle checks through the DDS-PSM-Cxx headers (24 assertions), over a Reading type generated by zerodds-idlc --lang c++.
+idl-conformance/proofs/keyhash|cargo,zerodds-src|run|cargo run --quiet -- --check|ALL 5 KEYHASHES MATCH THE RECORDED VENDOR VALUES|Five keyed instances' 16-byte KeyHash against the values recorded from Cyclone DDS, RTI Connext (wire) and Fast DDS, including a bounded string<8> key.
+idl-conformance/proofs/typesystem|cargo,zerodds-src|run|cargo run --quiet -- --check|ALL VENDOR COMPARISONS AS RECORDED|Six type-system constructs' XCDR2-LE bytes against recorded Cyclone, RTI and Fast DDS encodings; the six vendor splits the README explains are listed, anything else fails.
+idl-conformance/proofs/typeobject|cargo,zerodds-src|run|cargo run --quiet -- --check|ALL VENDOR COMPARISONS AS RECORDED|Eight types' MINIMAL and COMPLETE TypeObjects and hashes against recorded Cyclone, RTI and Fast DDS objects; the vendor splits the README explains are listed, anything else fails.
+idl-conformance/proofs/endianness|cargo,make,zerodds-src|run|make -s roundtrip|RT   mapenum xcdr1-be OK|Seven features encoded and decoded back in XCDR2 and XCDR1, little- and big-endian (28 round trips).
+idl-conformance/proofs/structural|-|run|cmp out/mapenum.xcdr2-le.fastdds.bin ../../_interop/goldens/mapenum.golden.bin && echo MAPENUM GOLDEN IS FAST DDS BYTE FOR BYTE|MAPENUM GOLDEN IS FAST DDS BYTE FOR BYTE|The 52-byte MapEnum golden every ZeroDDS binding encodes (_interop) against the bytes the fastddsgen-generated serialize() recorded.
+idl-conformance/proofs/opcua-uadp|cargo,zerodds-src|run|cd "$ZERODDS_SRC" && cargo test -q -p zerodds-opcua-pubsub --lib uadp_byte_identical_to_open62541|test result: ok. 1 passed|The UADP NetworkMessage vectors of goldens.txt, recorded from open62541 1.5, against ZeroDDS's encoder; the gate is the named test in crates/opcua-pubsub.
+idl-fixed-decimal|cargo,zerodds-src|build|cargo run --quiet --manifest-path "$ZERODDS_SRC/Cargo.toml" --bin zerodds-idlc -- check fixed.idl|0 error|fixed.idl and prose, no program. What this run checks is that the frontend still accepts a fixed<P,S> member — the octets the page states are asserted in the main repository, and the cross-ORB anchors are JacORB and omniORB captures.
+
+# --- Tools and workflows ----------------------------------------------------
+zerodds-router-quickstart|cargo,zerodds-src|run|cargo run --quiet --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-routing-service --bin zerodds-router -- validate --routes router.json|2 route(s)|-
+decoded-recorder|cargo,zerodds-src,python3|run|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy -p zerodds-record -p zerodds-replay && (cd publisher && cargo build --quiet --release) && bash run.sh|RESULT: PASS|run.sh starts its own writer (publisher/), then checks spy, the three recorded forms and the replay of each against the count written.
+recorder-replay-workflow|cargo,zerodds-src|run|./run.sh|PASS — captured once, replayed from all 3 formats|run.sh starts its own ShapesDemo publisher on domain 0, records six seconds with --decode into .zddsrec, SQLite and NDJSON, and replays each onto domain 1.
+native-endpoint-sdk|cc,java,javac,python3,cargo,zerodds-src|run|./run.sh|OK: publish 3/3 + receive 3/3|C/Python/Java against one Rust hub, every SensorReading field checked in both directions, bounded reads and fail-closed subprocesses.
+idlc-dlrl|cargo,zerodds-src,tsc,node|run|bash run.sh|DLRL TYPESCRIPT OK|run.sh builds zerodds-idlc from the checkout, generates the TypeScript DLRL classes from trade.idl and runs use.ts against them after tsc --strict.
+webdds-gateway|cargo,zerodds-src,curl|run|bash run.sh|WEBDDS GATEWAY OK: HTTP->DDS 6 of 6, DDS->HTTP 3 of 3|run.sh builds the gateway from the checkout, starts it and its own DDS side, and writes and reads over REST and SOAP.
+rmw-spatial-bridge|cargo,zerodds-src,python3,ros2-rmw-zerodds|run|bash run.sh|SPATIAL BRIDGE OK|The bridge runs inside rmw_zerodds_cpp in a ROS 2 node; run.sh starts that node and the SpatialDDS side for each direction and requires every pose written to arrive.
+
+# --- Cross-vendor: a second implementation has to be on the wire ------------
+cross-vendor-shapes|cargo,zerodds-src|build|cd zerodds && cargo build --quiet --release|-|The ZeroDDS side the five legs share, generated from ShapeType.idl. Each leg is a row of its own: cross-vendor-shapes/cyclone, /fastdds, /opendds, /opensplice and /rti.
+cross-vendor-rich|cargo,zerodds-src|build|cd zerodds && cargo build --quiet --release|-|The ZeroDDS side of the three members under @final/@appendable/@mutable. Each leg is a row of its own: cross-vendor-rich/cyclone, /fastdds, /opendds, /opensplice and /rti.
+cross-vendor-dynamic-xtypes|cargo,zerodds-src|build|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy|-|Resolving a foreign vendor's type with no compiled Rust type behind it needs the foreign vendor. Each leg is a row of its own: cross-vendor-dynamic-xtypes/cyclone, /fastdds, /opendds and /rti.
+cross-vendor-shapes/rti|cargo,zerodds-src,rti-connext|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
+cross-vendor-rich/rti|cargo,zerodds-src,rti-connext|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
+cross-vendor-dynamic-xtypes/rti|cargo,zerodds-src,rti-connext|run|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy && bash run.sh|RESULT: PASS|-
+cross-vendor-shapes/cyclone|cargo,zerodds-src,cyclone-py|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
+cross-vendor-shapes/fastdds|cargo,zerodds-src,fastdds,cmake,c++|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
+cross-vendor-shapes/opendds|cargo,zerodds-src,opendds,cmake,c++|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
+cross-vendor-shapes/opensplice|cargo,zerodds-src,opensplice,c++|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|OpenSplice has no XTypes; run.sh builds its peer from a keylist copy of ShapeType.idl.
+cross-vendor-rich/cyclone|cargo,zerodds-src,cyclone-py|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
+cross-vendor-rich/fastdds|cargo,zerodds-src,fastdds,cmake,c++|run|bash run.sh|RESULT: PASS|run.sh builds the ZeroDDS side itself, in Fast DDS's CDR dialect, into a target directory of its own.
+cross-vendor-rich/opendds|cargo,zerodds-src,opendds,cmake,c++|run|bash run.sh|RESULT: PASS|run.sh builds the ZeroDDS side itself, in the dialect ZD_DIALECT names, into a target directory of its own.
+cross-vendor-rich/opensplice|cargo,zerodds-src,opensplice,c++|run|bash run.sh|RESULT: PASS|OpenSplice has no extensibility kinds: the @final cell only, both directions. run.sh builds the ZeroDDS side itself.
+cross-vendor-dynamic-xtypes/cyclone|cargo,zerodds-src,cyclone-c,cc|run|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy && bash run.sh|RESULT: PASS|-
+cross-vendor-dynamic-xtypes/fastdds|cargo,zerodds-src,fastdds,cmake,c++|run|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy && bash run.sh|RESULT: PASS|-
+cross-vendor-dynamic-xtypes/opendds|cargo,zerodds-src,opendds,cmake,c++|run|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy && bash run.sh|RESULT: PASS|-
+iceoryx-cyclone-zerocopy|cc,cargo,zerodds-src,linux,iceoryx-psmx|run|bash run.sh|bidirectional ZeroDDS <-> Cyclone iceoryx SHM — PASS|Bidirectional zero-copy through an iceoryx shared-memory segment; run.sh starts RouDi and both Cyclone programs.
+
+# --- One per crate page on the website: docs/<name>.html ---------------------
+# Each of these makes the "Usage" snippet of one website page runnable and
+# checks what it printed. The page each one belongs to is in its README, and
+# the page links back to the directory.
+crate-amqp-bridge|cargo,zerodds-src|run|cargo run --quiet|amqp-bridge: 2 bytes on the wire, decoded Long(42)|-
+crate-amqp-endpoint|cargo,zerodds-src|run|cargo run --quiet|amqp-endpoint: link settled, pending_settlements = 0|-
+crate-bridge-security|cargo,zerodds-src|run|cargo run --quiet|bridge-security: allow_all().check(alice, Write, /topics/trade) = true|-
+crate-coap-bridge|cargo,zerodds-src|run|cargo run --quiet|coap-bridge: 4 bytes on the wire, decoded code CoapCode { class: 0, detail: 1 }|-
+crate-corba-codegen|cargo,zerodds-src|run|cargo run --quiet|corba-codegen: IDL:MyModule/MyInterface:1.0|-
+crate-discovery|cargo,zerodds-src|run|cargo run --quiet|discovery: SPDP beacon is 172 bytes|-
+crate-flatdata|cargo,zerodds-src|run|cargo run --quiet|flatdata: 24 bytes per slot, roundtripped Pose { x: 1.0, y: 2.0, z: 3.0 }|-
+crate-flatdata-derive|cargo,zerodds-src|run|cargo run --quiet|flatdata-derive: Pose WIRE_SIZE = 24, TYPE_HASH = 46a24a612f7ea2a3ade887ca4cc74a34|-
+crate-foundation|cargo,zerodds-src|run|cargo run --quiet|foundation: crc32c("123456789") = 0xe3069283|-
+crate-grpc-bridge|cargo,zerodds-src|run|cargo run --quiet|grpc-bridge: 15 bytes framed, flag 0, payload "hello-grpc"|-
+crate-hpack|cargo,zerodds-src|run|cargo run --quiet|hpack: 3 header fields in 27 bytes, roundtripped|-
+crate-http2|cargo,zerodds-src|run|cargo run --quiet|http2: 17 bytes consumed, frame type Ping|-
+crate-lint|cargo,zerodds-src|run|./run.sh|lint: 2 errors without the pragmas, 0 with them|-
+crate-monitor|cargo,zerodds-src|run|cargo run --quiet|monitor: traceparent roundtripped through 68 bytes of inline QoS|-
+crate-mqtt-bridge|cargo,zerodds-src|run|cargo run --quiet|mqtt-bridge: both wildcard filters matched|-
+crate-rpc|cargo,zerodds-src|run|cargo run --quiet|rpc: Calculator(1, 2) = 3|-
+crate-security-keyexchange|cargo,zerodds-src|run|cargo run --quiet|security-keyexchange: both sides derived the same 32-byte secret|-
+crate-sql-filter|cargo,zerodds-src|run|cargo run --quiet|sql-filter: "color = %0 AND x > 10" evaluated to true|-
+crate-time-service|cargo,zerodds-src|run|cargo run --quiet|time-service: now vs now+1ms compares LessThan|-
+crate-transport-tcp|cargo,zerodds-src|run|cargo run --quiet|transport-tcp: payload roundtripped|-
+crate-transport-tsn|cargo,zerodds-src|run|cargo run --quiet|transport-tsn: 802.1Q tag on the wire = [81, 00, c0, 64], roundtripped pcp=6 vid=100|-
+crate-transport-udp|cargo,zerodds-src|run|cargo run --quiet|transport-udp: joined 239.255.0.1|-
+crate-transport-uds|cargo,zerodds-src|run|cargo run --quiet|transport-uds: 4 bytes back over the unix socket|-
+crate-types|cargo,zerodds-src|run|cargo run --quiet|types: Int32 writer and Int32 reader match|-
+crate-websocket-bridge|cargo,zerodds-src|run|cargo run --quiet|websocket-bridge: Sec-WebSocket-Accept = s3pPLMBiTxaQ9kYGzzhZRbK+xOo=|-
+crate-xml|cargo,zerodds-src|run|cargo run --quiet|xml: parse_xml_tree root element = "dds"|-
+crate-xml-wire|cargo,zerodds-src|run|cargo run --quiet|xml-wire: decoded type Temperature, 1 field(s), roundtripped|-
+crate-zenoh-bridge|cargo,zerodds-src|run|cargo run --quiet|zenoh-bridge: key expression = fleet/VehicleTracking.TrackUpdate|-
+crate-rt-linux|cargo,zerodds-src,linux|run|cargo run --quiet|rt-linux: this thread is pinned to CPUs|-
+
+# --- Native language frontends: idlc-typed samples through an endpoint SDK ---
+native-frontends|cargo,go,zerodds-src|run|cd go && ./run.sh|OK: ping-pong (sync+async) + reliable|Fresh generated Go codec + shared wire runtime; sync, async and 12-sample loss recovery measured on 2026-09-12. Other SDK languages are not examples in this directory.

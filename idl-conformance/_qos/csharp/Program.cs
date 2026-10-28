@@ -282,42 +282,62 @@ try
 catch (Exception e) { Q.Fatal("deadline", $"threw: {e.GetType().Name}: {e.Message}"); }
 
 // ----------------------------------------------------------------------
-// 5. LIVELINESS — writer stops asserting → reader liveliness-changed
-//    alive→not_alive.
+// 5. LIVELINESS — DDS 1.4 2.2.4.1 counts matched writers. An AUTOMATIC
+//    writer is alive from its match and leaves alive_count when it is
+//    deleted, without being counted not alive; a MANUAL_BY_TOPIC writer
+//    that stops writing is counted not alive once its lease runs out.
 // ----------------------------------------------------------------------
 try
 {
     var topic = Topic(participant, "QLiveliness");
-    var dwq = new DataWriterQos
-    {
-        Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
-        Liveliness = new LivelinessPolicy(LivelinessKind.Automatic, Duration.FromMillis(400)),
-    };
     var drq = new DataReaderQos
     {
         Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
         Liveliness = new LivelinessPolicy(LivelinessKind.Automatic, Duration.FromMillis(400)),
     };
     using var r = new DataReader<Reading>(sub, topic, drq);
-    int aliveAfter, notAliveAfter;
+    ZeroDDS.Status.LivelinessChangedStatus matched, deleted;
     {
-        using var w = new DataWriter<Reading>(pub, topic, dwq);
+        using var w = new DataWriter<Reading>(pub, topic, new DataWriterQos
+        {
+            Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
+            Liveliness = new LivelinessPolicy(LivelinessKind.Automatic, Duration.FromMillis(400)),
+        });
+        w.WaitForMatched(1, Duration.FromSeconds(5));
+        r.WaitForMatched(1, Duration.FromSeconds(5));
+        System.Threading.Thread.Sleep(600);   // past the lease, without a write
+        matched = r.GetLivelinessChangedStatus();
+    }
+    System.Threading.Thread.Sleep(600);
+    deleted = r.GetLivelinessChangedStatus();
+
+    ZeroDDS.Status.LivelinessChangedStatus written, silent;
+    {
+        using var w = new DataWriter<Reading>(pub, topic, new DataWriterQos
+        {
+            Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
+            Liveliness = new LivelinessPolicy(LivelinessKind.ManualByTopic, Duration.FromMillis(200)),
+        });
         w.WaitForMatched(1, Duration.FromSeconds(5));
         r.WaitForMatched(1, Duration.FromSeconds(5));
         w.Write(new Reading { Id = 1, Seq = 0, Value = 0 });
-        System.Threading.Thread.Sleep(200);
-        var alive = r.GetLivelinessChangedStatus();
-        Console.WriteLine($"    (liveliness while writer alive: Alive={alive.AliveCount} NotAlive={alive.NotAliveCount})");
-        // Writer disposed here (leaves scope) → liveliness should drop.
+        System.Threading.Thread.Sleep(100);
+        written = r.GetLivelinessChangedStatus();
+        System.Threading.Thread.Sleep(600);
+        silent = r.GetLivelinessChangedStatus();
     }
-    System.Threading.Thread.Sleep(1200);
-    var after = r.GetLivelinessChangedStatus();
-    aliveAfter = after.AliveCount;
-    notAliveAfter = after.NotAliveCount;
-    if (notAliveAfter > 0 || after.NotAliveCountChange > 0)
-        Q.Verified("liveliness", $"liveliness dropped to not_alive after writer stopped (NotAlive={notAliveAfter})");
+    string seen = $"AUTOMATIC matched: {matched.AliveCount}/{matched.NotAliveCount} ({matched.AliveCountChange:+0;-0;0}), " +
+                  $"deleted: {deleted.AliveCount}/{deleted.NotAliveCount} ({deleted.AliveCountChange:+0;-0;0}); " +
+                  $"MANUAL_BY_TOPIC written: {written.AliveCount}/{written.NotAliveCount}, " +
+                  $"silent: {silent.AliveCount}/{silent.NotAliveCount} ({silent.NotAliveCountChange:+0;-0;0})";
+    Console.WriteLine($"    (alive/not_alive — {seen})");
+    if (matched.AliveCount == 1 && matched.NotAliveCount == 0 && matched.AliveCountChange == 1
+        && deleted.AliveCount == 0 && deleted.NotAliveCount == 0 && deleted.AliveCountChange == -1
+        && written.AliveCount == 1 && written.NotAliveCount == 0
+        && silent.AliveCount == 0 && silent.NotAliveCount == 1 && silent.NotAliveCountChange == 1)
+        Q.Verified("liveliness", seen);
     else
-        Q.Unsupported("liveliness", $"liveliness-changed never went not_alive (Alive={aliveAfter} NotAlive={notAliveAfter}) — lease expiry not signaled");
+        Q.Unsupported("liveliness", $"expected 1/0 (+1), 0/0 (-1), 1/0, 0/1 (+1); {seen}");
 }
 catch (Exception e) { Q.Fatal("liveliness", $"threw: {e.GetType().Name}: {e.Message}"); }
 
@@ -504,10 +524,14 @@ catch (Exception e) { Q.Fatal("content_filter", $"threw: {e.GetType().Name}: {e.
 try
 {
     var topic = Topic(participant, "QLifecycle");
+    // autodispose_unregistered_instances off: DDS 1.4 §2.2.3.21 defaults it to
+    // TRUE, and then unregister_instance disposes the instance, so the reader
+    // sees NOT_ALIVE_DISPOSED instead of NOT_ALIVE_NO_WRITERS.
     var dwq = new DataWriterQos
     {
         Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
         History = new HistoryPolicy(HistoryKind.KeepAll),
+        WriterDataLifecycle = new WriterDataLifecyclePolicy(AutodisposeUnregisteredInstances: false),
     };
     var drq = new DataReaderQos
     {
@@ -523,9 +547,8 @@ try
     w.Write(new Reading { Id = 100, Seq = 0, Value = 1.0 });
     w.Write(new Reading { Id = 200, Seq = 0, Value = 2.0 });
 
-    // The C-FFI take path hardcodes SampleInfo.instance_handle = 0 for every
-    // sample, so instances cannot be distinguished by handle. Distinguish by the
-    // decoded @key (Id) instead — the data itself proves multi-instance delivery.
+    // Distinguished by the decoded @key (Id), and each must have its own
+    // SampleInfo.InstanceHandle.
     var instanceKeys = new HashSet<int>();
     var handles = new HashSet<ulong>();
     const uint ALIVE = 1;
@@ -540,11 +563,10 @@ try
             if (s.Info.InstanceState == ALIVE) sawAlive = true;
         }
     }
-    bool multiInstance = instanceKeys.Count >= 2;
+    bool multiInstance = instanceKeys.Count >= 2 && handles.Count >= 2 && !handles.Contains(0);
     if (multiInstance && sawAlive)
         Q.Verified("lifecycle_alive",
-            $"2 key instances delivered (Id={string.Join(",", instanceKeys.OrderBy(x => x))}), both ALIVE" +
-            (handles.SequenceEqual(new ulong[] { 0 }) ? " — NOTE: SampleInfo.InstanceHandle is hardcoded 0 in the C-FFI (instances indistinguishable by handle)" : ""));
+            $"2 key instances delivered (Id={string.Join(",", instanceKeys.OrderBy(x => x))}), both ALIVE, with handles {string.Join(",", handles.OrderBy(x => x))}");
     else
         Q.Partial("lifecycle_alive", $"distinct keys={instanceKeys.Count} sawAlive={sawAlive}");
 
@@ -577,14 +599,27 @@ try
         Q.Unsupported("lifecycle_dispose",
             "DisposeInstance() called but reader never observed NOT_ALIVE_DISPOSED");
 
-    // unregister_instance: dispose then unregister the other key; the API must
-    // at least round-trip without error (NOT_ALIVE_NO_WRITERS arrival is timing-
-    // sensitive on loopback, so the strong assertion stays on dispose above).
+    // unregister_instance on the other key: the reader must see the instance
+    // go NOT_ALIVE_NO_WRITERS.
+    const uint NOT_ALIVE_NO_WRITERS = 4;
     try
     {
         var other = new Reading { Id = 200, Seq = 0, Value = 2.0 };
         w.UnregisterInstance(other);
-        Q.Verified("lifecycle_unregister", "unregister_instance(Id=200) round-tripped via the binding");
+        bool sawNoWriters = false;
+        var swU = Stopwatch.StartNew();
+        while (!sawNoWriters && swU.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            if (!r.WaitForData(TimeSpan.FromMilliseconds(400))) continue;
+            foreach (var s in r.Take())
+            {
+                if (s.Info.InstanceState == NOT_ALIVE_NO_WRITERS) sawNoWriters = true;
+            }
+        }
+        if (sawNoWriters)
+            Q.Verified("lifecycle_unregister", "unregister_instance(Id=200) delivered NOT_ALIVE_NO_WRITERS to the reader");
+        else
+            Q.Unsupported("lifecycle_unregister", "UnregisterInstance() called but reader never observed NOT_ALIVE_NO_WRITERS");
     }
     catch (Exception ue)
     {
@@ -593,18 +628,20 @@ try
 }
 catch (Exception e) { Q.Fatal("lifecycle", $"threw: {e.GetType().Name}: {e.Message}"); }
 
-Console.WriteLine($"\n== SUMMARY: {Q.Pass} observed-OK, {Q.Fail} hard-failures ==");
-Environment.Exit(Q.Fail == 0 ? 0 : 1);
+Console.WriteLine($"\n== SUMMARY: {Q.Pass} verified, {Q.NotVerified} not verified ==");
+if (Q.NotVerified != 0) Environment.Exit(1);
+Console.WriteLine($"ALL {Q.Pass} QOS CHECKS VERIFIED");
+Environment.Exit(0);
 
 static class Q
 {
-    public static int Pass, Fail;
+    public static int Pass, NotVerified;
     public static void Verified(string name, string detail)
     { Console.WriteLine($"  VERIFIED    {name,-14} {detail}"); Pass++; }
     public static void Partial(string name, string detail)
-    { Console.WriteLine($"  PARTIAL     {name,-14} {detail}"); Pass++; }
+    { Console.WriteLine($"  PARTIAL     {name,-14} {detail}"); NotVerified++; }
     public static void Unsupported(string name, string detail)
-    { Console.WriteLine($"  UNSUPPORTED {name,-14} {detail}"); }
+    { Console.WriteLine($"  UNSUPPORTED {name,-14} {detail}"); NotVerified++; }
     public static void Fatal(string name, string detail)
-    { Console.WriteLine($"  FAIL        {name,-14} {detail}"); Fail++; }
+    { Console.WriteLine($"  FAIL        {name,-14} {detail}"); NotVerified++; }
 }

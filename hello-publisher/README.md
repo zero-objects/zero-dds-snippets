@@ -10,11 +10,11 @@ In the demo dir:
 cargo run
 ```
 
-No features to enable. Depends only on `zerodds-dcps` (`1.0.0-rc.3`, from crates.io). Being offline, it needs no peer — it just constructs the entities and writes.
+No features to enable. Depends only on `zerodds-dcps` (`1.0.0-rc.6`, from crates.io). Being offline, it needs no peer — it just constructs the entities and writes.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[User guide](https://zerodds.de/docs/user-guide/)**.
+- Explained on the website: [User Guide](https://zerodds.org/docs/user-guide/)
+- This example in the repository: [zero-dds-snippets/hello-publisher](https://github.com/zero-objects/zero-dds-snippets/tree/main/hello-publisher)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

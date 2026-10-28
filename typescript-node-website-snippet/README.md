@@ -4,7 +4,9 @@ The verbatim `@zerodds/node` code blocks as they appear on the website, kept her
 they stay type-correct against the real binding. `hello.ts` is the bytes pub/sub
 quickstart, `async.ts` is the `writeAsync`/`takeAsync`/`streamSamples` block (using
 `declare`d `DataWriter`/`DataReader`), and `typed.ts` plus `gen/temperature.ts` is the
-typed-topic block over the codegen-emitted `Temperature` TypeSupport. This is a pure
+typed-topic block over the codegen-emitted `Temperature` TypeSupport — with the import
+rc.7's generator needs (`sensor_msgs.msg`, the IDL modules as namespaces), where the
+website still imports both names flat. This is a pure
 `tsc --noEmit` type-check fixture — no runtime, no `package.json`.
 
 ## Build & run
@@ -24,7 +26,7 @@ npx tsc --noEmit -p tsconfig.json   # checks hello.ts, async.ts, typed.ts
 
 ## Reference
 
-These are the verbatim website snippets; see the
-**[bindings overview](https://zerodds.de/bindings/)**.
+- Explained on the website: [TypeScript (Node.js)](https://zerodds.org/bindings/typescript-node/)
+- This example in the repository: [zero-dds-snippets/typescript-node-website-snippet](https://github.com/zero-objects/zero-dds-snippets/tree/main/typescript-node-website-snippet)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

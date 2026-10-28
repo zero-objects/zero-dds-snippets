@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from cyclonedds.domain import DomainParticipant
 from cyclonedds.idl import IdlStruct
 from cyclonedds.idl.annotations import keylist
-from cyclonedds.idl.types import bounded_str, int32
+from cyclonedds.idl.types import int32
 from cyclonedds.pub import DataWriter, Publisher
 from cyclonedds.topic import Topic
 
@@ -31,7 +31,7 @@ from cyclonedds.topic import Topic
 @keylist(["color"])
 @dataclass
 class ShapeType(IdlStruct, typename="ShapeType"):
-    color: bounded_str[128] = ""
+    color: str = ""
     x: int32 = 0
     y: int32 = 0
     shapesize: int32 = 0

@@ -1,0 +1,9 @@
+[package]
+name = "crate-sql-filter"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-sql-filter = { path = "../../crates/sql-filter" }

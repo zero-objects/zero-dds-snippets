@@ -1,7 +1,11 @@
 import { DomainParticipantFactory } from '@zerodds/node';
 
 // use it
-import { Temperature, TemperatureTypeSupport } from './gen/temperature';
+import { sensor_msgs } from './gen/temperature';
+
+// The generator nests IDL modules as namespaces.
+const { TemperatureTypeSupport } = sensor_msgs.msg;
+type Temperature = sensor_msgs.msg.Temperature;
 
 async function main() {
     const participant = DomainParticipantFactory.instance().createParticipant(0);

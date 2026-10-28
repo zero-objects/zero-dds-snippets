@@ -5,7 +5,11 @@ module telemetry {
   @appendable struct Reading {
     @key long       sensor_id;
     string          name;
-    Unit            unit;
+    // Scoped: a bare `Unit` here would introduce `Unit` into this scope,
+    // where it collides with the member `unit` (IDL 4.2 §7.2.2 compares
+    // identifiers without regard to case). A scoped name introduces only
+    // its first identifier.
+    telemetry::Unit unit;
     double          value;
     sequence<long>  history;
   };

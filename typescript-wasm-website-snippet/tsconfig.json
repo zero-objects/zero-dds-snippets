@@ -7,7 +7,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "lib": ["ES2022", "DOM"]
+    "lib": ["ES2022", "DOM"],
+    "paths": {
+      "@zerodds/wasm": ["../../crates/ts-wasm/dist/index.d.ts"]
+    }
   },
   "include": ["*.ts"]
 }

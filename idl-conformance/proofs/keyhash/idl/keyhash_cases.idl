@@ -59,4 +59,12 @@ module keyhash {
     long           payload;
   };
 
+  // ---- Case (e): @key string<8>: the bounded maximum (4 + 8 + 1 = 13
+  //               octets) is <= 16, so XTypes 1.3 §7.6.8 zero-pads the key
+  //               holder instead of hashing it (README finding F1).
+  @final
+  struct BoundedKey {
+    @key string<8> code;
+    long           payload;
+  };
 };

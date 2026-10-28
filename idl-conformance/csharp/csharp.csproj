@@ -2,8 +2,13 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GeneratedDirectory Condition="'$(GeneratedDirectory)' == ''">$(MSBuildThisFileDirectory)generated</GeneratedDirectory>
+    <NativeLibraryDirectory Condition="'$(NativeLibraryDirectory)' == ''">$(MSBuildThisFileDirectory)../../../target/debug</NativeLibraryDirectory>
     <RollForward>LatestMajor</RollForward>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>idl-conformance-csharp</AssemblyName>
@@ -11,29 +16,33 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../crates/cs/csharp/ZeroDDS/ZeroDDS.csproj" />
+    <ProjectReference Include="../../../runtime/csharp/ZeroDds.Wire.csproj" />
   </ItemGroup>
 
-  <!-- Generated type(s) + shim + program compile; the .idl source must not. -->
+  <!-- Fresh codec + production TypeSupport, generated into generated/ by
+       run.sh on every run. -->
   <ItemGroup>
-    <None Include="conformance_combo.idl" />
+    <Compile Include="Program.cs" />
+    <Compile Include="$(GeneratedDirectory)/conformance_combo.cs" />
+    <Compile Include="$(GeneratedDirectory)/conformance_combo.TypeSupport.cs" />
   </ItemGroup>
 
   <!-- macOS SIP strips DYLD_LIBRARY_PATH from the dotnet host, so the native
        libzerodds.dylib (already built by the workspace) is copied next to the
        managed assembly where the P/Invoke loader will find it. -->
   <ItemGroup>
-    <None Include="../../../target/debug/libzerodds.dylib"
-          Condition="Exists('../../../target/debug/libzerodds.dylib')">
+    <None Include="$(NativeLibraryDirectory)/libzerodds.dylib"
+          Condition="Exists('$(NativeLibraryDirectory)/libzerodds.dylib')">
       <Link>libzerodds.dylib</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="../../../target/debug/libzerodds.so"
-          Condition="Exists('../../../target/debug/libzerodds.so')">
+    <None Include="$(NativeLibraryDirectory)/libzerodds.so"
+          Condition="Exists('$(NativeLibraryDirectory)/libzerodds.so')">
       <Link>libzerodds.so</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="../../../target/debug/zerodds.dll"
-          Condition="Exists('../../../target/debug/zerodds.dll')">
+    <None Include="$(NativeLibraryDirectory)/zerodds.dll"
+          Condition="Exists('$(NativeLibraryDirectory)/zerodds.dll')">
       <Link>zerodds.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

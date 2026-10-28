@@ -1,0 +1,10 @@
+// ShapeType of ../ShapeType.idl for OpenSplice 6.9's idlpp, which reads keys
+// only through `#pragma keylist` and takes no annotations. A struct of these
+// four members has the same XCDR1 bytes as the @final original.
+struct ShapeType {
+  string color;
+  long x;
+  long y;
+  long shapesize;
+};
+#pragma keylist ShapeType color

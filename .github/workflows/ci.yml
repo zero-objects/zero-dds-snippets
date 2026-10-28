@@ -5,51 +5,98 @@ on:
   schedule:
     - cron: '0 6 * * 1'   # weekly: catch crates.io drift even without a push
 
+# Two lanes, because they answer two different questions.
+#
+#   run          Does the example still work? It builds every example against
+#                the ZeroDDS source and RUNS it, checking what it printed.
+#                This is the lane that can fail for a real reason.
+#   crates-io    Does the example still work for a reader who has no checkout,
+#                only the published crates? Compile-only against crates.io.
+#
+# A compiled example proves the API names still exist. It does not prove a
+# sample crossed the wire or that a round-trip is lossless. That is why the
+# `run` lane exists and why it comes first.
+
 jobs:
-  build:
-    name: build examples (crates.io)
+  run:
+    name: build and run (against the ZeroDDS source)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with: { path: zero-dds-snippets }
+      # The examples' path deps reach into ../../crates, so the ZeroDDS tree
+      # has to sit beside this repository under the name the paths expect.
+      - uses: actions/checkout@v5
+        with:
+          repository: zero-objects/zero-dds
+          path: zero-dds
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install zerodds-idlc CLI (idlc-buildrs shells out to it)
-        # `^` matters here: `cargo install --version X` without an operator
-        # pins the exact version X, while `cargo install --version ^X`
-        # resolves like a Cargo.toml dependency requirement (highest
-        # matching pre-release). The rewrite below uses the latter form
-        # implicitly (Cargo.toml deps default to caret), so this uses the
-        # same explicit `^1.0.0-rc.4` to stay resolved to the same rc.
-        run: cargo install zerodds-idlc --version "^1.0.0-rc.4"
+      - name: Build the C ABI shared library the C/C++/C#/Java examples link
+        working-directory: zero-dds
+        run: cargo build -p zerodds-c-api --release
+      - name: Build and run every example
+        working-directory: zero-dds-snippets
+        env:
+          ZERODDS_SRC: ${{ github.workspace }}/zero-dds
+        run: ci/run-examples.sh
+
+  crates-io:
+    name: build against the published crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
       - name: Build every cargo example against the published crates
         run: |
-          set -e
-          # The examples carry monorepo path-deps (../../crates, ../../tools) for
-          # local development inside the zerodds checkout. Outside the monorepo
-          # those paths don't exist, so for the public repo we build them against
-          # the published crates.io versions: rewrite `path = "../../{crates,tools}/X"`
-          # to `version = "1.0.0-rc.4"` before building. Compile-only (cargo build):
-          # running the pub/sub examples needs live DDS infra not present in CI.
+          set -euo pipefail
+
+          # The release the examples are pinned to here. Bump it when a new
+          # rc is published, and check the loud-skip list below: crates that
+          # only exist from a later release keep their examples out of this
+          # lane until that release is on crates.io.
+          PUBLISHED=1.0.0-rc.6
+
+          # The examples carry monorepo path deps (../../crates, ../../tools)
+          # for local development inside the zerodds checkout. Outside the
+          # monorepo those paths do not exist, so this lane rewrites
+          # `path = "../../{crates,tools}/X"` to `version = "$PUBLISHED"`
+          # before building.
           find . -name Cargo.toml -not -path '*/target/*' -exec \
-            sed -i -E 's#path = "\.\./\.\./(crates|tools)/[^"]*"#version = "1.0.0-rc.4"#g' {} +
-          # zerodds-build-sample depends on crates/zerodds-build, a monorepo
-          # crate that exists on main but has never been published to
-          # crates.io (crates.io API for it: "crate `zerodds-build` does not
-          # exist"). The path-dep rewrite above can't turn that into a
-          # resolvable `version = ...` requirement, so this example can't
-          # build against crates.io yet — skip it loudly here, pending
-          # zerodds-build's first publish (tracked for the rc7 crates.io
-          # cut). Not a masked failure: every skip is logged as a warning.
-          UNPUBLISHED_DEP_EXAMPLES="zerodds-build-sample"
+            sed -i -E "s#path = \"\.\./\.\./(crates|tools)/[^\"]*\"#version = \"$PUBLISHED\"#g" {} +
+
+          # Examples whose dependencies do not exist on crates.io at
+          # $PUBLISHED, with the crate that is missing. These are NOT quiet
+          # skips: each prints a warning that names the crate and the reason,
+          # and the `run` lane above still builds and runs them against the
+          # source. Delete an entry when its crate is published.
+          #
+          #   zerodds-build, zerodds-wire  — added after the rc.6 tag; the
+          #     rc.6 tree has neither crates/zerodds-build nor crates/wire, so
+          #     `version = "1.0.0-rc.6"` cannot resolve for them.
+          UNPUBLISHED_DEP_EXAMPLES="
+            idlc-buildrs
+            zerodds-build-sample
+            rust-xcdr1-representation
+            rust-typed
+            rust-async-showcase
+            cross-vendor-rich
+          "
+
+          skipped=0
+          built=0
           for dir in */; do
             [ -f "$dir/Cargo.toml" ] || continue
             name="${dir%/}"
-            case " $UNPUBLISHED_DEP_EXAMPLES " in
+            case " $(echo $UNPUBLISHED_DEP_EXAMPLES) " in
               *" $name "*)
-                echo "::warning::skipping $name — depends on a crate not yet published to crates.io (see workflow comment)"
+                echo "::warning::$name is not in this lane — it needs zerodds-build / zerodds-wire, which crates.io does not have at $PUBLISHED. The 'run' lane builds and runs it against the source."
+                skipped=$((skipped + 1))
                 continue
                 ;;
             esac
             echo "::group::$dir"
             ( cd "$dir" && cargo build )
             echo "::endgroup::"
+            built=$((built + 1))
           done
+          echo "crates.io lane: $built example(s) built, $skipped named as out of lane."

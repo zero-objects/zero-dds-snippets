@@ -8,13 +8,12 @@
     "skipLibCheck": true,
     "lib": ["ES2022"],
     "types": ["node"],
+    "typeRoots": ["../../../crates/ts-node/node_modules/@types"],
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "baseUrl": ".",
     "paths": {
       "@zerodds/node": ["../../../crates/ts-node/dist/index.d.ts"],
-      "@zerodds/cdr": ["../../../crates/ts-node/dist/cdr/index.d.ts"],
-      "@zerodds/types": ["../../../crates/idl-ts/src/runtime/index.ts"]
+      "@zerodds/wire": ["../../../runtime/typescript/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*", "gen/**/*"]

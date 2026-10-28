@@ -1,0 +1,10 @@
+[package]
+name = "crate-flatdata-derive"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-flatdata = { path = "../../crates/flatdata" }
+zerodds-flatdata-derive = { path = "../../crates/flatdata-derive" }

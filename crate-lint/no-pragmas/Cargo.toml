@@ -1,0 +1,8 @@
+[package]
+name = "crate-lint-no-pragmas"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]

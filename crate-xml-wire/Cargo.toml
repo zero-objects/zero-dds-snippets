@@ -1,0 +1,9 @@
+[package]
+name = "crate-xml-wire"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-xml-wire = { path = "../../crates/zerodds-xml-wire" }

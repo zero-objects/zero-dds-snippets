@@ -20,6 +20,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         type_name: "Robot::Pose".into(),
         reliable: true, // = Reliability::Reliable
         durability: DurabilityKind::TransientLocal,
+        // DDS 1.4 §2.2.3.5: read only for TRANSIENT and PERSISTENT; the
+        // spec default here.
+        durability_service: DurabilityServiceQosPolicy::default(),
         deadline: DeadlineQosPolicy {
             period: Duration::from_millis(50),
         },
@@ -29,6 +32,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         liveliness: LivelinessQosPolicy {
             kind: LivelinessKind::Automatic,
             lease_duration: Duration::from_secs(2),
+        },
+        latency_budget: LatencyBudgetQosPolicy {
+            duration: Duration::from_millis(10),
+        },
+        destination_order: DestinationOrderQosPolicy {
+            kind: DestinationOrderKind::BySourceTimestamp,
+        },
+        presentation: PresentationQosPolicy {
+            access_scope: PresentationAccessScope::Topic,
+            coherent_access: true,
+            ordered_access: true,
         },
         ownership: OwnershipKind::Exclusive,
         ownership_strength: 100,

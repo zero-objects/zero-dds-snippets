@@ -22,7 +22,7 @@ npm run start       # tsx src/hello.ts
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[TypeScript / Node bindings](https://zerodds.de/bindings/typescript-node/)**.
+- Explained on the website: [TypeScript (Node.js)](https://zerodds.org/bindings/typescript-node/)
+- This example in the repository: [zero-dds-snippets/typescript-node-quickstart](https://github.com/zero-objects/zero-dds-snippets/tree/main/typescript-node-quickstart)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

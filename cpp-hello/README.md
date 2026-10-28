@@ -29,7 +29,7 @@ LD_LIBRARY_PATH=/path/to/zerodds/target/release ./hello
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[C++ bindings](https://zerodds.de/bindings/cpp/)**.
+- Explained on the website: [C++](https://zerodds.org/bindings/cpp/)
+- This example in the repository: [zero-dds-snippets/cpp-hello](https://github.com/zero-objects/zero-dds-snippets/tree/main/cpp-hello)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

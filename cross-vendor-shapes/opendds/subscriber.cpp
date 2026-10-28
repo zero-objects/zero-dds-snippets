@@ -1,4 +1,5 @@
 #include "ShapeTypeTypeSupportImpl.h"
+#include <ace/OS_NS_stdlib.h>
 #include <dds/DCPS/Marked_Default_Qos.h>
 #include <dds/DCPS/Service_Participant.h>
 #include <dds/DCPS/StaticIncludes.h>
@@ -13,7 +14,10 @@
 
 int ACE_TMAIN(int argc, ACE_TCHAR* argv[]) {
   DDS::DomainParticipantFactory_var dpf = TheParticipantFactoryWithArgs(argc, argv);
-  DDS::DomainParticipant_var dp = dpf->create_participant(0, PARTICIPANT_QOS_DEFAULT, 0, OpenDDS::DCPS::DEFAULT_STATUS_MASK);
+  // TheParticipantFactoryWithArgs took the -DCPS* arguments; the domain id
+  // is the first of what is left.
+  const int domain = argc > 1 ? ACE_OS::atoi(argv[1]) : 0;
+  DDS::DomainParticipant_var dp = dpf->create_participant(domain, PARTICIPANT_QOS_DEFAULT, 0, OpenDDS::DCPS::DEFAULT_STATUS_MASK);
   ShapeTypeTypeSupport_var ts = new ShapeTypeTypeSupportImpl;
   ts->register_type(dp, "");
   CORBA::String_var tn = ts->get_type_name();
@@ -21,7 +25,7 @@ int ACE_TMAIN(int argc, ACE_TCHAR* argv[]) {
   DDS::Subscriber_var sub = dp->create_subscriber(SUBSCRIBER_QOS_DEFAULT, 0, OpenDDS::DCPS::DEFAULT_STATUS_MASK);
   DDS::DataReader_var dr = sub->create_datareader(topic, DATAREADER_QOS_DEFAULT, 0, OpenDDS::DCPS::DEFAULT_STATUS_MASK);
   ShapeTypeDataReader_var r = ShapeTypeDataReader::_narrow(dr);
-  std::cout << "[opendds-sub] Topic=Square Domain=0" << std::endl;
+  std::cout << "[opendds-sub] Topic=Square Domain=" << domain << std::endl;
   for (int i = 0; i < 200; ++i) {
     ShapeType s; DDS::SampleInfo info;
     while (r->take_next_sample(s, info) == DDS::RETCODE_OK) {

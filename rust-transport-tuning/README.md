@@ -14,7 +14,7 @@ The `same-host-shm` and `same-host-uds` features on `zerodds-dcps` (which gate `
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Transport tuning](https://zerodds.de/topics/transport-tuning/)**.
+- Explained on the website: [Transport-Tuning Cookbook](https://zerodds.org/topics/transport-tuning/)
+- This example in the repository: [zero-dds-snippets/rust-transport-tuning](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-transport-tuning)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

@@ -17,7 +17,7 @@ Expect `OK: A(7) / U8.A.a()=42`.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[ZeroDDS Java binding](https://zerodds.de/bindings/java/)** (Java-8-Compat-Mode section).
+- Explained on the website: [Java](https://zerodds.org/bindings/java/)
+- This example in the repository: [zero-dds-snippets/java-union-codegen-illustration](https://github.com/zero-objects/zero-dds-snippets/tree/main/java-union-codegen-illustration)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

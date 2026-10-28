@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include "zerodds_endpoint.h"
@@ -30,6 +31,12 @@ int main(int argc, char **argv)
     if (argc < 2) { fprintf(stderr, "usage: %s <port>\n", argv[0]); return 2; }
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) { perror("socket"); return 1; }
+    {
+        struct timeval deadline = {10, 0};
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &deadline, sizeof(deadline)) < 0) {
+            perror("read timeout"); return 1;
+        }
+    }
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
@@ -45,7 +52,12 @@ int main(int argc, char **argv)
     memset(&s, 0, sizeof(s));
     zdw_reader_init(&r, body, blen, ZDW_LE);
     if (sensor_decode(&r, &s) != ZDW_OK) { fprintf(stderr, "decode\n"); return 1; }
-    if (s.id != 0xA1B2C3D4uL || strcmp(s.label, "bay-12") != 0) { fprintf(stderr, "mismatch\n"); return 1; }
+    if (s.id != 0xA1B2C3D4uL || s.kind != 0x1234u || s.flags != 0x5Au
+        || s.value != 3.5f || s.stamp.hi != 0x01020304uL || s.stamp.lo != 0x05060708uL
+        || strcmp(s.label, "bay-12") != 0 || s.raw_len != 4
+        || memcmp(s.raw, "\xDE\xAD\xBE\xEF", 4) != 0) {
+        fprintf(stderr, "mismatch\n"); return 1;
+    }
     printf("C RECEIVER OK: id=0x%08lX label=%s value=%g\n", s.id, s.label, (double)s.value);
     close(fd);
     return 0;

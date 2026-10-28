@@ -10,11 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../../../crates/cs/csharp/ZeroDDS.Cdr/ZeroDDS.Cdr.csproj" />
-  </ItemGroup>
-
-  <!-- The generated .idl source must not compile. -->
-  <ItemGroup>
-    <None Include="combo.idl" />
+    <!-- ZeroDDS brings ZeroDDS.Cdr (IDdsTopicType, Omg.Types) and
+         runtime/csharp (ZeroDds.Wire), the two the generated code names. -->
+    <ProjectReference Include="../../../../crates/cs/csharp/ZeroDDS/ZeroDDS.csproj" />
   </ItemGroup>
 </Project>

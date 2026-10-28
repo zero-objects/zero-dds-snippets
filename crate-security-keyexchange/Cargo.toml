@@ -1,0 +1,9 @@
+[package]
+name = "crate-security-keyexchange"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-security-keyexchange = { path = "../../crates/security-keyexchange" }

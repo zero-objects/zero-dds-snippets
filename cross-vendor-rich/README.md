@@ -34,7 +34,11 @@ MUST_UNDERSTAND flag (`0x7F01`).
 
 ## Result — every cell delivers correct data
 
-Live, best-effort readers, integrity-checked payloads, native RTPS 2.5:
+Live, integrity-checked payloads, native RTPS 2.5, one Linux host; each cell a
+domain of its own. Measured by `ci/run-examples.sh` (rows
+`cross-vendor-rich/{cyclone,fastdds,opendds,opensplice,rti}`). OpenSplice has no
+extensibility kinds, so only its `@final` cell exists (`–`); see
+[`opensplice/`](opensplice/):
 
 | vendor | → ZeroDDS (f / a / m) | ZeroDDS → (f / a / m) |
 |---|:--:|:--:|
@@ -42,6 +46,24 @@ Live, best-effort readers, integrity-checked payloads, native RTPS 2.5:
 | **Fast DDS** | ✅ / ✅ / ✅ | ✅ / ✅ / ✅ |
 | **OpenDDS** | ✅ / ✅ / ✅ | ✅ / ✅ / ✅ |
 | **RTI Connext** | ✅ / ✅ / ✅ | ✅ / ✅ / ✅ |
+| **OpenSplice CE 6.9** | ✅ / – / – | ✅ / – / – |
+
+Three legs need a setting on one side, and each `run.sh` makes it:
+
+- **Fast DDS** writes and reads its own CDR dialect: `@mutable` members under
+  bare parameter ids with true lengths, no must-understand flag on a key
+  member. `fastdds/run.sh` builds the ZeroDDS side with
+  `ZERODDS_RICH_DIALECT=fastdds`, into a target directory of its own.
+- **OpenDDS 3.34** sets IS_MUST_UNDERSTAND on a key member only when
+  `@must_understand` is written, reads a remote reader's ALLOW_TYPE_COERCION
+  as DISALLOW and then matches identical type identifiers only;
+  [`opendds/Rich.idl`](opendds/Rich.idl) writes the flag out. Its DataReader
+  accepts XCDR2 only and drops an XCDR1 sample, so `opendds/run.sh` starts the
+  ZeroDDS writer with `ZERODDS_DATA_REPR_OFFER=XCDR2`. OpenDDS also declares
+  encapsulation padding it does not append; ZeroDDS counts padding only where
+  the payload length allows it.
+- **RTI Connext** bounds `sequence<octet>` at 100 unless `rtiddsgen` runs with
+  `-unboundedSupport`, which `rti/run.sh` passes.
 
 ZeroDDS reads and writes every wire form above — XCDR1 plain CDR, XCDR1 PL_CDR
 (including RTI's PID_EXTENDED), XCDR2 CDR2 / D_CDR2 / PL_CDR2.
@@ -77,4 +99,9 @@ event-driven same-host SHM carrier, and the per-vendor requirements (RTI XCDR2
 compliance mask, OpenDDS governance, Fast DDS RSA certs) that make every
 ZeroDDS↔vendor cell deliver data.
 
-Part of **[ZeroDDS](https://zerodds.de)**.
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/cross-vendor-rich](https://github.com/zero-objects/zero-dds-snippets/tree/main/cross-vendor-rich)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

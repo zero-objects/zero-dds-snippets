@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Shared IDL for every native-frontends ping-pong demo (one struct pair, one
+// source of truth for the generated frontend example). Matches the `IDL` const in
+// crates/endpoint-e2e/src/lib.rs byte-for-byte -- the peer parses that Rust
+// const, the frontend's run.sh compiles this file with `zerodds-idlc
+// generate --lang go`, and both must land on the same wire shape.
+@final struct Ping { long seq; string msg; };
+@final struct Pong { long seq; string reply; };

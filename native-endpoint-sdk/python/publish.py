@@ -19,7 +19,10 @@ def main():
     port = int(sys.argv[2]) if len(sys.argv) > 2 else 7447
 
     # encode the sample (a fixed SensorReading)
-    w = zw.Writer(zw.LE)
+    # XCDR2, as the C and Java endpoints in this example write: the
+    # writer takes the version explicitly so a sample cannot be written
+    # as one and framed as the other without anybody saying so.
+    w = zw.Writer(zw.LE, zw.XCDR2)
     w.put_u32(0xA1B2C3D4)
     w.put_u16(0x1234)
     w.put_u8(0x5A)
@@ -29,7 +32,8 @@ def main():
     w.put_seq_u8(bytearray([0xDE, 0xAD, 0xBE, 0xEF]))
 
     # frame as XRCE WRITE_DATA and send over UDP (the frame-hook, UDP fill)
-    frame = ze.xrce_write_frame(ze.XRCE_SESSION_NOKEY, ze.XRCE_STREAM_BEST_EFFORT, 1, w.bytes())
+    frame = ze.xrce_write_frame(ze.XRCE_SESSION_NOKEY, ze.XRCE_STREAM_BEST_EFFORT, 1,
+                                ze.xrce_object_id(0x001, ze.OBJK_DATAWRITER), w.bytes())
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.sendto(frame, (host, port))
     s.close()

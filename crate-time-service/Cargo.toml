@@ -1,0 +1,9 @@
+[package]
+name = "crate-time-service"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-time-service = { path = "../../crates/time-service" }

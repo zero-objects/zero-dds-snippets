@@ -1,0 +1,8 @@
+// The type both sides read: the gateway through `--type`, the DDS program
+// through the code idlc generates from it in build.rs.
+module Demo {
+    @appendable struct Sensor {
+        @key long sensor_id;
+        double value;
+    };
+};

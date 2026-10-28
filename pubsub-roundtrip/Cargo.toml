@@ -6,4 +6,4 @@ edition = "2024"
 [workspace]
 
 [dependencies]
-zerodds-dcps = "1.0.0-rc.3"
+zerodds-dcps = "1.0.0-rc.6"

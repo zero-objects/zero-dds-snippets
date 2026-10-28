@@ -15,7 +15,7 @@ Build the binding once, in the ZeroDDS checkout:
 
 Then compile `App.java` + `Pose.java` against the produced jar and run:
 
-    JAR=crates/java-omgdds/java/target/omgdds-0.0.0.jar
+    JAR=$(ls crates/java-omgdds/java/target/omgdds-*.jar | head -1)
     javac -cp "$JAR" -d out App.java Pose.java
     java  -cp "out:$JAR" App
 
@@ -23,7 +23,7 @@ Expect `got: Pose[id=r1, x=1.0, y=2.0, z=3.0]`.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[ZeroDDS for Java (OMG DDS PSM)](https://zerodds.de/docs/java-omgdds/)**.
+- Explained on the website: [zerodds-java-omgdds](https://zerodds.org/docs/java-omgdds.html)
+- This example in the repository: [zero-dds-snippets/java-omgpsm-pose](https://github.com/zero-objects/zero-dds-snippets/tree/main/java-omgpsm-pose)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

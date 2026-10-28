@@ -8,7 +8,7 @@ module dyn {
   @appendable struct Track {
     @key long       id;
     string          name;
-    Color           color;
+    Color           hue;
     sequence<long>  path;
     Cmd             command;
   };

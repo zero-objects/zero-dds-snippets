@@ -10,11 +10,11 @@ In the demo dir:
 cargo run
 ```
 
-The `security` feature on `zerodds-dcps` is already enabled in `Cargo.toml`. The `file:/etc/zerodds/...` cert paths are illustrative property strings (the QoS is built, not loaded), so no PKI files need to exist. Uses path deps into the local zero-dds checkout until these APIs ship on crates.io.
+The `security` feature on `zerodds-dcps` is already enabled in `Cargo.toml`. The participant loads all six DDS-Security files (the three of recipe 1 and the Access Control plugin's `permissions_ca`, `governance`, `permissions`) from the directory `ZERODDS_PKI` names: `ca-cert.pem`, `part-cert.pem`, `part-key.pem`, `permissions-ca-cert.pem`, `governance.p7s`, `permissions.p7s`, with governance and permissions covering domain 0. Uses path deps into the local zero-dds checkout until these APIs ship on crates.io.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Security plugin chain](https://zerodds.de/topics/security-plugin-chain/)**.
+- Explained on the website: [Security Plugin-Chain Cookbook](https://zerodds.org/topics/security-plugin-chain/)
+- This example in the repository: [zero-dds-snippets/rust-security-plugin-chain](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-security-plugin-chain)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

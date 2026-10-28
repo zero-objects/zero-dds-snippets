@@ -10,11 +10,11 @@ In the demo dir:
 cargo run
 ```
 
-No features to enable. The `Cargo.toml` pulls `zerodds-dcps-async` and `zerodds-dcps` from crates.io (`1.0.0-rc.3`) plus `tokio` with `full`; the binary runs the whole exchange in one process.
+No features to enable. The `Cargo.toml` pulls `zerodds-dcps-async` and `zerodds-dcps` from crates.io (`1.0.0-rc.6`) plus `tokio` with `full`; the binary runs the whole exchange in one process.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Rust bindings](https://zerodds.de/bindings/rust/)**.
+- Explained on the website: [Rust](https://zerodds.org/bindings/rust/)
+- This example in the repository: [zero-dds-snippets/async-pubsub](https://github.com/zero-objects/zero-dds-snippets/tree/main/async-pubsub)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

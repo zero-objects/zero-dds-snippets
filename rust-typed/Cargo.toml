@@ -2,16 +2,24 @@
 name = "rust-typed"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
-# Standalone example: empty [workspace] so it does NOT join the parent
-# zerodds workspace; path-deps reach into ../../crates.
+# Empty [workspace] isolates this from the parent zerodds workspace.
 [workspace]
 
 [dependencies]
-# DdsType trait + DCPS entities (DomainParticipantFactory, Topic, Writer, ...).
 zerodds-dcps = { path = "../../crates/dcps" }
-# #[derive(DdsType)] proc-macro lives in its own crate.
-zerodds-cdr-derive = { path = "../../crates/cdr-derive" }
-# The derive expands to `::zerodds_cdr::BufferWriter` etc., so the generated
-# code needs zerodds-cdr in scope at the call site.
-zerodds-cdr = { path = "../../crates/cdr" }
+# The runtime the generated codec calls, plus the two crates the
+# generated `DdsType` impl names: `TypeIdentifier`/`TypeObject` and the
+# SQL-filter glue.
+zerodds-wire = { path = "../../crates/wire" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-sql-filter = { path = "../../crates/sql-filter" }
+
+[build-dependencies]
+# `dds_type_impls(true)` writes the `DdsType` impl from the same model
+# the codec came from. That is what puts the type's `TypeObject` into the
+# endpoint: `create_datawriter` registers `DdsType::type_object()` with
+# the participant's TypeLookup server, and the SEDP announcement builds
+# `PID_TYPE_INFORMATION` out of that registration (XTypes 1.3 §7.6.3.2).
+zerodds-build = { path = "../../crates/zerodds-build" }

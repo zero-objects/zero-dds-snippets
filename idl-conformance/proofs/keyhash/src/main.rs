@@ -11,19 +11,55 @@
 //!   * If the *statically-known max* keyholder size <= 16 bytes: use those
 //!     bytes, zero-padded to 16.
 //!   * Otherwise: KeyHash = MD5(keyholder bytes).
+//!
+//! ## Case (d) does not compile against rc.7
+//!
+//! `zerodds-build` is the successor to the `zerodds-idl` + `zerodds-idl-rust`
+//! pair this file was written against. It generates cases (a), (b) and (c),
+//! and miscompiles (d): for a `@key` member of aggregate type the inherent
+//! `key_holder_be()` and `key_hash()` come out as
+//!
+//! ```ignore
+//! let mut holder = Writer::with_max_align(zerodds_wire::Endianness::Big, 4);
+//! self.k.encode(holder)?;          // error[E0308]: expected `&mut Writer`
+//! ```
+//!
+//! Every other sink in the emitter is already a `&mut Writer` parameter, so
+//! the `MemberWrite::Nested` arm of `write_call` (crates/lang-rules/src/
+//! encode.rs) hands the sink over by name; here the sink is an owned `Writer`
+//! and the name moves it. `key_from_holder_be()` for the same shape is emitted
+//! as an unconditional `WireError::refused(..., "a key holder with a member
+//! this emitter cannot read")`, so `DdsType::decode_key_holder_be` would refuse
+//! case (d) at run time as well.
 
-#[path = "../generated/keyhash_cases.rs"]
-mod generated;
+// `zerodds-build` writes the module into OUT_DIR; the lint allows sit on the
+// wrapping module because `include!` splices the tokens into this file.
+#[allow(non_snake_case, non_camel_case_types, unused_imports, dead_code, clippy::all)]
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/keyhash_cases.rs"));
+}
 
-use generated::keyhash::{BigKey, MixedKeys, NestedKey, OuterKey, SingleKey};
-use zerodds_cdr::PlainCdr2BeKeyHolder;
+use generated::keyhash::{BigKey, BoundedKey, MixedKeys, NestedKey, OuterKey, SingleKey};
+use zerodds_dcps::key_hash::PlainCdr2BeKeyHolder;
 use zerodds_dcps::DdsType;
 
 fn hex16(b: &[u8; 16]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
-fn main() {
+/// The vendor KeyHashes vendor/RECORDED-KEYHASHES.txt records for the five
+/// instances: (a)-(d) identical in Cyclone, RTI (wire) and Fast DDS, (e)
+/// Cyclone's own CDR engine.
+const RECORDED: [(&str, &str); 5] = [
+    ("a", "11223344000000000000000000000000"),
+    ("b", "492ce15eccc6c49993afe63223435b91"),
+    ("c", "aa001234556677885a00000000000000"),
+    ("d", "01020304050607080000000000000000"),
+    ("e", "00000003414200000000000000000000"),
+];
+
+fn main() -> std::process::ExitCode {
+    let check = std::env::args().any(|a| a == "--check");
     println!("# ZeroDDS KeyHash proof  (PID_KEY_HASH 0x0070, 16 bytes)\n");
     println!("# type / instance -> 16-byte KeyHash (hex)\n");
 
@@ -63,7 +99,7 @@ fn main() {
         a: 0xAA,
         b: 0x1234,
         c: 0x5566_7788,
-        d: b'Z',
+        d: 'Z',
         payload: 999,
     };
     let kc = c.compute_key_hash().expect("keyed");
@@ -94,4 +130,37 @@ fn main() {
     println!("    keyholder bytes ({} B) = {}", hd.as_bytes().len(),
         hd.as_bytes().iter().map(|x| format!("{x:02x}")).collect::<String>());
     println!("    KeyHash  = {}\n", hex16(&kd));
+
+    // ---- Case (e): @key string<8>, zero-pad path (FINDING F1) ----
+    let e = BoundedKey {
+        code: "AB".to_string(),
+        payload: 999,
+    };
+    let ke = e.compute_key_hash().expect("keyed");
+    println!("(e) BoundedKey {{ code = \"AB\" }}  (@key string<8>)");
+    println!("    max_size = {:?}  (<=16 -> zero-pad)", BoundedKey::KEY_HOLDER_MAX_SIZE);
+    let mut he = PlainCdr2BeKeyHolder::new();
+    e.encode_key_holder_be(&mut he);
+    println!("    keyholder bytes ({} B) = {}", he.as_bytes().len(),
+        he.as_bytes().iter().map(|x| format!("{x:02x}")).collect::<String>());
+    println!("    KeyHash  = {}\n", hex16(&ke));
+
+    if !check {
+        println!("(run with --check to compare against vendor/RECORDED-KEYHASHES.txt)");
+        return std::process::ExitCode::SUCCESS;
+    }
+    let ours = [ka, kb, kc, kd, ke];
+    let mut mismatches = 0;
+    println!("case | ZeroDDS                          | recorded                         | result");
+    for ((case, recorded), key) in RECORDED.iter().zip(ours.iter()) {
+        let zerodds = hex16(key);
+        let result = if zerodds == *recorded { "MATCH" } else { mismatches += 1; "DIFF" };
+        println!(" ({case}) | {zerodds} | {recorded} | {result}");
+    }
+    if mismatches != 0 {
+        println!("{mismatches} of {} KeyHashes differ from the recorded vendor values", RECORDED.len());
+        return std::process::ExitCode::FAILURE;
+    }
+    println!("ALL {} KEYHASHES MATCH THE RECORDED VENDOR VALUES", RECORDED.len());
+    std::process::ExitCode::SUCCESS
 }

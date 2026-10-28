@@ -4,9 +4,10 @@
 //
 //     var topic = participant.CreateTypedTopic<Temperature>("Temp");
 //     var writer = publisher.CreateTypedWriter<Temperature>(topic);
-//     writer.Write(new Temperature { Celsius = 23, SensorId = "A7" });
+//     writer.Write(new Temperature { Celsius = 23, Sensor_id = "A7" });
 //
-// Temperature.cs is the verbatim `idlc csharp temperature.idl` output.
+// Temperature.cs and Temperature.TypeSupport.cs are the verbatim
+// `zerodds-idlc generate --lang csharp temperature.idl` output.
 
 using ZeroDDS;
 using sensor_msgs.msg;
@@ -17,6 +18,6 @@ var publisher = participant.CreatePublisher();
 
 var topic = participant.CreateTypedTopic<Temperature>("Temp");
 var writer = publisher.CreateTypedWriter<Temperature>(topic);
-writer.Write(new Temperature { Celsius = 23, SensorId = "A7" });
+writer.Write(new Temperature { Celsius = 23, Sensor_id = "A7" });
 
-Console.WriteLine($"wrote Temperature {{ Celsius = 23, SensorId = \"A7\" }} on topic '{topic.Name}' (type {topic.TypeName})");
+Console.WriteLine($"wrote Temperature {{ Celsius = 23, Sensor_id = \"A7\" }} on topic '{topic.Name}' (type {topic.TypeName})");

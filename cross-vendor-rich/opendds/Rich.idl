@@ -1,6 +1,15 @@
+// The three types of ../Rich.idl, for OpenDDS's IDL compiler.
+//
+// `@must_understand` on each key member is what XTypes 1.3 §7.2.2.4.4.4.8
+// makes implicit; opendds_idl 3.34 sets IS_MUST_UNDERSTAND only when it is
+// written, and a minimal TypeObject without it hashes differently from
+// ZeroDDS's and Cyclone's. OpenDDS 3.34 also reads a remote reader's
+// ALLOW_TYPE_COERCION as DISALLOW (it numbers TypeConsistencyKind from 1)
+// and then matches identical type identifiers only. See
+// ../../cross-vendor-shapes/opendds/ShapeType.idl.
 @topic @final
-struct RichF { @key unsigned long id; double value; sequence<octet> blob; };
+struct RichF { @key @must_understand unsigned long id; double value; sequence<octet> blob; };
 @topic @appendable
-struct RichA { @key unsigned long id; double value; sequence<octet> blob; };
+struct RichA { @key @must_understand unsigned long id; double value; sequence<octet> blob; };
 @topic @mutable
-struct RichM { @key unsigned long id; double value; sequence<octet> blob; };
+struct RichM { @key @must_understand unsigned long id; double value; sequence<octet> blob; };

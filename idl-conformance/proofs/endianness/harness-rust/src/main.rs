@@ -11,11 +11,22 @@
 //! The bytes written are the *bare CDR body* (no 4-byte encapsulation header);
 //! the vendor oracle (FastCDR) strips its encapsulation before comparison.
 //!
-//! All four are produced through the SAME generated `CdrEncode`/`CdrDecode`
-//! impls the ZeroDDS DataWriter uses — `CdrEncode::encode` already branches on
-//! `BufferWriter::max_alignment()` (== 4 → XCDR2 DHEADER path, == 8 → XCDR1
-//! plain path) and on the writer's `Endianness`. We just construct the writer
-//! in each of the four modes.
+//! All four are produced through the SAME generated codec the ZeroDDS
+//! DataWriter uses: `zerodds_dcps::DdsType` names exactly these four encode
+//! pairs — `encode`/`decode` (XCDR2-LE), `encode_be`/`decode_be` (XCDR2-BE),
+//! `encode_xcdr1`/`decode_xcdr1` (XCDR1-LE) and `encode_xcdr1_be`/
+//! `decode_xcdr1_be` (XCDR1-BE) — each building its own
+//! `zerodds_wire::Writer` with that representation's endianness and alignment
+//! cap. The harness picks the pair and reads the bytes back.
+//!
+//! ## This harness does not build against rc.7
+//!
+//! `zerodds-build` writes the XCDR1 pair only under `dds_type_impls(true)`,
+//! and that option also writes `impl zerodds_dcps::DdsType for feat::Perm`.
+//! A bitmask is generated as `pub type Perm = u32;`, so that impl is a foreign
+//! trait on a primitive — `error[E0117]`. Without the option there is no
+//! XCDR1 codec at all and two of the four representations cannot be produced,
+//! so the corpus's `bitmask Perm` blocks the harness either way.
 //!
 //! Modes:
 //!   ENCODE     — write all 24 goldens, print hex+len+sha256.
@@ -25,55 +36,82 @@
 use std::process::ExitCode;
 
 use sha2::{Digest, Sha256};
-use zerodds_cdr::{BufferReader, BufferWriter, CdrDecode, CdrEncode, Endianness};
+use zerodds_dcps::DdsType;
 
-#[path = "../generated/features.rs"]
-mod generated;
+// `zerodds-build` writes the module into OUT_DIR; the lint allows sit on the
+// wrapping module because `include!` splices the tokens into this file.
+#[allow(non_snake_case, non_camel_case_types, unused_imports, dead_code, clippy::all)]
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/features.rs"));
+}
 
-use generated::feat::{Arr, Bits, Flags, Hue, MapEnum, Mut, Perm, Prim, Pt, Sel, Tree, WStr};
+use generated::feat;
+use generated::feat::{Arr, Bits, Flags, Hue, MapEnum, Mut, Prim, Pt, Sel, Tree, WStr};
 
 const DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../goldens");
 
-#[derive(Clone, Copy)]
-struct Repr {
-    tag: &'static str,
-    endian: Endianness,
-    xcdr2: bool,
+/// The four representations, by the `DdsType` method pair that writes and
+/// reads each. The alignment cap is what separates the two XCDR versions —
+/// PLAIN_CDR2 caps at four octets, classic PLAIN_CDR aligns naturally up to
+/// eight — and each method builds its own writer with it.
+const TAGS: [&str; 4] = ["xcdr2-le", "xcdr2-be", "xcdr1-le", "xcdr1-be"];
+
+/// Encode `$sample` in the representation `$tag` names.
+macro_rules! encode_repr {
+    ($sample:expr, $tag:expr, $out:expr) => {
+        match $tag {
+            "xcdr2-le" => DdsType::encode($sample, $out),
+            "xcdr2-be" => DdsType::encode_be($sample, $out),
+            "xcdr1-le" => DdsType::encode_xcdr1($sample, $out),
+            "xcdr1-be" => DdsType::encode_xcdr1_be($sample, $out),
+            other => panic!("no such representation: {other}"),
+        }
+    };
 }
 
-const REPRS: [Repr; 4] = [
-    Repr { tag: "xcdr2-le", endian: Endianness::Little, xcdr2: true },
-    Repr { tag: "xcdr2-be", endian: Endianness::Big, xcdr2: true },
-    Repr { tag: "xcdr1-le", endian: Endianness::Little, xcdr2: false },
-    Repr { tag: "xcdr1-be", endian: Endianness::Big, xcdr2: false },
-];
-
-fn writer_for(r: Repr) -> BufferWriter {
-    let w = BufferWriter::new(r.endian);
-    if r.xcdr2 { w.xcdr2() } else { w } // new() defaults to XCDR1 (max-align 8)
+/// Read `$bytes` back in the representation `$tag` names.
+macro_rules! decode_repr {
+    ($ty:ty, $tag:expr, $bytes:expr) => {
+        match $tag {
+            "xcdr2-le" => <$ty as DdsType>::decode($bytes),
+            "xcdr2-be" => <$ty as DdsType>::decode_be($bytes),
+            "xcdr1-le" => <$ty as DdsType>::decode_xcdr1($bytes),
+            "xcdr1-be" => <$ty as DdsType>::decode_xcdr1_be($bytes),
+            other => panic!("no such representation: {other}"),
+        }
+    };
 }
 
-fn reader_for<'a>(r: Repr, bytes: &'a [u8]) -> BufferReader<'a> {
-    let rd = BufferReader::new(bytes, r.endian);
-    if r.xcdr2 { rd.xcdr2() } else { rd }
+/// `$bytes` read back as the type of `like`, in the representation `tag`
+/// names. A function so the type is `like`'s; `decode_repr!(_, ..)` left it
+/// to inference, which the `DdsType` impls of the generated module and of
+/// `zerodds_dcps` itself leave ambiguous.
+fn decode_like<T: DdsType>(
+    _like: &T,
+    tag: &str,
+    bytes: &[u8],
+) -> Result<T, zerodds_dcps::DecodeError> {
+    decode_repr!(T, tag, bytes)
 }
 
 // ---- canonical samples (identical to _interop/CANONICAL.md) ----------------
 
 fn canonical_wstr() -> WStr {
     WStr {
-        label: zerodds_cdr::WString("café".to_string()),
-        text: zerodds_cdr::WString("日本語\u{1F389}".to_string()),
+        // A `wstring` member is a plain `String` in the generated type; the
+        // UTF-16 framing is the codec's, not the value's.
+        label: "café".to_string(),
+        text: "日本語\u{1F389}".to_string(),
     }
 }
 fn canonical_mut() -> Mut {
     Mut { a: 1_000_000, b: 2.5, c: "ok".to_string() }
 }
 fn canonical_bits() -> Bits {
-    let mut flags = Flags::new();
-    flags.set_kind(5);
-    flags.set_prio(20);
-    Bits { perm: Perm::READ | Perm::EXEC, flags }
+    // A bitset is materialised as a struct with one field per named bitfield,
+    // and a bitmask as module-level `u32` constants.
+    let flags = Flags { kind: 5, prio: 20 };
+    Bits { perm: feat::READ | feat::EXEC, flags }
 }
 fn canonical_tree() -> Tree {
     Tree {
@@ -91,7 +129,7 @@ fn canonical_prim() -> Prim {
     Prim {
         i8: -128, u8: 255, i16: -32768, u16: 65535, i32: -2_147_483_648, u32: 4_294_967_295,
         i64: -9_223_372_036_854_775_808, u64: 18_446_744_073_709_551_615,
-        f32: 3.5, f64: -1234.5, b: true, o: 0xAB, ch: 0x5A,
+        f32: 3.5, f64: -1234.5, b: true, o: 0xAB, ch: 'Z',
     }
 }
 
@@ -112,17 +150,22 @@ fn hexline(bytes: &[u8]) -> String {
 }
 
 /// Encode one (feature, repr), write golden, print metadata.
-fn encode_one<T: CdrEncode>(name: &str, sample: &T) -> bool {
+///
+/// A macro and not a generic function: the generated codec is a pair of
+/// *inherent* method pairs, not a trait, so there is no bound to write.
+macro_rules! encode_one {
+    ($name:expr, $sample:expr) => {{
+    let name: &str = $name;
+    let sample = &$sample;
     let mut ok = true;
-    for r in REPRS {
-        let mut w = writer_for(r);
-        if let Err(e) = sample.encode(&mut w) {
-            eprintln!("FAIL encode {name}.{}: {e:?}", r.tag);
+    for tag in TAGS {
+        let mut bytes = Vec::new();
+        if let Err(e) = encode_repr!(sample, tag, &mut bytes) {
+            eprintln!("FAIL encode {name}.{tag}: {e:?}");
             ok = false;
             continue;
         }
-        let bytes = w.into_bytes();
-        let path = format!("{DIR}/{name}.{}.rust.bin", r.tag);
+        let path = format!("{DIR}/{name}.{tag}.rust.bin");
         if let Err(e) = std::fs::write(&path, &bytes) {
             eprintln!("FAIL write {path}: {e}");
             ok = false;
@@ -130,56 +173,56 @@ fn encode_one<T: CdrEncode>(name: &str, sample: &T) -> bool {
         }
         println!(
             "ENCODE {name:<5} {tag:<8} len={len:<3} sha256={sha}",
-            tag = r.tag, len = bytes.len(), sha = sha256_hex(&bytes)
+            len = bytes.len(), sha = sha256_hex(&bytes)
         );
         println!("  hex: {}", hexline(&bytes));
     }
     ok
+    }};
 }
 
 /// Encode then decode-back each repr; assert equal to the canonical sample.
-fn roundtrip_one<T>(name: &str, sample: &T) -> bool
-where
-    T: CdrEncode + CdrDecode + PartialEq + std::fmt::Debug,
-{
+macro_rules! roundtrip_one {
+    ($name:expr, $sample:expr) => {{
+    let name: &str = $name;
+    let sample = &$sample;
     let mut ok = true;
-    for r in REPRS {
-        let mut w = writer_for(r);
-        if let Err(e) = sample.encode(&mut w) {
-            eprintln!("FAIL encode {name}.{}: {e:?}", r.tag);
+    for tag in TAGS {
+        let mut bytes = Vec::new();
+        if let Err(e) = encode_repr!(sample, tag, &mut bytes) {
+            eprintln!("FAIL encode {name}.{tag}: {e:?}");
             ok = false;
             continue;
         }
-        let bytes = w.into_bytes();
-        let mut rd = reader_for(r, &bytes);
-        match T::decode(&mut rd) {
+        match decode_like(sample, tag, &bytes) {
             Ok(back) if &back == sample => {
-                println!("RT   {name:<5} {:<8} OK ({} bytes)", r.tag, bytes.len());
+                println!("RT   {name:<5} {tag:<8} OK ({} bytes)", bytes.len());
             }
             Ok(back) => {
-                eprintln!("FAIL roundtrip {name}.{}: decoded != canonical", r.tag);
+                eprintln!("FAIL roundtrip {name}.{tag}: decoded != canonical");
                 eprintln!("  want {sample:?}\n  got  {back:?}");
                 ok = false;
             }
             Err(e) => {
-                eprintln!("FAIL decode {name}.{}: {e:?}", r.tag);
+                eprintln!("FAIL decode {name}.{tag}: {e:?}");
                 ok = false;
             }
         }
     }
     ok
+    }};
 }
 
 macro_rules! for_all {
     ($f:ident) => {{
         let mut ok = true;
-        ok &= $f("wstr", &canonical_wstr());
-        ok &= $f("mut", &canonical_mut());
-        ok &= $f("bits", &canonical_bits());
-        ok &= $f("tree", &canonical_tree());
-        ok &= $f("arr", &canonical_arr());
-        ok &= $f("prim", &canonical_prim());
-        ok &= $f("mapenum", &canonical_mapenum());
+        ok &= $f!("wstr", canonical_wstr());
+        ok &= $f!("mut", canonical_mut());
+        ok &= $f!("bits", canonical_bits());
+        ok &= $f!("tree", canonical_tree());
+        ok &= $f!("arr", canonical_arr());
+        ok &= $f!("prim", canonical_prim());
+        ok &= $f!("mapenum", canonical_mapenum());
         ok
     }};
 }

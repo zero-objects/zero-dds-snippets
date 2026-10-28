@@ -8,7 +8,7 @@
 #                      vendor-cyclone/ and vendor-fastcdr/.
 #   make compare    -> print the repr × vendor MATCH/DIFF table + diff windows.
 
-ORACLE_HOST ?= root@codepit
+ORACLE_HOST ?= vendor-host
 ORACLE_DIR  ?= /tmp/oracle-endian
 
 .PHONY: goldens roundtrip vendors compare all clean

@@ -12,10 +12,14 @@ build = "build.rs"
 # The generated full DdsType impl: encode/decode (XCDR2) + encode_xcdr1/
 # decode_xcdr1 (classic CDR), plus the TypeObject + SQL-filter glue it carries.
 zerodds-dcps = { path = "../../crates/dcps" }
-zerodds-cdr = { path = "../../crates/cdr" }
+# The wire runtime the generated codec calls (Writer/Reader) — the crate
+# that replaced the former `zerodds-cdr`.
+zerodds-wire = { path = "../../crates/wire" }
 zerodds-types = { path = "../../crates/types" }
 zerodds-sql-filter = { path = "../../crates/sql-filter" }
 
 [build-dependencies]
-zerodds-idl = { path = "../../crates/idl" }
-zerodds-idl-rust = { path = "../../crates/idl-rust" }
+# The build.rs entry point that replaced the former `zerodds-idl` +
+# `zerodds-idl-rust` pair: it runs the same composition pipeline the
+# `zerodds-idlc` CLI runs and writes the codec plus the DdsType impl.
+zerodds-build = { path = "../../crates/zerodds-build" }

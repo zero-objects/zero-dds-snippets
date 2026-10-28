@@ -1,88 +1,85 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""XCDR2 wire-level interop: encode/decode the canonical combo::Telemetry sample.
+"""idl-conformance / _interop / python — the combo::Telemetry column.
 
-Usage:
-    interop.py ENCODE <out.bin>     # write raw XCDR2-LE bytes of canonical sample
-    interop.py DECODE <in.bin>      # read bytes, reconstruct, assert ==canonical
+    interop.py ENCODE <out.bin>   write the canonical sample as raw XCDR2-LE
+    interop.py DECODE <in.bin>    decode, assert every field == canonical
+
+combo.py is `zerodds-idlc generate --lang python` output of ../combo.idl over
+runtime/python (zerodds_wire); values are CANONICAL.md.
 """
+
+from __future__ import annotations
+
 import sys
-from importlib import import_module
+from pathlib import Path
 
-_combo = import_module("combo")
-Mode = _combo.combo_Mode
-Sample = _combo.combo_Sample
-Reading = _combo.combo_Reading
-Telemetry = _combo.combo_Telemetry
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 
+import combo as generated  # noqa: E402  (zerodds-idlc generate --lang python)
+from combo import combo  # noqa: E402
+from zerodds_wire import Endianness, Reader, Status, TryConstruct, Writer  # noqa: E402
 
-def canonical():
-    return Telemetry(
-        unitId=4242,
-        region="eu-central-1",
-        mode=Mode.MODE_ACTIVE,
-        batteryCurrent=13.75,
-        history=[Sample(seq=1, value=0.5),
-                 Sample(seq=2, value=1.5),
-                 Sample(seq=3, value=-2.25)],
-        reading=Reading.make(Mode.MODE_ACTIVE, 60.0),
-        counters={"drops": 3, "packets": 100},
-        calibration=0.001,
-        window=[10, 20, 30, 40],
-    )
-
-
-def diff(sent, got):
-    out = []
-    for f in ("unitId", "region", "mode", "batteryCurrent", "history",
-              "reading", "counters", "calibration", "window"):
-        a = getattr(sent, f)
-        b = getattr(got, f)
-        if f == "reading":
-            eq = (a.discriminator == b.discriminator and a.value == b.value)
-            a = (a.discriminator, a.value)
-            b = (b.discriminator, b.value)
-        else:
-            eq = (a == b)
-        if not eq:
-            out.append(f"  {f}: sent={a!r} got={b!r}")
-    return out
+CANONICAL = combo.Telemetry(
+    unitId=4242,
+    region="eu-central-1",
+    mode=int(combo.Mode.MODE_ACTIVE),
+    batteryCurrent=13.75,
+    history=[combo.Sample(seq=1, value=0.5),
+             combo.Sample(seq=2, value=1.5),
+             combo.Sample(seq=3, value=-2.25)],
+    reading=combo.Reading(_d=int(combo.Mode.MODE_ACTIVE), activeRate=60.0),
+    counters=[("drops", 3), ("packets", 100)],  # map<string,long>, key-sorted
+    calibration=0.001,
+    window=(10, 20, 30, 40),
+)
 
 
-def assert_equal(sent, got):
-    d = diff(sent, got)
-    if d:
-        print("MISMATCH:")
-        print("\n".join(d))
-        return False
-    return True
+def normalise(value):
+    """The decoded form of a value: tuples of an array come back as lists."""
+    if isinstance(value, (list, tuple)):
+        return [normalise(v) for v in value]
+    if hasattr(value, "__dataclass_fields__"):
+        return {name: normalise(getattr(value, name)) for name in value.__dataclass_fields__}
+    return value
 
 
-def main():
-    if len(sys.argv) != 3:
-        print(__doc__)
+def encode(sample: combo.Telemetry) -> bytes:
+    w = Writer(Endianness.LITTLE, max_align=4)
+    generated.zd_enc_combo_Telemetry(w, sample)
+    return w.finish()
+
+
+def decode(data: bytes) -> combo.Telemetry:
+    r = Reader(data, Endianness.LITTLE, max_align=4)
+    value = generated.zd_dec_combo_Telemetry(r, TryConstruct.DISCARD)
+    if r.reader_status() is not Status.OK:
+        raise ValueError(f"the decoder refused the stream: {r.reader_status()}")
+    if r.remaining() != 0:
+        raise ValueError(f"{r.remaining()} bytes left after the sample")
+    return value
+
+
+def main() -> int:
+    if len(sys.argv) != 3 or sys.argv[1] not in ("ENCODE", "DECODE"):
+        print("usage: interop.py ENCODE <out.bin> | DECODE <in.bin>", file=sys.stderr)
         return 2
-    mode, path = sys.argv[1], sys.argv[2]
-    sample = canonical()
-
+    mode, path = sys.argv[1], Path(sys.argv[2])
     if mode == "ENCODE":
-        data = sample.encode()
-        with open(path, "wb") as f:
-            f.write(data)
-        print(f"ENCODE: wrote {len(data)} bytes to {path}")
+        data = encode(CANONICAL)
+        path.write_bytes(data)
+        print(f"ENCODE OK: {len(data)} bytes -> {path}")
         return 0
-
-    if mode == "DECODE":
-        with open(path, "rb") as f:
-            data = f.read()
-        got = Telemetry.decode(data)
-        if assert_equal(sample, got):
-            print(f"DECODE: OK ({len(data)} bytes) — all fields == canonical")
-            return 0
+    got = decode(path.read_bytes())
+    want, have = normalise(CANONICAL), normalise(got)
+    diffs = [f"  [FAIL] {k}: want {want[k]!r} got {have[k]!r}" for k in want if want[k] != have[k]]
+    if diffs:
+        print("\n".join(diffs), file=sys.stderr)
+        print(f"DECODE FAILED: {len(diffs)} mismatch(es)")
         return 1
-
-    print(__doc__)
-    return 2
+    print("DECODE OK: every field equals canonical")
+    return 0
 
 
 if __name__ == "__main__":

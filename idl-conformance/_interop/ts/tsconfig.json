@@ -12,8 +12,7 @@
     "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": {
-      "@zerodds/cdr": ["../../../../crates/ts-node/dist/cdr/index.d.ts"],
-      "@zerodds/types": ["../../../../crates/idl-ts/src/runtime/index.ts"]
+      "@zerodds/wire": ["../../../../runtime/typescript/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*", "gen/**/*"]

@@ -3,12 +3,25 @@
  *
  *   <feature> ENCODE <out.bin>   -> write canonical feat::<T> as raw XCDR2-LE
  *   <feature> DECODE <in.bin>    -> decode, assert == canonical, exit 0/1
+ *   -         BE                 -> decode the big-endian goldens of
+ *                                   ../../proofs/endianness, assert == canonical
+ *   -         XCDR1              -> built with -DFEATURES_XCDR1: decode the
+ *                                   XCDR1 goldens of ../../proofs/endianness,
+ *                                   little- and big-endian
  *
- * feature in { wstr, mut, mutnest, outerkey, bits, tree, arr, prim };
- * values are CANONICAL.md.
- * Header-only codec — the emitted bytes ARE the wire.
+ * feature in { wstr, mut, mutnest, outerkey, bits, tree, arr, prim, mapenum,
+ * mapprim, fixed }; values are CANONICAL.md.
+ * gen_feat/features.h is `zerodds-idlc generate --lang c` output over
+ * runtime/c, gen_x1/features.h the same with `--encoding xcdr1`: the bytes
+ * the generated encoders write ARE the wire.
  */
+#ifdef FEATURES_XCDR1
+#include "gen_x1/features.h"
+#define FEATURES_MAX_ALIGN 8
+#else
 #include "gen_feat/features.h"
+#define FEATURES_MAX_ALIGN 4
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -17,29 +30,28 @@ static int g_fail = 0;
 #define CHK(cond, what) do { if (!(cond)) { ++g_fail; fprintf(stderr, "  [FAIL] %s\n", what); } } while (0)
 
 /* ---- canonical samples (CANONICAL.md) ------------------------------- */
-/* café = c,a,f,é(U+00E9) */
-static uint16_t WS_LABEL[] = { 0x0063, 0x0061, 0x0066, 0x00E9, 0 };
-/* 日本語🎉 = U+65E5,U+672C,U+8A9E, then 🎉 U+1F389 -> surrogate D83C DF89 */
-static uint16_t WS_TEXT[]  = { 0x65E5, 0x672C, 0x8A9E, 0xD83C, 0xDF89, 0 };
+/* A wstring is UTF-8 in C; the wire carries its UTF-16 code units.
+ * café = c,a,f,é(U+00E9); 日本語🎉 = U+65E5,U+672C,U+8A9E,U+1F389. */
+static const char WS_LABEL[] = "caf\xc3\xa9";
+static const char WS_TEXT[]  = "\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e\xf0\x9f\x8e\x89";
 
-static void canon_wstr(feat_WStr_t* v) { memset(v,0,sizeof(*v)); v->label = WS_LABEL; v->text = WS_TEXT; }
-static void canon_mut(feat_Mut_t* v)   { memset(v,0,sizeof(*v)); v->a = 1000000; v->b = 2.5; v->c = "ok"; }
-static void canon_bits(feat_Bits_t* v) {
+static void canon_wstr(feat_WStr* v) { memset(v,0,sizeof(*v)); v->label = WS_LABEL; v->text = WS_TEXT; }
+static void canon_mut(feat_Mut* v)   { memset(v,0,sizeof(*v)); v->a = 1000000; v->b = 2.5; v->c = "ok"; }
+static void canon_bits(feat_Bits* v) {
     memset(v,0,sizeof(*v));
-    v->perm = feat_Perm_READ | feat_Perm_EXEC;                 /* 0x05 */
-    v->flags = (feat_Flags_t)((20u << feat_Flags_prio_SHIFT) | (5u << feat_Flags_kind_SHIFT)); /* 0xA5 */
+    v->perm = feat_READ | feat_EXEC;      /* 0x05 */
+    v->flags.kind = 5; v->flags.prio = 20; /* 0xA5 */
 }
-static feat_Tree_t T_GC, T_K0, T_K1, T_KIDS_ROOT[2], T_KIDS_K0[1];
-static void canon_tree(feat_Tree_t* root) {
+static feat_Tree T_KIDS_ROOT[2], T_KIDS_K0[1];
+static void canon_tree(feat_Tree* root) {
     memset(root,0,sizeof(*root));
-    memset(&T_GC,0,sizeof(T_GC));  T_GC.value = 4;
-    memset(&T_K0,0,sizeof(T_K0));  T_K0.value = 2;
-    memset(&T_K1,0,sizeof(T_K1));  T_K1.value = 3;
-    T_KIDS_K0[0] = T_GC; T_K0.kids.len = 1; T_K0.kids.elems = (struct feat_Tree_s*)T_KIDS_K0;
-    T_KIDS_ROOT[0] = T_K0; T_KIDS_ROOT[1] = T_K1;
-    root->value = 1; root->kids.len = 2; root->kids.elems = (struct feat_Tree_s*)T_KIDS_ROOT;
+    memset(T_KIDS_ROOT,0,sizeof(T_KIDS_ROOT)); memset(T_KIDS_K0,0,sizeof(T_KIDS_K0));
+    T_KIDS_K0[0].value = 4;
+    T_KIDS_ROOT[0].value = 2; T_KIDS_ROOT[0].kids._length = 1; T_KIDS_ROOT[0].kids._buffer = T_KIDS_K0;
+    T_KIDS_ROOT[1].value = 3;
+    root->value = 1; root->kids._length = 2; root->kids._buffer = T_KIDS_ROOT;
 }
-static void canon_arr(feat_Arr_t* v) {
+static void canon_arr(feat_Arr* v) {
     memset(v,0,sizeof(*v));
     int32_t g[2][3] = {{10,11,12},{13,14,15}};
     memcpy(v->grid, g, sizeof(g));
@@ -47,52 +59,48 @@ static void canon_arr(feat_Arr_t* v) {
     v->shape[1].x = 3; v->shape[1].y = 4;
 }
 /* nested @mutable: MutNest{tag=9, leaf={u=100,v=1.25}, list=[{1,0.5},{2,0.25}]} */
-static feat_MutLeaf_t MN_LIST[2];
-static void canon_mutnest(feat_MutNest_t* v) {
+static feat_MutLeaf MN_LIST[2];
+static void canon_mutnest(feat_MutNest* v) {
     memset(v,0,sizeof(*v));
     v->tag = 9;
     v->leaf.u = 100; v->leaf.v = 1.25;
     MN_LIST[0].u = 1; MN_LIST[0].v = 0.5;
     MN_LIST[1].u = 2; MN_LIST[1].v = 0.25;
-    v->list.len = 2; v->list.elems = MN_LIST;
+    v->list._length = 2; v->list._buffer = MN_LIST;
 }
 /* nested-struct @key: OuterKey{k={hi=0x01020304,lo=0x05060708}, payload=999} */
-static void canon_outerkey(feat_OuterKey_t* v) {
+static void canon_outerkey(feat_OuterKey* v) {
     memset(v,0,sizeof(*v));
     v->k.hi = 0x01020304; v->k.lo = 0x05060708;
     v->payload = 999;
 }
 /* @bit_bound enum (2B) + map<long,Pt> + sequence<Sel>. h=BLUE; m={3:{11,12}}; sels=[Sel{_d=2,n=9}]. */
-static int32_t   ME_KEYS[1];
-static feat_Pt_t ME_VALS[1];
-static feat_Sel_t ME_SELS[1];
-static void canon_mapenum(feat_MapEnum_t* v) {
+static zd_map_long_feat_Pt_entry ME_M[1];
+static feat_Sel ME_SELS[1];
+static void canon_mapenum(feat_MapEnum* v) {
     memset(v,0,sizeof(*v));
-    v->h = feat_Hue_H_BLUE;
-    ME_KEYS[0] = 3; ME_VALS[0].x = 11; ME_VALS[0].y = 12;
-    v->m.len = 1; v->m.keys = ME_KEYS; v->m.vals = ME_VALS;
+    v->h = feat_H_BLUE;
+    ME_M[0].key = 3; ME_M[0].value.x = 11; ME_M[0].value.y = 12;
+    v->m._length = 1; v->m._buffer = ME_M;
+    memset(ME_SELS,0,sizeof(ME_SELS));
     ME_SELS[0]._d = 2; ME_SELS[0]._u.n = 9;
-    v->sels.len = 1; v->sels.elems = ME_SELS;
+    v->sels._length = 1; v->sels._buffer = ME_SELS;
 }
 /* map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5). m={7:42,8:99}. */
-static int32_t MP_KEYS[2]; static int32_t MP_VALS[2];
-static void canon_mapprim(feat_MapPrim_t* v) {
+static zd_map_long_long_entry MP_M[2];
+static void canon_mapprim(feat_MapPrim* v) {
     memset(v,0,sizeof(*v));
-    MP_KEYS[0]=7; MP_VALS[0]=42; MP_KEYS[1]=8; MP_VALS[1]=99;
-    v->m.len = 2; v->m.keys = MP_KEYS; v->m.vals = MP_VALS;
+    MP_M[0].key = 7; MP_M[0].value = 42; MP_M[1].key = 8; MP_M[1].value = 99;
+    v->m._length = 2; v->m._buffer = MP_M;
 }
-/* fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c). */
-static void canon_fixed(feat_Money_t* v) {
-    memset(v,0,sizeof(*v));
-    v->price.bcd[0]=0x12; v->price.bcd[1]=0x34; v->price.bcd[2]=0x5c;
-    v->qty.bcd[0]=0x01;   v->qty.bcd[1]=0x23;   v->qty.bcd[2]=0x4c;
-}
-static void canon_prim(feat_Prim_t* v) {
+/* fixed<P,S> as its decimal text: price=123.45 (wire 12 34 5c), qty=1234 (01 23 4c). */
+static void canon_fixed(feat_Money* v) { memset(v,0,sizeof(*v)); v->price = "123.45"; v->qty = "1234"; }
+static void canon_prim(feat_Prim* v) {
     memset(v,0,sizeof(*v));
     v->i8 = -128; v->u8 = 255; v->i16 = -32768; v->u16 = 65535;
     v->i32 = (int32_t)-2147483648LL; v->u32 = 4294967295u;
     v->i64 = (int64_t)0x8000000000000000ULL; v->u64 = 0xFFFFFFFFFFFFFFFFULL;
-    v->f32 = 3.5f; v->f64 = -1234.5; v->b = 1; v->o = 0xAB; v->ch = 'Z';
+    v->f32 = 3.5f; v->f64 = -1234.5; v->b = true; v->o = 0xAB; v->ch = 'Z';
 }
 
 static uint8_t* readfile(const char* p, size_t* n) {
@@ -104,151 +112,174 @@ static uint8_t* readfile(const char* p, size_t* n) {
     fclose(f); *n = (size_t)sz; return b;
 }
 
-typedef int (*enc_fn)(const void*, uint8_t*, size_t, size_t*);
-typedef int (*dec_fn)(const uint8_t*, size_t, void*);
+static uint8_t g_out[4096];
+static uint8_t g_heap[8192];
 
-static int do_encode(const char* path, enc_fn enc, const void* s) {
-    size_t need = 0;
-    enc(s, NULL, 0, &need);                 /* sizing pass */
-    if (need == 0) { fprintf(stderr, "ENCODE: 0 bytes\n"); return 1; }
-    uint8_t* buf = (uint8_t*)malloc(need);
-    size_t got = 0;
-    if (enc(s, buf, need, &got) != 0 || got != need) { fprintf(stderr, "ENCODE fail\n"); free(buf); return 1; }
-    FILE* f = fopen(path, "wb"); if (!f) { free(buf); return 1; }
-    fwrite(buf, 1, got, f); fclose(f); free(buf);
+/* XCDR2 little endian, MAXALIGN four (XTypes 1.3 §7.4.1). */
+#define ENCODE(TYPE, fn, canon) do { \
+        TYPE s; canon(&s); zdw_writer w; \
+        zdw_writer_init(&w, g_out, sizeof(g_out), ZDW_LITTLE, 4); \
+        fn(&w, &s); \
+        return write_out(file, &w); \
+    } while (0)
+
+static int write_out(const char* path, const zdw_writer* w) {
+    if (zdw_writer_status(w) != ZDW_OK) { fprintf(stderr, "ENCODE fail: status %d\n", (int)zdw_writer_status(w)); return 1; }
+    size_t got = zdw_writer_length(w);
+    FILE* f = fopen(path, "wb"); if (!f) return 1;
+    fwrite(g_out, 1, got, f); fclose(f);
     printf("ENCODE OK: %zu bytes -> %s\n", got, path);
     return 0;
 }
 
+static void reader_on(zdw_reader* r, const uint8_t* b, size_t n, zdw_endianness e) {
+    zdw_reader_init(r, b, n, e, FEATURES_MAX_ALIGN);
+    zdw_reader_set_heap(r, g_heap, sizeof(g_heap));
+}
+#define DECODED_OK(r) (zdw_reader_status(r) == ZDW_OK)
+
+/* The checks of one feature against its canonical value, shared by the
+ * little-endian DECODE and the big-endian BE mode. */
+static void check_wstr(const feat_WStr* g) {
+    CHK(g->label && !strcmp(g->label, WS_LABEL), "label"); CHK(g->text && !strcmp(g->text, WS_TEXT), "text");
+}
+static void check_mut(const feat_Mut* g) { CHK(g->a==1000000, "a"); CHK(g->b==2.5, "b"); CHK(g->c && !strcmp(g->c,"ok"), "c"); }
+static void check_bits(const feat_Bits* g) { CHK(g->perm==(feat_READ|feat_EXEC), "perm"); CHK(g->flags.kind==5 && g->flags.prio==20, "flags"); }
+static void check_tree(const feat_Tree* g) {
+    CHK(g->value==1, "root.value"); CHK(g->kids._length==2, "root.kids.len");
+    if (g->kids._length==2) {
+        CHK(g->kids._buffer[0].value==2, "k0.value");
+        CHK(g->kids._buffer[0].kids._length==1, "k0.kids.len");
+        if (g->kids._buffer[0].kids._length==1) CHK(g->kids._buffer[0].kids._buffer[0].value==4, "gc.value");
+        CHK(g->kids._buffer[1].value==3, "k1.value");
+        CHK(g->kids._buffer[1].kids._length==0, "k1.kids.len");
+    }
+}
+static void check_arr(const feat_Arr* g) {
+    feat_Arr w; canon_arr(&w);
+    for (int i=0;i<2;++i) for (int j=0;j<3;++j) CHK(g->grid[i][j]==w.grid[i][j], "grid");
+    for (int i=0;i<2;++i) { CHK(g->shape[i].x==w.shape[i].x,"shape.x"); CHK(g->shape[i].y==w.shape[i].y,"shape.y"); }
+}
+static void check_prim(const feat_Prim* g) {
+    feat_Prim w; canon_prim(&w);
+    CHK(g->i8==w.i8,"i8"); CHK(g->u8==w.u8,"u8"); CHK(g->i16==w.i16,"i16"); CHK(g->u16==w.u16,"u16");
+    CHK(g->i32==w.i32,"i32"); CHK(g->u32==w.u32,"u32"); CHK(g->i64==w.i64,"i64"); CHK(g->u64==w.u64,"u64");
+    CHK(g->f32==w.f32,"f32"); CHK(g->f64==w.f64,"f64"); CHK(g->b==w.b,"b"); CHK(g->o==w.o,"o"); CHK(g->ch==w.ch,"ch");
+}
+static void check_mutnest(const feat_MutNest* g) {
+    CHK(g->tag==9, "tag"); CHK(g->leaf.u==100, "leaf.u"); CHK(g->leaf.v==1.25, "leaf.v");
+    CHK(g->list._length==2, "list.len");
+    if (g->list._length==2) {
+        CHK(g->list._buffer[0].u==1 && g->list._buffer[0].v==0.5, "list[0]");
+        CHK(g->list._buffer[1].u==2 && g->list._buffer[1].v==0.25, "list[1]");
+    }
+}
+static void check_outerkey(const feat_OuterKey* g) {
+    CHK(g->k.hi==0x01020304, "k.hi"); CHK(g->k.lo==0x05060708, "k.lo"); CHK(g->payload==999, "payload");
+}
+static void check_mapenum(const feat_MapEnum* g) {
+    CHK(g->h==feat_H_BLUE, "h"); CHK(g->m._length==1, "m.len");
+    if (g->m._length==1) CHK(g->m._buffer[0].key==3 && g->m._buffer[0].value.x==11 && g->m._buffer[0].value.y==12, "m[3]");
+    CHK(g->sels._length==1, "sels.len");
+    if (g->sels._length==1) CHK(g->sels._buffer[0]._d==2 && g->sels._buffer[0]._u.n==9, "sels[0]");
+}
+static void check_mapprim(const feat_MapPrim* g) {
+    CHK(g->m._length==2, "m.len");
+    if (g->m._length==2) {
+        CHK(g->m._buffer[0].key==7 && g->m._buffer[0].value==42, "m[7]");
+        CHK(g->m._buffer[1].key==8 && g->m._buffer[1].value==99, "m[8]");
+    }
+}
+static void check_fixed(const feat_Money* g) {
+    CHK(g->price && !strcmp(g->price,"123.45"), "price"); CHK(g->qty && !strcmp(g->qty,"1234"), "qty");
+}
+
+#define DECODE(TYPE, fn, check) do { \
+        TYPE g; memset(&g,0,sizeof(g)); zdw_reader r; reader_on(&r, buf, n, e); \
+        fn(&r, &g, ZDW_TC_DISCARD); \
+        if (!DECODED_OK(&r)) { fprintf(stderr,"decode fail: status %d at %zu\n", (int)zdw_reader_status(&r), zdw_reader_error_offset(&r)); ++g_fail; } \
+        else check(&g); \
+    } while (0)
+
+static int decode_one(const char* feat, const uint8_t* buf, size_t n, zdw_endianness e) {
+    if (!strcmp(feat,"wstr")) DECODE(feat_WStr, zd_dec_feat_WStr, check_wstr);
+    else if (!strcmp(feat,"mut")) DECODE(feat_Mut, zd_dec_feat_Mut, check_mut);
+    else if (!strcmp(feat,"mutnest")) DECODE(feat_MutNest, zd_dec_feat_MutNest, check_mutnest);
+    else if (!strcmp(feat,"outerkey")) DECODE(feat_OuterKey, zd_dec_feat_OuterKey, check_outerkey);
+    else if (!strcmp(feat,"bits")) DECODE(feat_Bits, zd_dec_feat_Bits, check_bits);
+    else if (!strcmp(feat,"tree")) DECODE(feat_Tree, zd_dec_feat_Tree, check_tree);
+    else if (!strcmp(feat,"arr")) DECODE(feat_Arr, zd_dec_feat_Arr, check_arr);
+    else if (!strcmp(feat,"prim")) DECODE(feat_Prim, zd_dec_feat_Prim, check_prim);
+    else if (!strcmp(feat,"mapenum")) DECODE(feat_MapEnum, zd_dec_feat_MapEnum, check_mapenum);
+    else if (!strcmp(feat,"mapprim")) DECODE(feat_MapPrim, zd_dec_feat_MapPrim, check_mapprim);
+    else if (!strcmp(feat,"fixed")) DECODE(feat_Money, zd_dec_feat_Money, check_fixed);
+    else { fprintf(stderr, "unknown feature %s\n", feat); return 2; }
+    return 0;
+}
+
 int main(int argc, char** argv) {
-    if (argc < 3) { fprintf(stderr, "usage: <feature> ENCODE|DECODE <file>\n"); return 2; }
+    if (argc < 3) { fprintf(stderr, "usage: <feature> ENCODE|DECODE <file> | - BE\n"); return 2; }
     const char* feat = argv[1];
     const char* mode = argv[2];
     const char* file = argc > 3 ? argv[3] : NULL;
 
-    feat_WStr_t ws; feat_Mut_t mu; feat_Bits_t bi; feat_Tree_t tr; feat_Arr_t ar; feat_Prim_t pr; feat_MapEnum_t me; feat_MapPrim_t mp;
-    feat_MutNest_t mn; feat_OuterKey_t ok; feat_Money_t mo;
-
     if (strcmp(mode, "ENCODE") == 0) {
-        if (!strcmp(feat,"wstr")) { canon_wstr(&ws); return do_encode(file, feat_WStr_encode, &ws); }
-        if (!strcmp(feat,"mut"))  { canon_mut(&mu);  return do_encode(file, feat_Mut_encode,  &mu); }
-        if (!strcmp(feat,"mutnest")) { canon_mutnest(&mn); return do_encode(file, feat_MutNest_encode, &mn); }
-        if (!strcmp(feat,"outerkey")) { canon_outerkey(&ok); return do_encode(file, feat_OuterKey_encode, &ok); }
-        if (!strcmp(feat,"bits")) { canon_bits(&bi); return do_encode(file, feat_Bits_encode, &bi); }
-        if (!strcmp(feat,"tree")) { canon_tree(&tr); return do_encode(file, feat_Tree_encode, &tr); }
-        if (!strcmp(feat,"arr"))  { canon_arr(&ar);  return do_encode(file, feat_Arr_encode,  &ar); }
-        if (!strcmp(feat,"prim")) { canon_prim(&pr); return do_encode(file, feat_Prim_encode, &pr); }
-        if (!strcmp(feat,"mapenum")) { canon_mapenum(&me); return do_encode(file, feat_MapEnum_encode, &me); }
-        if (!strcmp(feat,"mapprim")) { canon_mapprim(&mp); return do_encode(file, feat_MapPrim_encode, &mp); }
-        if (!strcmp(feat,"fixed")) { canon_fixed(&mo); return do_encode(file, feat_Money_encode, &mo); }
+        if (!file) return 2;
+        if (!strcmp(feat,"wstr")) ENCODE(feat_WStr, zd_enc_feat_WStr, canon_wstr);
+        if (!strcmp(feat,"mut"))  ENCODE(feat_Mut, zd_enc_feat_Mut, canon_mut);
+        if (!strcmp(feat,"mutnest")) ENCODE(feat_MutNest, zd_enc_feat_MutNest, canon_mutnest);
+        if (!strcmp(feat,"outerkey")) ENCODE(feat_OuterKey, zd_enc_feat_OuterKey, canon_outerkey);
+        if (!strcmp(feat,"bits")) ENCODE(feat_Bits, zd_enc_feat_Bits, canon_bits);
+        if (!strcmp(feat,"tree")) ENCODE(feat_Tree, zd_enc_feat_Tree, canon_tree);
+        if (!strcmp(feat,"arr"))  ENCODE(feat_Arr, zd_enc_feat_Arr, canon_arr);
+        if (!strcmp(feat,"prim")) ENCODE(feat_Prim, zd_enc_feat_Prim, canon_prim);
+        if (!strcmp(feat,"mapenum")) ENCODE(feat_MapEnum, zd_enc_feat_MapEnum, canon_mapenum);
+        if (!strcmp(feat,"mapprim")) ENCODE(feat_MapPrim, zd_enc_feat_MapPrim, canon_mapprim);
+        if (!strcmp(feat,"fixed")) ENCODE(feat_Money, zd_enc_feat_Money, canon_fixed);
         fprintf(stderr, "unknown feature\n"); return 2;
     } else if (strcmp(mode, "DECODE") == 0) {
-        size_t n = 0; uint8_t* buf = readfile(file, &n);
-        if (!buf) { fprintf(stderr, "missing/empty %s\n", file); return 2; }
-        if (!strcmp(feat,"wstr")) {
-            feat_WStr_t g; memset(&g,0,sizeof(g)); feat_WStr_t w; canon_wstr(&w);
-            if (feat_WStr_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            size_t li=0; for (; w.label[li]; ++li) CHK(g.label && g.label[li]==w.label[li], "label[]");
-            CHK(g.label && g.label[li]==0, "label.len");
-            size_t ti=0; for (; w.text[ti]; ++ti) CHK(g.text && g.text[ti]==w.text[ti], "text[]");
-            CHK(g.text && g.text[ti]==0, "text.len");
-        } else if (!strcmp(feat,"mut")) {
-            feat_Mut_t g; memset(&g,0,sizeof(g)); feat_Mut_t w; canon_mut(&w);
-            if (feat_Mut_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            CHK(g.a==w.a, "a"); CHK(g.b==w.b, "b"); CHK(g.c && !strcmp(g.c,w.c), "c");
-        } else if (!strcmp(feat,"mutnest")) {
-            feat_MutNest_t g; memset(&g,0,sizeof(g)); feat_MutNest_t w; canon_mutnest(&w);
-            if (feat_MutNest_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            CHK(g.tag==w.tag, "tag");
-            CHK(g.leaf.u==w.leaf.u, "leaf.u"); CHK(g.leaf.v==w.leaf.v, "leaf.v");
-            CHK(g.list.len==w.list.len, "list.len");
-            if (g.list.len==w.list.len) for (uint32_t li=0; li<g.list.len; ++li) {
-                CHK(g.list.elems[li].u==w.list.elems[li].u, "list.u");
-                CHK(g.list.elems[li].v==w.list.elems[li].v, "list.v");
-            }
-        } else if (!strcmp(feat,"outerkey")) {
-            feat_OuterKey_t g; memset(&g,0,sizeof(g)); feat_OuterKey_t w; canon_outerkey(&w);
-            if (feat_OuterKey_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            CHK(g.k.hi==w.k.hi, "k.hi"); CHK(g.k.lo==w.k.lo, "k.lo"); CHK(g.payload==w.payload, "payload");
-        } else if (!strcmp(feat,"fixed")) {
-            feat_Money_t g; memset(&g,0,sizeof(g)); feat_Money_t w; canon_fixed(&w);
-            if (feat_Money_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            CHK(memcmp(g.price.bcd, w.price.bcd, sizeof(w.price.bcd))==0, "price.bcd");
-            CHK(memcmp(g.qty.bcd, w.qty.bcd, sizeof(w.qty.bcd))==0, "qty.bcd");
-        } else if (!strcmp(feat,"bits")) {
-            feat_Bits_t g; memset(&g,0,sizeof(g)); feat_Bits_t w; canon_bits(&w);
-            if (feat_Bits_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            CHK(g.perm==w.perm, "perm"); CHK(g.flags==w.flags, "flags");
-        } else if (!strcmp(feat,"tree")) {
-            feat_Tree_t g; memset(&g,0,sizeof(g)); feat_Tree_t w; canon_tree(&w);
-            if (feat_Tree_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            CHK(g.value==1, "root.value"); CHK(g.kids.len==2, "root.kids.len");
-            if (g.kids.len==2) {
-                CHK(g.kids.elems[0].value==2, "k0.value");
-                CHK(g.kids.elems[0].kids.len==1, "k0.kids.len");
-                if (g.kids.elems[0].kids.len==1) CHK(g.kids.elems[0].kids.elems[0].value==4, "gc.value");
-                CHK(g.kids.elems[1].value==3, "k1.value");
-                CHK(g.kids.elems[1].kids.len==0, "k1.kids.len");
-            }
-        } else if (!strcmp(feat,"arr")) {
-            feat_Arr_t g; memset(&g,0,sizeof(g)); feat_Arr_t w; canon_arr(&w);
-            if (feat_Arr_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            for (int i=0;i<2;++i) for (int j=0;j<3;++j) CHK(g.grid[i][j]==w.grid[i][j], "grid");
-            for (int i=0;i<2;++i) { CHK(g.shape[i].x==w.shape[i].x,"shape.x"); CHK(g.shape[i].y==w.shape[i].y,"shape.y"); }
-        } else if (!strcmp(feat,"prim")) {
-            feat_Prim_t g; memset(&g,0,sizeof(g)); feat_Prim_t w; canon_prim(&w);
-            if (feat_Prim_decode(buf, n, &g) != 0) { fprintf(stderr,"decode fail\n"); return 1; }
-            CHK(g.i8==w.i8,"i8"); CHK(g.u8==w.u8,"u8"); CHK(g.i16==w.i16,"i16"); CHK(g.u16==w.u16,"u16");
-            CHK(g.i32==w.i32,"i32"); CHK(g.u32==w.u32,"u32"); CHK(g.i64==w.i64,"i64"); CHK(g.u64==w.u64,"u64");
-            CHK(g.f32==w.f32,"f32"); CHK(g.f64==w.f64,"f64"); CHK(g.b==w.b,"b"); CHK(g.o==w.o,"o"); CHK(g.ch==w.ch,"ch");
-        } else { fprintf(stderr, "unknown feature\n"); free(buf); return 2; }
+        size_t n = 0; uint8_t* buf = file ? readfile(file, &n) : NULL;
+        if (!buf) { fprintf(stderr, "missing/empty %s\n", file ? file : "(none)"); return 2; }
+        int rc = decode_one(feat, buf, n, ZDW_LITTLE);
         free(buf);
+        if (rc) return rc;
         if (g_fail == 0) { printf("DECODE OK: %s\n", feat); return 0; }
         printf("DECODE FAILED: %d mismatch(es)\n", g_fail); return 1;
     } else if (strcmp(mode, "BE") == 0) {
-        /* Big-endian DECODE: read the ZeroDDS-Rust reference big-endian wire
-           (proofs/endianness BE golden — an independent encoder) and decode it
-           with _decode_e(.., zd_be=1), asserting fields == the canonical sample.
-           Proves the generated C decoder reads big-endian end to end. */
-        #define BE_LOAD(nm) \
-            uint8_t* bb = NULL; size_t bn = 0; \
-            { char p[256]; snprintf(p, sizeof(p), "../../proofs/endianness/goldens/%s.xcdr2-be.rust.bin", nm); \
-              FILE* f = fopen(p, "rb"); if (!f) { printf("  %s be: SKIP\n", nm); } \
-              else { fseek(f,0,SEEK_END); bn=(size_t)ftell(f); fseek(f,0,SEEK_SET); bb=(uint8_t*)malloc(bn); \
-                     if (fread(bb,1,bn,f)!=bn) { bn=0; } fclose(f); } }
-        { BE_LOAD("wstr"); if (bb) { feat_WStr_t g; memset(&g,0,sizeof(g)); feat_WStr_t w; canon_wstr(&w);
-            int before=g_fail; if (feat_WStr_decode_e(bb,bn,&g,1)!=0) ++g_fail;
-            else { size_t li=0; for(;w.label[li];++li) CHK(g.label&&g.label[li]==w.label[li],"wstr.label[]");
-                   CHK(g.label&&g.label[li]==0,"wstr.label.len");
-                   size_t ti=0; for(;w.text[ti];++ti) CHK(g.text&&g.text[ti]==w.text[ti],"wstr.text[]");
-                   CHK(g.text&&g.text[ti]==0,"wstr.text.len"); }
-            printf("  wstr be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
-        { BE_LOAD("mut"); if (bb) { feat_Mut_t g; memset(&g,0,sizeof(g)); feat_Mut_t w; canon_mut(&w);
-            int before=g_fail; if (feat_Mut_decode_e(bb,bn,&g,1)!=0) ++g_fail;
-            else { CHK(g.a==w.a,"mut.a"); CHK(g.b==w.b,"mut.b"); CHK(g.c&&!strcmp(g.c,w.c),"mut.c"); }
-            printf("  mut be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
-        { BE_LOAD("bits"); if (bb) { feat_Bits_t g; memset(&g,0,sizeof(g)); feat_Bits_t w; canon_bits(&w);
-            int before=g_fail; if (feat_Bits_decode_e(bb,bn,&g,1)!=0) ++g_fail;
-            else { CHK(g.perm==w.perm,"bits.perm"); }
-            printf("  bits be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
-        { BE_LOAD("tree"); if (bb) { feat_Tree_t g; memset(&g,0,sizeof(g)); feat_Tree_t w; canon_tree(&w);
-            int before=g_fail; if (feat_Tree_decode_e(bb,bn,&g,1)!=0) ++g_fail;
-            else { CHK(g.value==w.value,"tree.value"); CHK(g.kids.len==w.kids.len,"tree.kids.len"); }
-            printf("  tree be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
-        { BE_LOAD("arr"); if (bb) { feat_Arr_t g; memset(&g,0,sizeof(g)); feat_Arr_t w; canon_arr(&w);
-            int before=g_fail; if (feat_Arr_decode_e(bb,bn,&g,1)!=0) ++g_fail;
-            else { CHK(g.grid[1][2]==w.grid[1][2],"arr.grid"); CHK(g.shape[0].x==w.shape[0].x,"arr.shape"); }
-            printf("  arr be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
-        { BE_LOAD("prim"); if (bb) { feat_Prim_t g; memset(&g,0,sizeof(g)); feat_Prim_t w; canon_prim(&w);
-            int before=g_fail; if (feat_Prim_decode_e(bb,bn,&g,1)!=0) ++g_fail;
-            else { CHK(g.i64==w.i64,"prim.i64"); CHK(g.f64==w.f64,"prim.f64"); CHK(g.u16==w.u16,"prim.u16"); }
-            printf("  prim be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
-        { BE_LOAD("mapenum"); if (bb) { feat_MapEnum_t g; memset(&g,0,sizeof(g)); feat_MapEnum_t w; canon_mapenum(&w);
-            int before=g_fail; if (feat_MapEnum_decode_e(bb,bn,&g,1)!=0) ++g_fail;
-            else { CHK(g.h==w.h,"mapenum.h"); CHK(g.m.len==w.m.len,"mapenum.m.len"); CHK(g.sels.len==w.sels.len,"mapenum.sels.len"); }
-            printf("  mapenum be: %s\n", g_fail==before?"OK":"FAIL"); free(bb); } }
+        /* Big-endian DECODE of the ZeroDDS-Rust reference big-endian wire
+         * (proofs/endianness BE goldens — an independent encoder), asserting
+         * the fields equal the canonical sample. */
+        static const char* BE_FEATS[] = { "wstr", "mut", "bits", "tree", "arr", "prim", "mapenum" };
+        for (size_t i = 0; i < sizeof(BE_FEATS)/sizeof(BE_FEATS[0]); ++i) {
+            char p[256];
+            snprintf(p, sizeof(p), "../../proofs/endianness/goldens/%s.xcdr2-be.rust.bin", BE_FEATS[i]);
+            size_t n = 0; uint8_t* buf = readfile(p, &n);
+            if (!buf) { printf("  %s be: MISSING %s\n", BE_FEATS[i], p); ++g_fail; continue; }
+            int before = g_fail;
+            decode_one(BE_FEATS[i], buf, n, ZDW_BIG);
+            printf("  %s be: %s\n", BE_FEATS[i], g_fail == before ? "OK" : "FAIL");
+            free(buf);
+        }
         if (g_fail == 0) { printf("BE/LE roundtrip PASS\n"); return 0; }
         printf("BE FAILED: %d mismatch(es)\n", g_fail); return 1;
+    } else if (strcmp(mode, "XCDR1") == 0) {
+        /* XCDR1 DECODE of the same Rust reference goldens, both byte orders. */
+        static const char* X1_FEATS[] = { "wstr", "mut", "bits", "tree", "arr", "prim", "mapenum" };
+        static const char* X1_TAGS[] = { "xcdr1-le", "xcdr1-be" };
+        for (size_t i = 0; i < sizeof(X1_FEATS)/sizeof(X1_FEATS[0]); ++i) {
+            for (size_t t = 0; t < 2; ++t) {
+                char p[256];
+                snprintf(p, sizeof(p), "../../proofs/endianness/goldens/%s.%s.rust.bin", X1_FEATS[i], X1_TAGS[t]);
+                size_t n = 0; uint8_t* buf = readfile(p, &n);
+                if (!buf) { printf("  %s %s: MISSING %s\n", X1_FEATS[i], X1_TAGS[t], p); ++g_fail; continue; }
+                int before = g_fail;
+                decode_one(X1_FEATS[i], buf, n, t == 1 ? ZDW_BIG : ZDW_LITTLE);
+                printf("  %s %s: %s\n", X1_FEATS[i], X1_TAGS[t], g_fail == before ? "OK" : "FAIL");
+                free(buf);
+            }
+        }
+        if (g_fail == 0) { printf("XCDR1 PASS\n"); return 0; }
+        printf("XCDR1 FAILED: %d mismatch(es)\n", g_fail); return 1;
     }
     fprintf(stderr, "bad args\n"); return 2;
 }

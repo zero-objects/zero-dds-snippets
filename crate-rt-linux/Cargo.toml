@@ -1,0 +1,9 @@
+[package]
+name = "crate-rt-linux"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-rt-linux = { path = "../../crates/rt-linux" }

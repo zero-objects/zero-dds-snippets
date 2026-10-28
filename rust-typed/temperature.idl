@@ -1,0 +1,12 @@
+// The topic type the Rust bindings page shows. `@key` on `sensor_id`
+// makes each sensor its own instance; the scoped name is what the
+// generated `DdsType::TYPE_NAME` announces to peers, which XTypes 1.3
+// §7.6.3 matches by strict equality.
+module sensor_msgs {
+  module msg {
+    @final struct Temperature {
+      long          celsius;
+      @key string   sensor_id;
+    };
+  };
+};

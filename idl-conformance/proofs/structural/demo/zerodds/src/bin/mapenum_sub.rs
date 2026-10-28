@@ -1,5 +1,5 @@
-#![allow(non_snake_case, unused_imports, clippy::all)]
-mod generated { include!(concat!(env!("OUT_DIR"), "/mapenum.rs")); }
+#![allow(non_snake_case, non_camel_case_types, unused_imports, dead_code, clippy::all)]
+mod generated { include!(concat!(env!("OUT_DIR"), "/MapEnum.rs")); }
 use generated::feat::{MapEnum, Pt, Sel, Hue};
 use std::time::Duration;
 use zerodds_dcps::{DataReaderQos, DdsError, DomainParticipantFactory, DomainParticipantQos, SubscriberQos, TopicQos};

@@ -1,0 +1,10 @@
+[package]
+name = "crate-zenoh-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-zenoh-bridge = { path = "../../crates/zenoh-bridge" }
+zerodds-qos = { path = "../../crates/qos" }

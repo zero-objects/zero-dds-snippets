@@ -3,12 +3,13 @@
 The runnable companion to the **native endpoint SDKs** (ADR 0013): conservative,
 no-Rust endpoints in **C89 / Python / Java** that talk to a ZeroDDS/XRCE hub
 over UDP — in both directions. Each endpoint encodes/decodes a `SensorReading`
-with the wire-core (byte-identical to the Rust core), frames it as an XRCE
+with the wire-core, frames it as an XRCE
 `WRITE_DATA` message, and hands the frame to a transport through the frame-hook
 (here a UDP socket; another target fills the same hook with its own transport).
 The hub side is the real `zerodds-xrce`, so the endpoint frames are
-proven against genuine Rust XRCE over a socket. No Rust runs on the endpoint —
-the same code works on a big-endian legacy host.
+checked against genuine Rust XRCE over a socket. No Rust runs on the endpoint.
+This example uses little-endian XCDR2 and does not certify execution on a
+big-endian host or compare independent byte dumps.
 
 ## Layout
 
@@ -21,7 +22,8 @@ the same code works on a big-endian legacy host.
 
 The endpoint SDK sources (the wire-core, the XRCE/serial framing, the sample
 codec) live in the ZeroDDS source tree under `endpoints/`; this demo references
-them, so the published example can never silently drift from the SDK.
+them directly. Build and run the example against the intended source revision
+to check that they still agree.
 
 ## Build & run
 
@@ -41,6 +43,11 @@ then:
    frame to the hub; the hub decodes each `SensorReading` (`AGENT OK` ×3).
 2. **Receive** — the hub pushes a `DATA` sample to each endpoint; the endpoint
    unwraps and decodes it (`RECEIVER OK` ×3).
+
+Every field is checked against the expected sample. Socket reads have a
+ten-second deadline and subprocess failures fail the run. Each invocation keeps
+its logs and built endpoints in a fresh temporary directory printed on exit.
+Cleanup targets only the receiver/hub processes started by that invocation.
 
 Expected result:
 
@@ -64,3 +71,10 @@ transport is just a different frame-hook fill — see
 ## License
 
 Apache-2.0, same as ZeroDDS.
+
+## Reference
+
+- Explained on the website: [native-endpoints](https://zerodds.org/docs/native-endpoints.html)
+- This example in the repository: [zero-dds-snippets/native-endpoint-sdk](https://github.com/zero-objects/zero-dds-snippets/tree/main/native-endpoint-sdk)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

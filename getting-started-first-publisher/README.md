@@ -43,7 +43,7 @@ apart, so run `sub` first.
 
 ## Reference
 
-This is the runnable companion to the code snippets on
-**[documentation/01-getting-started/first-publisher.md](https://github.com/zero-objects/zero-dds/blob/main/documentation/01-getting-started/first-publisher.md)**.
+- Explained in the ZeroDDS tree: [documentation/01-getting-started/first-publisher.md](https://github.com/zero-objects/zero-dds/blob/main/documentation/01-getting-started/first-publisher.md)
+- This example in the repository: [zero-dds-snippets/getting-started-first-publisher](https://github.com/zero-objects/zero-dds-snippets/tree/main/getting-started-first-publisher)
 
 Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

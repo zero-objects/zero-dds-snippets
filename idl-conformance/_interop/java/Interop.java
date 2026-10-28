@@ -1,170 +1,98 @@
-// XCDR2 wire-level interop harness for the combo::Telemetry canonical sample.
+// idl-conformance / _interop / java — the combo::Telemetry column.
 //
-// Two modes:
-//   ENCODE          -> write the canonical sample's raw XCDR2-LE bytes to
-//                      _interop/goldens/java.bin
-//   DECODE <file>   -> read raw bytes, reconstruct, assert EVERY field equals
-//                      the canonical sample; exit 0 on full match, nonzero with
-//                      a diff otherwise.
+//   java Interop ENCODE <out.bin>   write the canonical sample as raw XCDR2-LE
+//   java Interop DECODE <in.bin>    decode, assert every field == canonical
 //
-// The bytes produced by TelemetryTypeSupport.encode(sample, LITTLE_ENDIAN) ARE
-// the exact bytes DDS carries on the wire — no live pub/sub needed.
-
-import combo.CurrentInAmpsType;
-import combo.Mode;
-import combo.Reading;
-import combo.Sample;
-import combo.Telemetry;
-import combo.TelemetryTypeSupport;
+// The types, codecs and TypeSupports are `zerodds-idlc generate --lang java`
+// output of ../combo.idl (ZdTypes, ZdCodec, ZdTypeSupports) over
+// runtime/java; values are CANONICAL.md.
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.Arrays;
+import java.util.Objects;
+import org.zerodds.cdr.EndianMode;
 
 public final class Interop {
 
-    private static final String GOLDEN =
-        "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens/java.bin";
-
-    /** Build the ONE canonical sample. Identical values across every language. */
-    static Telemetry canonical() {
-        Telemetry x = new Telemetry();
-        x.setUnitId(4242);                                         // @key long
-        x.setRegion("eu-central-1");                               // @key string<32>
-        x.setMode(Mode.MODE_ACTIVE);                               // enum index 1
-        x.setBatteryCurrent(new CurrentInAmpsType(13.75));         // typedef double
-
-        // sequence<Sample> history
-        List<Sample> history = new ArrayList<>();
-        history.add(mkSample(1, 0.5));
-        history.add(mkSample(2, 1.5));
-        history.add(mkSample(3, -2.25));
-        x.setHistory(history);
-
-        // union Reading switch(Mode): MODE_ACTIVE -> activeRate (double) = 60.0
-        x.setReading(new Reading.ActiveRate(60.0));
-
-        // map<string,long> counters, encoded key-sorted ("drops" < "packets")
-        Map<String, Integer> counters = new LinkedHashMap<>();
-        counters.put("drops", 3);
-        counters.put("packets", 100);
-        x.setCounters(counters);
-
-        // @optional double calibration = PRESENT, 0.001
-        x.setCalibration(Optional.of(0.001));
-
-        // long window[4]
-        x.setWindow(new int[] {10, 20, 30, 40});
-        return x;
-    }
-
-    static Sample mkSample(int seq, double value) {
-        Sample s = new Sample();
-        s.setSeq(seq);
-        s.setValue(value);
+    static ZdTypes.combo.Sample sample(int seq, double value) {
+        var s = new ZdTypes.combo.Sample();
+        s.seq = seq;
+        s.value = value;
         return s;
     }
 
-    public static void main(String[] args) throws Exception {
-        if (args.length == 0) {
-            System.err.println("usage: Interop ENCODE | DECODE <file>");
-            System.exit(2);
-        }
-        switch (args[0]) {
-            case "ENCODE" -> encode();
-            case "DECODE" -> decode(args.length > 1 ? args[1] : GOLDEN);
-            default -> {
-                System.err.println("unknown mode: " + args[0]);
-                System.exit(2);
-            }
-        }
+    static ZdTypes.ZdEntry_string_long entry(String key, int value) {
+        var e = new ZdTypes.ZdEntry_string_long();
+        e.key = key;
+        e.value = value;
+        return e;
     }
 
-    static void encode() throws Exception {
-        Telemetry x = canonical();
-        byte[] bytes = TelemetryTypeSupport.INSTANCE.encode(
-            x, org.zerodds.cdr.EndianMode.LITTLE_ENDIAN);
-        Path out = Path.of(GOLDEN);
-        Files.createDirectories(out.getParent());
-        Files.write(out, bytes);
-        System.out.println("ENCODE: wrote " + bytes.length + " bytes -> " + GOLDEN);
+    static ZdTypes.combo.Telemetry canonical() {
+        var x = new ZdTypes.combo.Telemetry();
+        x.unitId = 4242;                                   // @key long
+        x.region = "eu-central-1";                         // @key string<32>
+        x.mode = ZdTypes.combo.Mode.MODE_ACTIVE;           // enum, index 1
+        x.batteryCurrent = 13.75;                          // typedef double
+        x.history = new ZdTypes.combo.Sample[] {sample(1, 0.5), sample(2, 1.5), sample(3, -2.25)};
+        x.reading = new ZdTypes.combo.Reading();           // union switch(Mode) -> activeRate
+        x.reading._d = ZdTypes.combo.Mode.MODE_ACTIVE;
+        x.reading.activeRate = 60.0;
+        x.counters = new ZdTypes.ZdEntry_string_long[] {entry("drops", 3), entry("packets", 100)};
+        x.calibration = 0.001;                             // @optional double, present
+        x.window = new int[] {10, 20, 30, 40};             // long[4]
+        return x;
     }
 
-    private static int failures = 0;
+    static int failures = 0;
 
-    static void eq(String what, Object expected, Object actual) {
-        boolean ok = (expected == null) ? actual == null : expected.equals(actual);
+    static void check(boolean ok, String what) {
         if (!ok) {
             failures++;
-            System.out.println("  DIFF " + what + ": expected=" + expected + " actual=" + actual);
-        } else {
-            System.out.println("  ok   " + what + " = " + actual);
+            System.err.println("  [FAIL] " + what);
         }
     }
 
-    static void decode(String file) throws Exception {
-        byte[] bytes = Files.readAllBytes(Path.of(file));
-        Telemetry r = TelemetryTypeSupport.INSTANCE.decode(bytes);
-        Telemetry c = canonical();
-
-        eq("unitId", c.getUnitId(), r.getUnitId());
-        eq("region", c.getRegion(), r.getRegion());
-        eq("mode", c.getMode(), r.getMode());
-        eq("batteryCurrent", c.getBatteryCurrent().value(), r.getBatteryCurrent().value());
-
-        // history
-        List<Sample> ch = c.getHistory();
-        List<Sample> rh = r.getHistory();
-        eq("history.size", ch.size(), rh == null ? null : rh.size());
-        if (rh != null && rh.size() == ch.size()) {
-            for (int i = 0; i < ch.size(); i++) {
-                eq("history[" + i + "].seq", ch.get(i).getSeq(), rh.get(i).getSeq());
-                eq("history[" + i + "].value", ch.get(i).getValue(), rh.get(i).getValue());
-            }
+    static void checkTelemetry(ZdTypes.combo.Telemetry g) {
+        var w = canonical();
+        check(g.unitId == w.unitId, "unitId");
+        check(Objects.equals(g.region, w.region), "region");
+        check(g.mode == w.mode, "mode");
+        check(g.batteryCurrent == w.batteryCurrent, "batteryCurrent");
+        boolean history = g.history.length == w.history.length;
+        for (int i = 0; history && i < w.history.length; i++) {
+            history = g.history[i].seq == w.history[i].seq && g.history[i].value == w.history[i].value;
         }
-
-        // union reading
-        boolean rIsActive = r.getReading() instanceof Reading.ActiveRate;
-        eq("reading is ActiveRate", Boolean.TRUE, rIsActive);
-        if (rIsActive) {
-            eq("reading.activeRate",
-               ((Reading.ActiveRate) c.getReading()).activeRate(),
-               ((Reading.ActiveRate) r.getReading()).activeRate());
+        check(history, "history");
+        check(g.reading._d == w.reading._d && g.reading.activeRate == w.reading.activeRate, "reading");
+        boolean counters = g.counters.length == w.counters.length;
+        for (int i = 0; counters && i < w.counters.length; i++) {
+            counters = Objects.equals(g.counters[i].key, w.counters[i].key) && g.counters[i].value == w.counters[i].value;
         }
+        check(counters, "counters");
+        check(Objects.equals(g.calibration, w.calibration), "calibration");
+        check(Arrays.equals(g.window, w.window), "window");
+    }
 
-        // counters map
-        Map<String, Integer> cc = c.getCounters();
-        Map<String, Integer> rc = r.getCounters();
-        eq("counters.size", cc.size(), rc == null ? null : rc.size());
-        if (rc != null) {
-            eq("counters[drops]", cc.get("drops"), rc.get("drops"));
-            eq("counters[packets]", cc.get("packets"), rc.get("packets"));
+    public static void main(String[] args) throws Exception {
+        if (args.length != 2 || !(args[0].equals("ENCODE") || args[0].equals("DECODE"))) {
+            System.err.println("usage: Interop ENCODE <out.bin> | DECODE <in.bin>");
+            System.exit(2);
         }
-
-        // optional calibration
-        eq("calibration", c.getCalibration(), r.getCalibration());
-
-        // window array
-        int[] cw = c.getWindow();
-        int[] rw = r.getWindow();
-        eq("window.length", cw.length, rw == null ? null : rw.length);
-        if (rw != null && rw.length == cw.length) {
-            for (int i = 0; i < cw.length; i++) {
-                eq("window[" + i + "]", cw[i], rw[i]);
-            }
+        Path path = Path.of(args[1]);
+        var support = ZdTypeSupports.Support_combo_Telemetry.INSTANCE;
+        if (args[0].equals("ENCODE")) {
+            byte[] bytes = support.encode(canonical(), EndianMode.LITTLE_ENDIAN, 2);
+            Files.write(path, bytes);
+            System.out.println("ENCODE OK: " + bytes.length + " bytes -> " + path);
+            return;
         }
-
-        System.out.println();
-        if (failures == 0) {
-            System.out.println("DECODE OK — every field matches the canonical sample.");
-            System.exit(0);
-        } else {
-            System.out.println("DECODE FAILED — " + failures + " field(s) differ.");
+        checkTelemetry(support.decode(Files.readAllBytes(path)));
+        if (failures != 0) {
+            System.out.println("DECODE FAILED: " + failures + " mismatch(es)");
             System.exit(1);
         }
+        System.out.println("DECODE OK: every field equals canonical");
     }
 }

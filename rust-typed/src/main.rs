@@ -1,42 +1,34 @@
-// Verbatim demo of the website snippet:
-//   website/bindings/rust/index.html
-//   "Typisierte Topics — DdsType / Variante A — #[derive(DdsType)]"
+// Typed topics in Rust: the type comes from IDL, compiled by
+// `zerodds-build` in `build.rs`, and `create_topic` / `create_datawriter`
+// take it through the generated `zerodds_dcps::DdsType` impl.
 //
-// The struct definition and the create_topic / create_datawriter / write
-// lines below are copied EXACTLY from that snippet. Only the import line
-// and the surrounding main()/participant scaffolding (which the snippet
-// omits) were added — see the note next to `use` below.
+// This replaces the `#[derive(DdsType)]` bridge the earlier releases
+// carried. The derive is gone: a hand-written bridge states the type
+// name and the codec twice, and its `type_object()` defaulted to `None`,
+// so the endpoint announced a topic type name with no type behind it
+// (XTypes 1.3 §7.6.3.2). The generated impl carries `TYPE_NAME`,
+// `EXTENSIBILITY`, `HAS_KEY`, the `TypeIdentifier` and the `TypeObject`
+// from the same model as the codec, so they cannot drift apart.
 
-// --- snippet imports (verbatim from the corrected website snippet) ------
-// The derive macro lives in `zerodds-cdr-derive`, the trait in
-// `zerodds-dcps`. They share the name `DdsType` but live in different
-// namespaces (macro vs. type), so both `use`s coexist without a clash.
-use zerodds_cdr_derive::DdsType; // derive macro
-use zerodds_dcps::DdsType; // trait
-// ------------------------------------------------------------------------
-
-// Scaffolding the snippet omits: factory + participant + QoS imports.
 use zerodds_dcps::{
-    DataWriterQos, DomainParticipantFactory, DomainParticipantQos, PublisherQos, TopicQos,
+    DataWriterQos, DdsType, DomainParticipantFactory, DomainParticipantQos, PublisherQos, TopicQos,
 };
 
-// ===== EXACT snippet struct definition ==================================
-#[derive(DdsType, Debug, Clone)]
-#[dds(type_name = "sensor_msgs::msg::Temperature")]
-pub struct Temperature {
-    pub celsius: i32,
-    pub sensor_id: String,
+// `temperature.idl` -> `temperature.rs` in `$OUT_DIR`. The lint allows go
+// on the module as outer attributes, because `include!` splices the
+// generated tokens into this file.
+#[allow(non_snake_case, unused_imports, dead_code, clippy::all)]
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/temperature.rs"));
 }
-// ========================================================================
+use generated::sensor_msgs::msg::Temperature;
 
 fn main() -> zerodds_dcps::Result<()> {
-    // Scaffolding: build participant `p` the snippet refers to.
-    // Live participant — create_datawriter/write need a runtime (the
-    // offline variant can only create topics, not writers).
+    // A live participant: `create_datawriter` and `write` need a runtime
+    // (the offline variant can only create topics, not writers).
     let factory = DomainParticipantFactory::instance();
     let p = factory.create_participant(0, DomainParticipantQos::default())?;
 
-    // ===== EXACT snippet usage lines ====================================
     let topic = p.create_topic::<Temperature>("Temp", TopicQos::default())?;
     let writer = p
         .create_publisher(PublisherQos::default())
@@ -45,10 +37,17 @@ fn main() -> zerodds_dcps::Result<()> {
         celsius: 23,
         sensor_id: "A7".into(),
     })?;
-    // ====================================================================
 
+    // The type name the peer matches on, and the proof the type itself is
+    // announced with it: a `None` here is the failure this example exists
+    // to rule out.
+    assert!(
+        Temperature::type_object().is_some(),
+        "the generated DdsType must carry a TypeObject; without one the \
+         endpoint announces a topic type name and no type (XTypes 1.3 §7.6.3.2)"
+    );
     println!(
-        "wrote Temperature {{ celsius: 23, sensor_id: \"A7\" }} to topic \"Temp\" (type {})",
+        "wrote Temperature {{ celsius: 23, sensor_id: \"A7\" }} to topic \"Temp\" (type {}, TypeObject announced)",
         Temperature::TYPE_NAME
     );
     Ok(())

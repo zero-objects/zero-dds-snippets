@@ -29,7 +29,7 @@ companion if both run concurrently.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[documentation/03-configuration/observability.md](https://github.com/zero-objects/zero-dds/blob/main/documentation/03-configuration/observability.md)**.
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/observability-stderr-sink](https://github.com/zero-objects/zero-dds-snippets/tree/main/observability-stderr-sink)
 
 Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

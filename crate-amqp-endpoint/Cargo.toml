@@ -1,0 +1,9 @@
+[package]
+name = "crate-amqp-endpoint"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-amqp-endpoint = { path = "../../crates/amqp-endpoint" }

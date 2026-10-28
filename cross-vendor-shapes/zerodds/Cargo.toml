@@ -1,0 +1,13 @@
+[package]
+name = "xv-shapes"
+version = "0.0.0"
+edition = "2021"
+build = "build.rs"
+[workspace]
+[dependencies]
+zerodds-dcps = { path = "../../../crates/dcps" }
+zerodds-wire = { path = "../../../crates/wire" }
+zerodds-types = { path = "../../../crates/types" }
+zerodds-sql-filter = { path = "../../../crates/sql-filter" }
+[build-dependencies]
+zerodds-build = { path = "../../../crates/zerodds-build" }

@@ -7,12 +7,15 @@
 
 ZERODDS_ROOT ?= ../../..
 INCDIR       := $(ZERODDS_ROOT)/crates/zerodds-c-api/include
+WIRE_DIR     := $(ZERODDS_ROOT)/runtime/c
+WIRE_LIB     := $(WIRE_DIR)/build/libzerodds_wire.a
 LIBDIR       := $(ZERODDS_ROOT)/target/release
 IDLC         := $(ZERODDS_ROOT)/target/debug/zerodds-idlc
 FIXTURE      := sensor.idl
 
-CFLAGS  := -std=c11 -Wall -I. -I$(INCDIR)
-LDFLAGS := -L$(LIBDIR) -lzerodds
+# usleep() is POSIX, not C11.
+CFLAGS  := -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -I. -I$(INCDIR) -I$(WIRE_DIR)/include
+LDFLAGS := $(WIRE_LIB) -L$(LIBDIR) -lzerodds
 
 # macOS uses DYLD_LIBRARY_PATH; Linux uses LD_LIBRARY_PATH.
 UNAME_S := $(shell uname -s)
@@ -29,9 +32,13 @@ all: roundtrip
 # Regenerate the typed header from this example's local fixture (committed copy
 # already present; this target lets you refresh it).
 gen:
-	$(IDLC) generate $(FIXTURE) --c -o . </dev/null
+	$(IDLC) generate --lang c $(FIXTURE) --out . </dev/null
 
-roundtrip: roundtrip.c sensor.h
+# The C wire runtime the generated header calls into.
+$(WIRE_LIB):
+	$(MAKE) -C $(WIRE_DIR)
+
+roundtrip: roundtrip.c sensor.h $(WIRE_LIB)
 	gcc $(CFLAGS) roundtrip.c $(LDFLAGS) -o roundtrip
 
 run: roundtrip

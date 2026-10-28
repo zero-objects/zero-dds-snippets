@@ -20,10 +20,10 @@ path = "src/main.rs"
 zerodds-build = { path = "../../crates/zerodds-build" }
 
 [dependencies]
-# Runtime deps the zerodds-idl-rust generated code needs (DdsType,
-# TypeIdentifier, CDR codec, SQL-filter field_value()) — identical set to
-# idlc-buildrs, since the generated code shape is the same emitter.
-zerodds-cdr = { path = "../../crates/cdr" }
+# Runtime deps the generated code names: the `DdsType` trait, the
+# TypeIdentifier/TypeObject, the wire runtime the codec calls, and the
+# SQL-filter `field_value()` — the same set as the sibling idlc-buildrs.
+zerodds-wire = { path = "../../crates/wire" }
 zerodds-dcps = { path = "../../crates/dcps" }
 zerodds-types = { path = "../../crates/types" }
 zerodds-sql-filter = { path = "../../crates/sql-filter" }

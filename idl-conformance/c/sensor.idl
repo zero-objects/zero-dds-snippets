@@ -22,7 +22,7 @@ module conf {
   struct SensorReading {
     @key long           sensor_id;     // long (int32) key
     @key string<16>     site;          // bounded-string key
-    Status              status;        // enum member
+    ::conf::Status      status;        // enum member; the scoped name, since `status` and `Status` differ only in case (IDL 4.2 7.2.3.1)
     TemperatureType     temperature;   // typedef-to-double (alias chain)
     GeoPoint            location;      // nested struct member
     long                samples[4];    // fixed array member (long[4])

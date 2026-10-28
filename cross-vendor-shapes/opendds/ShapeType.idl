@@ -1,7 +1,21 @@
+// The ShapesDemo type of ../ShapeType.idl, for OpenDDS's IDL compiler.
+//
+// `@must_understand` on the key member is what XTypes 1.3 §7.2.2.4.4.4.8
+// makes implicit ("key members shall always have their 'must understand'
+// attribute set to true"). ZeroDDS and Cyclone DDS set IS_MUST_UNDERSTAND
+// on a key member without it; opendds_idl 3.34 sets it only when the
+// annotation is written (dds/idl/typeobject_generator.cpp), so the two
+// minimal TypeObjects differ in that one flag and their hashes differ.
+// OpenDDS 3.34 also numbers TypeConsistencyKind from 1
+// (DdsDcpsCore.idl: DISALLOW_TYPE_COERCION = 1, ALLOW_TYPE_COERCION = 2)
+// where XTypes 1.3 numbers it from 0, reads a remote reader's
+// ALLOW_TYPE_COERCION as DISALLOW, and then matches only identical type
+// identifiers. Written out, the flag gives OpenDDS the TypeObject the
+// specification asks for, and the identifiers agree.
 @topic
 @final
 struct ShapeType {
-  @key string color;
+  @key @must_understand string color;
   long x;
   long y;
   long shapesize;

@@ -69,8 +69,10 @@ int main(int argc, char **argv)
     zdw_writer_init(&w, body, sizeof(body), ZDW_LE);
     if (sensor_encode(&w, &s) != ZDW_OK) { fprintf(stderr, "encode\n"); return 1; }
     blen = w.len;
+    /* ObjectId (Sec 7.2.1): 12-bit raw id, 4-bit ObjectKind. */
     flen = zdw_xrce_write_frame(frame, sizeof(frame), ZDW_XRCE_SESSION_NOKEY,
-                                ZDW_XRCE_STREAM_BEST_EFFORT, 1, body, blen);
+                                ZDW_XRCE_STREAM_BEST_EFFORT, 1,
+                                (0x001u << 4) | ZDW_OBJK_DATAWRITER, body, blen);
     if (zdw_endpoint_send(&t, frame, flen) != ZDW_T_OK) { fprintf(stderr, "send\n"); return 1; }
     printf("sent %lu-byte XRCE WRITE_DATA frame to %s:%s\n",
            (unsigned long)flen, argv[1], argv[2]);

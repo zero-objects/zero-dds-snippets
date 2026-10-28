@@ -15,9 +15,14 @@ path = "src/main.rs"
 # DCPS entities (DomainParticipantFactory / Topic / DataWriter / DataReader)
 # plus the DdsType trait the generated code implements.
 zerodds-dcps = { path = "../../../crates/dcps" }
-# The generated encode/decode bodies call ::zerodds_cdr::{BufferWriter, ...}.
-zerodds-cdr = { path = "../../../crates/cdr" }
+# The generated encode/decode bodies call ::zerodds_wire::{Writer, Reader, ...}.
+zerodds-wire = { path = "../../../crates/wire" }
 # Generated DdsType impls reference zerodds_types::TypeIdentifier ...
 zerodds-types = { path = "../../../crates/types" }
 # ... and zerodds_sql_filter::Value (field_value()).
 zerodds-sql-filter = { path = "../../../crates/sql-filter" }
+
+[build-dependencies]
+# The generator: reads idl/20_mixed_combo.idl and writes the type, its
+# codec and its DdsType impl into OUT_DIR. See build.rs.
+zerodds-build = { path = "../../../crates/zerodds-build" }

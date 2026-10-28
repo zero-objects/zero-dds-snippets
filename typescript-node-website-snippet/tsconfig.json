@@ -8,8 +8,11 @@
     "skipLibCheck": true,
     "noEmit": true,
     "lib": ["ES2022", "DOM"],
-    "typeRoots": ["/path/to/zerodds/crates/ts-node/node_modules/@types"],
-    "types": ["node"]
+    "types": [],
+    "paths": {
+      "@zerodds/node": ["../../crates/ts-node/dist/index.d.ts"],
+      "@zerodds/wire": ["../../runtime/typescript/dist/index.d.ts"]
+    }
   },
   "include": ["*.ts"]
 }

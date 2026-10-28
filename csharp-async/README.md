@@ -14,7 +14,7 @@ The `csharp-async.csproj` references the local `../../crates/cs/csharp/ZeroDDS/Z
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[ZeroDDS C# binding](https://zerodds.de/bindings/csharp/)** — see https://zerodds.de/bindings/csharp/.
+- Explained on the website: [C# / .NET](https://zerodds.org/bindings/csharp/)
+- This example in the repository: [zero-dds-snippets/csharp-async](https://github.com/zero-objects/zero-dds-snippets/tree/main/csharp-async)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

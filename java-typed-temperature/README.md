@@ -14,7 +14,7 @@ Build the binding once, in the ZeroDDS checkout:
 
 Then compile `App.java` together with the generated-type stub and run:
 
-    JAR=crates/java-omgdds/java/target/omgdds-0.0.0.jar
+    JAR=$(ls crates/java-omgdds/java/target/omgdds-*.jar | head -1)
     javac -cp "$JAR" -d out App.java sensor_msgs/msg/Temperature.java
     java  -cp "out:$JAR" App
 
@@ -22,7 +22,7 @@ Expect `got: 23 / A7`.
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[ZeroDDS Java binding](https://zerodds.de/bindings/java/)**.
+- Explained on the website: [Java](https://zerodds.org/bindings/java/)
+- This example in the repository: [zero-dds-snippets/java-typed-temperature](https://github.com/zero-objects/zero-dds-snippets/tree/main/java-typed-temperature)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

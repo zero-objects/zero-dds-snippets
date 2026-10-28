@@ -3,6 +3,7 @@ name = "rust-async-showcase"
 version = "0.1.0"
 edition = "2024"
 publish = false
+build = "build.rs"
 
 [workspace]
 
@@ -11,15 +12,20 @@ publish = false
 # required at its core; here we drive it with Tokio (the `tokio-glue` feature
 # adds `spawn_in_tokio`). It works equally with async-std or smol.
 #
-# Built against the ZeroDDS source (git), because this example uses the
-# async surface that ships from rc.7 (SampleInfo readers, content filters,
-# derive field_value). From rc.7 on you can switch these to `version = "1.0.0-rc.7"`.
-zerodds-dcps-async = { git = "https://github.com/zero-objects/zero-dds", branch = "main", features = ["tokio-glue"] }
-zerodds-dcps = { git = "https://github.com/zero-objects/zero-dds", branch = "main" }
-zerodds-cdr-derive = { git = "https://github.com/zero-objects/zero-dds", branch = "main" }
-zerodds-cdr = { git = "https://github.com/zero-objects/zero-dds", branch = "main" }
+# Path deps into the local zero-dds checkout: this example uses the async
+# surface and the generated-type shape that ship from rc.7 (SampleInfo
+# readers, content filters, `field_value` from the generated `DdsType`).
+# From the rc.7 crates.io cut on, these become `version = "1.0.0-rc.7"`.
+zerodds-dcps-async = { path = "../../crates/dcps-async", features = ["tokio-glue"] }
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-wire = { path = "../../crates/wire" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-sql-filter = { path = "../../crates/sql-filter" }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
+
+[build-dependencies]
+zerodds-build = { path = "../../crates/zerodds-build" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }

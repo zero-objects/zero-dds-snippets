@@ -28,7 +28,7 @@ makes the KeyHash an interop-critical wire surface.
 Because the decision is static, a type whose key *could* exceed 16 bytes always
 takes the MD5 branch, even for a short concrete value.
 
-## The four canonical cases
+## The five canonical cases
 
 | Case | Type        | Key members                                  | Branch    |
 |------|-------------|----------------------------------------------|-----------|
@@ -36,9 +36,14 @@ takes the MD5 branch, even for a short concrete value.
 | (b)  | `BigKey`    | `@key string name` + `@key long region`      | **MD5** (unbounded string ⇒ no static ≤16 max) |
 | (c)  | `MixedKeys` | `@key octet`, `short`, `long`, `char`        | zero-pad (9 B incl. alignment) |
 | (d)  | `OuterKey`  | `@key NestedKey k` (`hi`, `lo` both `@key`)  | zero-pad (8 B, nested expansion) |
+| (e)  | `BoundedKey`| `@key string<8> code`                        | zero-pad (7 B; bounded maximum 4 + 8 + 1 = 13 ≤ 16) |
 
-IDL: [`idl/keyhash_cases.idl`](idl/keyhash_cases.idl) (cases a–c, generated for
-the Rust harness) and [`vendor/keyhash_full.idl`](vendor/keyhash_full.idl) (all
+`cargo run --quiet -- --check` compares the five ZeroDDS KeyHashes with the
+vendor values in `vendor/RECORDED-KEYHASHES.txt` and exits non-zero on any
+difference; it ends with `ALL 5 KEYHASHES MATCH THE RECORDED VENDOR VALUES`.
+
+IDL: [`idl/keyhash_cases.idl`](idl/keyhash_cases.idl) (cases a–e, generated for
+the Rust harness by `build.rs`) and [`vendor/keyhash_full.idl`](vendor/keyhash_full.idl) (all
 four cases, used for the vendors).
 
 ## Result
@@ -67,9 +72,15 @@ cargo run
 
 This prints ZeroDDS's 16-byte KeyHash for each instance, plus the intermediate
 big-endian keyholder bytes (so the MD5 input for case (b) is fully visible).
-The generated types in [`generated/keyhash_cases.rs`](generated/keyhash_cases.rs)
-were produced with `zerodds-idlc --rust` from the IDL; the harness in
-[`src/main.rs`](src/main.rs) calls `DdsType::compute_key_hash()`.
+The generated types come out of [`build.rs`](build.rs), which runs
+`zerodds_build::Config::new().dds_type_impls(true)` over the IDL — the same
+composition pipeline the `zerodds-idlc` CLI runs — into `OUT_DIR`; the harness
+in [`src/main.rs`](src/main.rs) calls `DdsType::compute_key_hash()`.
+
+Case (d) does not compile against rc.7: for a `@key` member of aggregate type
+the emitter writes `self.k.encode(holder)` where `holder` is an owned
+`zerodds_wire::Writer` and `encode` takes `&mut Writer`. See the module comment
+in `src/main.rs`.
 
 ## Reproduce the vendor side (on a host with the three SDKs)
 
@@ -113,37 +124,17 @@ Source: [`vendor/fastdds_keyhash.cpp`](vendor/fastdds_keyhash.cpp).
 
 ## Findings surfaced by this proof
 
-1. **ZeroDDS Rust codegen rejects a nested-struct `@key` member.**
-   `@key NestedKey k` (case (d)) fails code generation with
-   `unsupported IDL construct 'complex @key field (sequence or nested struct)'`
-   in `crates/idl-rust/src/struct_emit.rs` (`emit_key_field_write`). CycloneDDS,
-   RTI, and Fast DDS all generate it. The *runtime* (`PlainCdr2BeKeyHolder`)
-   handles it fine, and case (d) here proves the bytes match — the gap is purely
-   in the Rust emitter. The other ZeroDDS language backends should be checked
-   for the same limitation.
+1. **Nested-struct `@key` member — fixed.** The Rust emitter now expands
+   `@key NestedKey k` into the nested struct's own key members in member-id
+   order, so `OuterKey::compute_key_hash()` and `encode_key_holder_be()` are
+   generated; case (d) matches all three vendors.
 
-2. **Bounded `@key string<N>` always takes the MD5 branch in ZeroDDS.**
-   `wire_size_bound` returns `None` for *all* strings (bounded or not), so the
-   emitted `KEY_HOLDER_MAX_SIZE` is `None` ⇒ MD5. The spec says a bounded
-   `string<N>` whose `4 + N + 1 ≤ 16` should take the **zero-pad** branch. A
-   vendor that computes the static bound would zero-pad while ZeroDDS MD5s —
-   the two would then never correlate the instance. (Case (b) here uses an
-   *unbounded* string, where MD5 is correct for everyone, so all four still
-   agree; the divergence appears only with a small bounded string key.)
-
-   **Demonstrated divergence** — type `@final struct BS { @key string<8> code; }`,
-   instance `code = "AB"`. The BE keyholder is `00 00 00 03 41 42 00` (7 bytes,
-   max `4 + 8 + 1 = 13 ≤ 16`):
-   * CycloneDDS (verified via its own CDR engine): zero-pad →
-     `00000003414200000000000000000000`
-   * ZeroDDS: MD5 → `afe1514800e44535d0f8280b7d11b82f`
-
-   These never match, so the same instance correlates as two different
-   instances across the wire. Fix: `wire_size_bound` (in
-   `crates/idl-rust/src/type_map.rs`) must return `Some(4 + N + 1)` for a
-   bounded `string<N>` (and the analogous `wstring<N>`), so
-   `compute_key_holder_max_size` can pick the zero-pad branch when the total
-   is ≤ 16. (Verify the other language backends compute the bound too.)
+2. **Bounded `@key string<N>` — fixed.** ZeroDDS used to plan every string
+   as unbounded, so a `string<N>` key with `4 + N + 1 ≤ 16` took the MD5
+   branch where the spec and CycloneDDS zero-pad, and the same instance
+   correlated as two. Case (e) measures it: `@key string<8> code = "AB"` has
+   the key holder `00 00 00 03 41 42 00` and ZeroDDS now answers
+   `00000003414200000000000000000000`, CycloneDDS's value.
 
 3. **Fast DDS does not zero alignment-pad bytes in the key buffer.**
    FastCDR leaves the inter-field alignment padding as whatever the
@@ -152,5 +143,5 @@ Source: [`vendor/fastdds_keyhash.cpp`](vendor/fastdds_keyhash.cpp).
    zero pad bytes, so it is robust by construction. With a zeroed buffer all
    three agree (demonstrated in the harness).
 
-All three findings are reported, not fixed here, because they touch shared
-codegen crates; this directory only adds a self-contained proof.
+The first two were ZeroDDS defects and are fixed; the third is Fast DDS's
+behaviour.

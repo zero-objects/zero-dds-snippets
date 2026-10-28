@@ -13,7 +13,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 : "${CYCLONE:=/opt/cyclone}"
-: "${ZERODDS:=$HERE/../../..}"               # a zero-dds checkout (has crates/)
+: "${ZERODDS:=${ZERODDS_SRC:-$HERE/../..}}"  # a zero-dds checkout (has crates/); this repo sits inside one
 CRATE="$ZERODDS/crates/iceoryx-cyclone"
 export LD_LIBRARY_PATH="$CYCLONE/lib:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 
@@ -29,10 +29,14 @@ cd "$HERE"
 gcc cyclone_pub.c sample.c -I. -I"$CYCLONE/include" -L"$CYCLONE/lib" -lddsc -o cyclone_pub
 gcc cyclone_sub.c sample.c -I. -I"$CYCLONE/include" -L"$CYCLONE/lib" -lddsc -o cyclone_sub
 ( cd "$CRATE" && cargo build --features posh )
-READER="$CRATE/target/debug/zerodds-cyclone-iox-reader"
-WRITER="$CRATE/target/debug/zerodds-cyclone-iox-writer"
+# The crate is a workspace member (a path dependency of zerodds-dcps), so its
+# binaries land in the workspace's target directory, not under the crate.
+TARGET_DIR="$(cd "$CRATE" && cargo metadata --format-version 1 --no-deps \
+  | grep -o '"target_directory":"[^"]*"' | cut -d'"' -f4)"
+READER="$TARGET_DIR/debug/zerodds-cyclone-iox-reader"
+WRITER="$TARGET_DIR/debug/zerodds-cyclone-iox-writer"
 
-pkill -f iox-roudi 2>/dev/null || true; sleep 1; rm -f /dev/shm/iceoryx* 2>/dev/null || true
+pkill -x iox-roudi 2>/dev/null || true; sleep 1; rm -f /dev/shm/iceoryx* 2>/dev/null || true
 iox-roudi -c roudi.toml >roudi.log 2>&1 &
 ROUDI=$!
 trap 'kill $ROUDI 2>/dev/null || true' EXIT

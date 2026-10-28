@@ -1,0 +1,9 @@
+[package]
+name = "crate-coap-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-coap-bridge = { path = "../../crates/coap-bridge" }

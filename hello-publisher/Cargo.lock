@@ -106,18 +106,18 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
 name = "zerodds-cdr"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1618a3c04feb8a64b64f20f1c12336f5bfacab9907dc1a9bdf909f479f8dbd93"
+checksum = "17c447b0d237ed5d51e6f26796801a827aeba7d5653a021061bd42c9ca3d65f3"
 dependencies = [
  "zerodds-foundation",
 ]
 
 [[package]]
 name = "zerodds-dcps"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2106e6c8793c17bd6f362fbd00dce3d6c233a971d29863b8082959d7f47d69c"
+checksum = "a9e81e747f6fb87b064d93887dd963f1f52c92f2eabccf52d38f4c8962d47519"
 dependencies = [
  "libc",
  "zerodds-cdr",
@@ -135,9 +135,9 @@ dependencies = [
 
 [[package]]
 name = "zerodds-discovery"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88b310831b0a39f176d40b7d076dc9da4be3e5e0114ac083d695893bb6394e18"
+checksum = "86c07ff9536ab4c8fecbe74ee72087e339bc00d139853cebb5b84577dd6f0b04"
 dependencies = [
  "zerodds-cdr",
  "zerodds-monitor",
@@ -149,33 +149,33 @@ dependencies = [
 
 [[package]]
 name = "zerodds-foundation"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f68983039ebb5c00ce7128d154c3a5ef55234c7ee3ca231e5f63cd5e3603bba8"
+checksum = "b2a4d1ac451bcd78f54b3204b24429615b1bb59ad929fe82917b97bd58799fa7"
 
 [[package]]
 name = "zerodds-monitor"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42c3ad260d70c1ba2a3297502b23da81ee617ff387b0bc78ffbad20b8e6e895a"
+checksum = "e1732d1bf59d4871b4688edd752f0c3ea44a982a8a093910ba6b23c20db39bb4"
 dependencies = [
  "zerodds-foundation",
 ]
 
 [[package]]
 name = "zerodds-qos"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bfe6ba62ea73a2b35c915517cc8ec11649a2266c3d371adde94d50a0c409d41"
+checksum = "c0ee0d57843bdad645223466157e1860a80f7ee1aef17f298ddca33630e16632"
 dependencies = [
  "zerodds-cdr",
 ]
 
 [[package]]
 name = "zerodds-rtps"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c856a9b06bebb2cff0bf58d71f6a35cb063034b20f4890a3bb9339399a158ef6"
+checksum = "f216060fd9cdb67ebe18a494c955abc9a478bf06fd812e6dd82548d430584bd8"
 dependencies = [
  "portable-atomic",
  "zerodds-cdr",
@@ -187,30 +187,30 @@ dependencies = [
 
 [[package]]
 name = "zerodds-security"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e7b58b994cd982c671cad9125af5e5ee403af61892a5da4f57e4c9f11b72a87"
+checksum = "f281936ecc3b9a4a1720fd5b9c78d6221ab0ea7f4209a290aec0de76bb84d8d8"
 
 [[package]]
 name = "zerodds-sql-filter"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b18bc6f1cbc81a410a347ad7e8f886e36feb42ca0ac9da892ec666e253af2dfa"
+checksum = "762e7f18bff6350108844e7bf5e44bdd922fc2426f084b2a1cb3589937238617"
 
 [[package]]
 name = "zerodds-transport"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e5c825b939356e7a463b1b0c8c9bae7119ea7a881ccff01a57e42f78ea9dd8c"
+checksum = "8f25a0132159832c1f7ad79b423be5ee603b780dfb91d28f25a1f4c9fd548e28"
 dependencies = [
  "zerodds-rtps",
 ]
 
 [[package]]
 name = "zerodds-transport-tcp"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "054b564ec1dd0825d89384fdd95d7c82d480ede8fab3f680df2feeeaf4a2b6d7"
+checksum = "ec978ba15e37bd29f6b0ad88c8adc46f47e9a8bf5ff8c8e180c7aa3461667200"
 dependencies = [
  "zerodds-rtps",
  "zerodds-transport",
@@ -218,9 +218,9 @@ dependencies = [
 
 [[package]]
 name = "zerodds-transport-udp"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e9c55705ca9cb7779e53dd4a49b99a57b6a84a877ecae33512cc7cdedf8cf87"
+checksum = "a38614641c7431f431f02b6f92d23d44dd6388e8b852e1ec471767f0a6b15ada"
 dependencies = [
  "libc",
  "socket2",
@@ -231,9 +231,9 @@ dependencies = [
 
 [[package]]
 name = "zerodds-types"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b865e38664d675369d742667f2e48d3fb5c1c7b4f8bda80ca81ad12b0ddcc8d"
+checksum = "98cb789af162838ed08684b5b558f3013e73b111abccda6aeea37c5ead3d0523"
 dependencies = [
  "zerodds-cdr",
  "zerodds-foundation",

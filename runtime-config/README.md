@@ -45,7 +45,7 @@ runtime-config: DcpsRuntime started on domain 11 with the full field-list config
 
 ## Reference
 
-This is the runnable companion to the code snippets on
-**[documentation/03-configuration/runtime-config.md](https://github.com/zero-objects/zero-dds/blob/main/documentation/03-configuration/runtime-config.md)**.
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/runtime-config](https://github.com/zero-objects/zero-dds-snippets/tree/main/runtime-config)
 
 Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

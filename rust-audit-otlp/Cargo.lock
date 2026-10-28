@@ -11,11 +11,11 @@ dependencies = [
 
 [[package]]
 name = "zerodds-foundation"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 
 [[package]]
 name = "zerodds-observability-otlp"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.7"
 dependencies = [
  "zerodds-foundation",
 ]

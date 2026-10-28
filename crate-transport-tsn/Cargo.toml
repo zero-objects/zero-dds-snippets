@@ -1,0 +1,9 @@
+[package]
+name = "crate-transport-tsn"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-transport-tsn = { path = "../../crates/transport-tsn" }

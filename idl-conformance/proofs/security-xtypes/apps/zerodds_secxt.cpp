@@ -50,7 +50,7 @@ zerodds_ZeroDdsRuntime* make_runtime() {
     if (!enable || std::string(enable) != "1")
         return zerodds_runtime_create(resolve_domain());
     const char* sec_dir = std::getenv("ZERODDS_BENCH_SEC_DIR");
-    if (!sec_dir) sec_dir = "/root/bench-security";
+    if (!sec_dir) sec_dir = "security";
     const char* who = std::getenv("ZERODDS_BENCH_SEC_NAME");
     if (!who) who = "ping";
     auto p = [&](const std::string& s) { return std::string(sec_dir) + "/" + s; };

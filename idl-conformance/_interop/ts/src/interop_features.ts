@@ -14,8 +14,19 @@
 // Rust golden.
 
 import { writeFileSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-import { feat } from "../gen/30_features.js";
+import type { feat } from "../gen/30_features.js";
+
+// The codec: gen/30_features.ts (XCDR2), or — FEATURES_CODEC=xcdr1 — the same
+// features.idl generated with `--encoding xcdr1` into gen-x1/features.ts. Never
+// both in one process: each module registers its types with @zerodds/wire's
+// registry together with its own type guard, and the registry refuses a second
+// guard under a name it already holds.
+type Codec = typeof import("../gen/30_features.js").feat;
+const codec: Codec = (process.env.FEATURES_CODEC === "xcdr1"
+  ? (await import("../gen-x1/features.js")).feat
+  : (await import("../gen/30_features.js")).feat) as Codec;
 
 const {
   WStrTypeSupport,
@@ -29,14 +40,14 @@ const {
   MapEnumTypeSupport,
   MapPrimTypeSupport,
   MoneyTypeSupport,
-} = feat;
+} = codec;
 
 // fixed<P,S> CORBA-BCD: price=123.45 (12 34 5c), qty=1234 (01 23 4c).
 // The TS value is the decimal as a string.
 const MONEY: feat.Money = { price: "123.45", qty: "1234" };
 
 const MAPENUM: feat.MapEnum = {
-  h: feat.Hue.H_BLUE,
+  h: codec.Hue.H_BLUE,
   m: new Map<number, feat.Pt>([[3, { x: 11, y: 12 }]]),
   sels: [{ discriminator: 2, n: 9 }],
 };
@@ -55,8 +66,7 @@ function diffMapEnum(g: feat.MapEnum, w: feat.MapEnum): Diff {
   return [];
 }
 
-const GOLDEN_DIR =
-  "/path/to/zerodds/zerodds-examples/idl-conformance/_interop/goldens";
+const GOLDEN_DIR = fileURLToPath(new URL("../../goldens", import.meta.url));
 
 // ---------------------------------------------------------------------------
 // CANONICAL SAMPLES — EXACT values from CANONICAL.md (identical across PSMs).
@@ -73,7 +83,7 @@ const MUT: feat.Mut = { a: 1_000_000, b: 2.5, c: "ok" };
 
 // feat::Bits — perm = READ|EXEC = 0x05; flags holder = (prio=20<<3)|kind=5 = 0xA5.
 const BITS: feat.Bits = {
-  perm: (feat.Perm.READ | feat.Perm.EXEC) >>> 0,
+  perm: (codec.Perm.READ | codec.Perm.EXEC) >>> 0,
   flags: { kind: 5, prio: 20 },
 };
 
@@ -337,13 +347,50 @@ function decodeAll(lang: string): void {
   if (!ok) process.exit(1);
 }
 
+/// proofs/endianness's goldens: the Rust column's encodings of the same
+/// canonical samples in XCDR2 and XCDR1, little- and big-endian. BE reads
+/// the XCDR2 big-endian ones with the XCDR2 codec, XCDR1 the XCDR1 ones in
+/// both byte orders with the XCDR1 codec (FEATURES_CODEC=xcdr1).
+const REPRESENTATIONS_DIR = fileURLToPath(new URL("../../../proofs/endianness/goldens", import.meta.url));
+const REPRESENTED: Record<string, string> = {
+  wstr: "WStr", mut: "Mut", bits: "Bits", tree: "Tree", arr: "Arr", prim: "Prim", mapenum: "MapEnum",
+};
+
+function decodeRepresentations(tags: ReadonlyArray<readonly [string, "le" | "be"]>): void {
+  const supports = codec as unknown as Record<string, {
+    decode(b: Uint8Array, offset: number, length: number, endian: "le" | "be"): unknown;
+  }>;
+  let ok = true;
+  for (const f of FEATURES.filter((f) => f.name in REPRESENTED)) {
+    const support = supports[`${REPRESENTED[f.name]}TypeSupport`];
+    for (const [tag, endian] of tags) {
+      const path = `${REPRESENTATIONS_DIR}/${f.name}.${tag}.rust.bin`;
+      const buf = readFileSync(path);
+      const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+      const diffs = f.diff(support.decode(bytes, 0, bytes.length, endian), f.sample);
+      if (diffs.length > 0) {
+        ok = false;
+        console.error(`DECODE MISMATCH ${f.name} ${tag} <- ${path}:`);
+        for (const dd of diffs) console.error(`  - ${dd}`);
+      } else {
+        console.log(`DECODE OK ${f.name} ${tag}`);
+      }
+    }
+  }
+  if (!ok) process.exit(1);
+}
+
 // ---------------------------------------------------------------------------
 const mode = process.argv[2];
 if (mode === "ENCODE") {
   encodeAll();
 } else if (mode === "DECODE") {
   decodeAll(process.argv[3] ?? "rust");
+} else if (mode === "BE") {
+  decodeRepresentations([["xcdr2-be", "be"]]);
+} else if (mode === "XCDR1") {
+  decodeRepresentations([["xcdr1-le", "le"], ["xcdr1-be", "be"]]);
 } else {
-  console.error("usage: interop_features.ts ENCODE | DECODE <lang>");
+  console.error("usage: interop_features.ts ENCODE | DECODE <lang> | BE | FEATURES_CODEC=xcdr1 … XCDR1");
   process.exit(2);
 }

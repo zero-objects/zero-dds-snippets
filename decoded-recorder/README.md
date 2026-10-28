@@ -15,11 +15,29 @@ module telemetry {
   @appendable struct Reading {
     @key long       sensor_id;
     string          name;
-    Unit            unit;
+    telemetry::Unit unit;
     double          value;
     sequence<long>  history;
   };
 };
+```
+
+`unit` names its type with the scope. A bare `Unit` inside `Reading` would
+introduce `Unit` into the struct's scope, where it collides with the member
+`unit`: IDL 4.2 §7.2.2 gives a scope one namespace and compares identifiers
+without regard to case, and ZeroDDS's front end refuses the file by name. A
+scoped name introduces only its first identifier.
+
+## Run it
+
+[`run.sh`](run.sh) does all three steps against [`publisher/`](publisher), a
+ZeroDDS writer of `telemetry::Reading` generated from the same `sensor.idl`,
+and checks that every step accounts for every sample:
+
+```sh
+cargo build --release -p zerodds-spy -p zerodds-record -p zerodds-replay   # main repository
+(cd publisher && cargo build --release)
+bash run.sh            # domain 85, 20 samples; DOMAIN and COUNT override
 ```
 
 ## 1. Live typed monitor — `zerodds-spy --decode`
@@ -27,7 +45,7 @@ module telemetry {
 ```
 $ zerodds-spy -t Readings --type-file sensor.idl --decode
 zerodds-spy: attached topic=Readings type=telemetry::Reading
-[1] writer=… type=telemetry::Reading {"sensor_id":7,"name":"intake","unit":0,"value":21.5,"history":[20,21,22]}
+[     1] writer=00000102 type=telemetry::Reading {"history":[20,21,22],"name":"intake-0","sensor_id":7,"unit":"CELSIUS","value":21.5}
 ```
 
 Without `--type-file` the spy still **follows the type**: it learns each writer's
@@ -80,4 +98,9 @@ per-type code generation or rebuild. The decode core, the SQLite/JSON sinks and 
 replay sources are the same ones exercised in
 [`../cross-vendor-dynamic-xtypes`](../cross-vendor-dynamic-xtypes).
 
-Part of **[ZeroDDS](https://zerodds.de)**.
+## Reference
+
+- No page on the website explains this example yet; this README is the whole of it.
+- This example in the repository: [zero-dds-snippets/decoded-recorder](https://github.com/zero-objects/zero-dds-snippets/tree/main/decoded-recorder)
+
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

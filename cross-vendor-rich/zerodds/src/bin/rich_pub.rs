@@ -1,5 +1,5 @@
-#![allow(non_snake_case, unused_imports, clippy::all)]
-mod generated { include!(concat!(env!("OUT_DIR"), "/rich.rs")); }
+#![allow(non_snake_case, unused_imports, dead_code, clippy::all)]
+mod generated { include!(concat!(env!("OUT_DIR"), "/Rich.rs")); }
 use generated::{RichF, RichA, RichM};
 use std::time::Duration;
 use zerodds_dcps::{DataWriterQos, DomainParticipantFactory, DomainParticipantQos, PublisherQos, TopicQos};

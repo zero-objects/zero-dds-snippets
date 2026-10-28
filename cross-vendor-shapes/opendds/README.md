@@ -4,8 +4,11 @@ Live RTPS interop on the ShapesDemo `Square` topic, **both directions**, with a
 small OpenDDS C++ console publisher/subscriber.
 
 ```
-A) OpenDDS pub -> ZeroDDS sub:   ZeroDDS received: 35   <- color=GREEN x=120 y=225 size=30
-B) ZeroDDS pub -> OpenDDS sub:   OpenDDS received: 63   <- color=BLUE  x=120 y=225 RECEIVED
+=== A) OpenDDS pub -> ZeroDDS sub ===
+ZeroDDS received from OpenDDS: 68
+=== B) ZeroDDS pub -> OpenDDS sub ===
+OpenDDS received from ZeroDDS: 52
+RESULT: PASS (both directions; A=68 B=52)
 ```
 
 ## What this uncovered — ZeroDDS Bug BE-GAP
@@ -47,18 +50,36 @@ cmake --build build -j
 wire type name matches the other vendors) and [`rtps.ini`](rtps.ini)
 (`DCPSDefaultDiscovery=DEFAULT_RTPS`) are all in this directory.
 
+## The key member carries `@must_understand`
+
+XTypes 1.3 §7.2.2.4.4.4.8 gives every key member the must-understand flag.
+ZeroDDS and Cyclone DDS set IS_MUST_UNDERSTAND on a key member without being
+told; opendds_idl 3.34 sets it only when `@must_understand` is written, so the
+two minimal TypeObjects differ in that flag and so do their hashes. OpenDDS
+3.34 also numbers TypeConsistencyKind from 1 (`DISALLOW_TYPE_COERCION = 1`,
+`ALLOW_TYPE_COERCION = 2`) where XTypes 1.3 numbers it from 0, reads a remote
+reader's ALLOW_TYPE_COERCION as DISALLOW and then matches identical type
+identifiers only. With the flag written out, OpenDDS generates the TypeObject
+the specification asks for and the identifiers agree. The comment in
+[`ShapeType.idl`](ShapeType.idl) names the OpenDDS sources.
+
 ## Run
 
 ```sh
-cargo build -p zerodds-dcps --example shapes_demo_publisher --example shapes_demo_subscriber
+(cd ../zerodds && cargo build --release)
+DDS_ROOT=<opendds> bash run.sh      # domain 72; DOMAIN overrides
+```
 
+`run.sh` builds the peer into `build/` the first time. By hand:
+
+```sh
 # A) OpenDDS pub -> ZeroDDS sub
-./../../../target/debug/examples/shapes_demo_subscriber Square 0 &
-./build/opendds_pub -DCPSConfigFile rtps.ini
+../zerodds/target/release/shapes_sub Square 72 &
+./build/cmake/opendds_pub -DCPSConfigFile rtps.ini 72
 
 # B) ZeroDDS pub -> OpenDDS sub
-./build/opendds_sub -DCPSConfigFile rtps.ini &
-./../../../target/debug/examples/shapes_demo_publisher Square BLUE 0
+./build/cmake/opendds_sub -DCPSConfigFile rtps.ini 72 &
+../zerodds/target/release/shapes_pub Square BLUE 72
 ```
 
 The publisher waits for a matched subscriber before its first `write()` so the

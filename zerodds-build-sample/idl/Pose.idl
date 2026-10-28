@@ -1,6 +1,13 @@
-@appendable
-struct Pose {
-    double x;
-    double y;
-    double theta;
+// Included by Robot.idl. The module is not decoration: `Unit` names the
+// type as `geometry::Pose`, because an unqualified `Pose pose;` would put
+// the identifier `Pose` and the member `pose` in one scope, and IDL has a
+// single namespace per scope and compares identifiers without regard to
+// case (OMG IDL 4.2 §7.2.3).
+module geometry {
+    @appendable
+    struct Pose {
+        double x;
+        double y;
+        double theta;
+    };
 };

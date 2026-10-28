@@ -2,6 +2,7 @@
 name = "qos-conformance-rust"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 # Standalone example: empty [workspace] so it does NOT join the parent
 # zerodds workspace; path-deps reach into ../../../../crates.
@@ -11,9 +12,14 @@ edition = "2024"
 name = "qos_lifecycle"
 path = "src/main.rs"
 
+[build-dependencies]
+# Replaces the former `zerodds-idl` + `zerodds-idl-rust` pair.
+zerodds-build = { path = "../../../../crates/zerodds-build" }
+
 [dependencies]
 zerodds-dcps = { path = "../../../../crates/dcps" }
-zerodds-cdr = { path = "../../../../crates/cdr" }
+# The wire runtime the generated codec calls — replaces `zerodds-cdr`.
+zerodds-wire = { path = "../../../../crates/wire" }
 zerodds-types = { path = "../../../../crates/types" }
 zerodds-sql-filter = { path = "../../../../crates/sql-filter" }
 zerodds-qos = { path = "../../../../crates/qos" }

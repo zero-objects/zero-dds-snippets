@@ -1,0 +1,45 @@
+// The combination fixture of _interop: one keyed topic type that exercises
+// many features together — enum, nested struct, sequence of struct, bounded
+// string, union member, map, optional, typedef and the trailing fixed-size
+// array `long window[4]` — so that an interaction between two of them shows
+// up in one sample. Every language column generates its codec from this
+// file; goldens/combo.golden.bin is the Rust column's encoding of the
+// canonical sample (CANONICAL.md).
+//
+// `Sample` and `Reading` carry no extensibility annotation and take
+// ZeroDDS's default, appendable (XTypes 1.3 §7.3.1.2.1.8), in every column.
+//
+// `mode` and `reading` name their types with a scoped name (`combo::Mode`,
+// `combo::Reading`) rather than a simple one: IDL has a single namespace per
+// scope and compares identifiers without regard to case (OMG IDL 4.2 §7.2.3),
+// so `Mode mode;` would put two spellings of one name in the struct's scope
+// and the front end refuses the file.
+module combo {
+  enum Mode { MODE_IDLE, MODE_ACTIVE, MODE_FAULT };
+
+  typedef double CurrentInAmpsType;
+
+  struct Sample {
+    long  seq;
+    double value;
+  };
+
+  union Reading switch (Mode) {
+    case MODE_IDLE:   long      idleTicks;
+    case MODE_ACTIVE: double    activeRate;
+    default:          string<16> faultCode;
+  };
+
+  @appendable
+  struct Telemetry {
+    @key long              unitId;
+    @key string<32>        region;
+    combo::Mode            mode;
+    CurrentInAmpsType      batteryCurrent;
+    sequence<Sample>       history;
+    combo::Reading         reading;
+    map<string, long>      counters;
+    @optional double       calibration;
+    long                   window[4];
+  };
+};

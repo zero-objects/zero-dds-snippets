@@ -3,17 +3,11 @@
 //! `#pragma keylist` (Cyclone/OpenSplice/RTI spelling) instead of the
 //! OMG-IDL-4.2 `@key` annotation — both only reach the generated code
 //! because `zerodds-build` runs the same composition pipeline
-//! `zerodds-idlc` runs (`zerodds-idl-compose`), not a thinner ad hoc
-//! `zerodds_idl::parse` + `generate_rust_module` call.
+//! `zerodds-idlc` runs, not a thinner ad hoc parse-and-emit call.
 //!
-//! The generated `Robot.rs` (from `build.rs`) carries file-level
-//! `#![allow(...)]` inner attributes; `include!` splices those tokens
-//! into *this* file, where an inner attribute is only legal as the very
-//! first item — so `build.rs` calls `Config::strip_inner_attrs_for_include
-//! (true)` and the include! below is wrapped in its own module with the
-//! same allows re-applied as outer attributes (same pattern as
-//! `../idlc-buildrs/src/lib.rs`, which strips the attributes by hand
-//! since it shells out to the CLI directly).
+//! `include!` splices the generated tokens into *this* file, so the lint
+//! allows go on the wrapping module as outer attributes (same pattern as
+//! `../idlc-buildrs/src/lib.rs`).
 #[allow(
     clippy::too_many_lines,
     clippy::useless_conversion,
@@ -24,12 +18,20 @@ mod generated {
     include!(concat!(env!("OUT_DIR"), "/Robot.rs"));
 }
 
-pub use generated::{Pose, Unit};
+pub use generated::geometry::Pose;
+pub use generated::Unit;
 
 #[cfg(test)]
 mod tests {
     use super::{Pose, Unit};
 
+    /// The round-trip, the announced type name, and the `TypeObject`
+    /// that goes with it.
+    ///
+    /// `type_object()` returning `None` is the failure this asserts
+    /// against: the endpoint would announce a topic type name and no
+    /// type at all, and a peer's TypeLookup request would come back
+    /// empty (XTypes 1.3 §7.6.3.2).
     #[test]
     fn generated_unit_roundtrips_and_carries_typeobject() {
         use zerodds_dcps::DdsType;
@@ -44,13 +46,18 @@ mod tests {
         };
 
         let mut bytes = Vec::new();
-        unit.encode(&mut bytes).expect("encode");
-        let decoded = Unit::decode(&bytes).expect("decode");
+        <Unit as DdsType>::encode(&unit, &mut bytes).expect("encode");
+        let decoded = <Unit as DdsType>::decode(&bytes).expect("decode");
         assert_eq!(decoded, unit);
         assert_eq!(Unit::TYPE_NAME, "Unit");
 
-        // TypeObject emission (default-on) — proves the composition
-        // pipeline's TypeObject lowering step ran, not just parse+emit.
-        assert!(!super::generated::type_objects::UNIT.is_empty());
+        // The `#pragma keylist` reached the model: without it the type
+        // would have no key and every sample would land in one instance.
+        assert!(Unit::HAS_KEY, "#pragma keylist Unit id must reach the type");
+
+        assert!(
+            Unit::type_object().is_some(),
+            "the TypeObject lowering step must have run, not just parse+emit"
+        );
     }
 }

@@ -14,7 +14,7 @@ No features to enable. Uses a path dep into the local zero-dds checkout (`../../
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Dev install](https://zerodds.de/topics/dev-install/)**.
+- Explained on the website: [Dev Install](https://zerodds.org/topics/dev-install/)
+- This example in the repository: [zero-dds-snippets/rust-dev-install-hello](https://github.com/zero-objects/zero-dds-snippets/tree/main/rust-dev-install-hello)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

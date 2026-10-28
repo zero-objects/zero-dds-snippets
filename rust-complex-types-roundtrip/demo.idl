@@ -3,7 +3,10 @@
 // bounded string — the constructs a hand-rolled codec usually gets wrong.
 @appendable struct Vec3 { double x; double y; double z; };
 
-enum Mode { IDLE, ACTIVE, FAULT };
+// `Mode` would collide with the member `mode` below: IDL has a single
+// namespace per scope and compares identifiers without regard to case
+// (OMG IDL 4.2 §7.2.3), so the front end refuses the pair.
+enum SensorMode { IDLE, ACTIVE, FAULT };
 
 @appendable union Reading switch (long) {
   case 1: Vec3   pose;       // a structured reading
@@ -14,7 +17,7 @@ enum Mode { IDLE, ACTIVE, FAULT };
 @appendable struct Sensor {
   @key unsigned long      id;
   string<32>              name;
-  Mode                    mode;
+  SensorMode              mode;
   Vec3                    origin;
   sequence<Reading>       readings;   // sequence of unions
   map<unsigned long, Vec3> calibration;

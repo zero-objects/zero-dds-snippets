@@ -337,6 +337,34 @@ fn build_case(
     }
 }
 
+/// The (case, vendor, kind) comparisons README.md explains as vendor
+/// splits; every other comparison with a vendor golden must be `MATCH` or
+/// `HASH-MATCH`. RTI derives its MINIMAL hash differently from every other
+/// implementation; Fast DDS writes no extensibility and no IS_DEFAULT on an
+/// enumeration, encodes an alias's element differently, and numbers union
+/// members from 1; CycloneDDS hashes `nested`'s member name differently;
+/// `choice_union`'s COMPLETE object splits three ways (ZeroDDS = Cyclone).
+const KNOWN_DIVERGENCES: &[(&str, &str, &str)] = &[
+    ("plain", "rti", "MINIMAL"),
+    ("appendable", "rti", "MINIMAL"),
+    ("mutable", "rti", "MINIMAL"),
+    ("long_seq4_alias", "rti", "MINIMAL"),
+    ("inner", "rti", "MINIMAL"),
+    ("nested", "rti", "MINIMAL"),
+    ("choice_union", "rti", "MINIMAL"),
+    ("choice_union", "rti", "COMPLETE"),
+    ("color_enum", "fastdds", "MINIMAL"),
+    ("color_enum", "fastdds", "COMPLETE"),
+    ("long_seq4_alias", "fastdds", "MINIMAL"),
+    ("long_seq4_alias", "fastdds", "COMPLETE"),
+    ("nested", "cyclonedds", "MINIMAL"),
+    ("nested", "cyclonedds", "COMPLETE"),
+    ("nested", "fastdds", "MINIMAL"),
+    ("nested", "fastdds", "COMPLETE"),
+    ("choice_union", "fastdds", "MINIMAL"),
+    ("choice_union", "fastdds", "COMPLETE"),
+];
+
 fn main() -> ExitCode {
     let check = std::env::args().any(|a| a == "--check");
 
@@ -418,6 +446,7 @@ fn main() -> ExitCode {
     }
 
     let vendors = ["cyclonedds", "rti", "fastdds"];
+    let mut any_unexpected = false;
     println!("=== byte-diff vs vendor goldens (TypeObject bytes + 14-byte hash) ===\n");
     println!(
         "{:<18} {:<11} {:<9} {:<12} {}",
@@ -441,6 +470,9 @@ fn main() -> ExitCode {
                     .ok()
                     .map(|s| s.trim().to_lowercase());
 
+                // RTI's `.bin` carries RTI's own outer framing (README, "A
+                // note on RTI"): its hash is the comparison, not its bytes.
+                let vbytes = if v == "rti" && vhash.is_some() { None } else { vbytes };
                 let (res, note) = match (vbytes, vhash) {
                     (Some(vb), vh) => {
                         let byte_match = vb == *zbytes;
@@ -467,14 +499,30 @@ fn main() -> ExitCode {
                     }
                     (None, None) => ("n/a", "no vendor golden".to_string()),
                 };
+                let agrees = matches!(res, "MATCH" | "HASH-MATCH");
+                let known = KNOWN_DIVERGENCES.contains(&(c.name, v, kind));
+                let flag = match (res, agrees, known) {
+                    ("n/a", _, _) => "",
+                    (_, true, true) => "  <- listed as a divergence, now agrees",
+                    (_, false, false) => "  <- not a known divergence",
+                    _ => "",
+                };
+                if !flag.is_empty() {
+                    any_unexpected = true;
+                }
                 println!(
-                    "{:<18} {:<11} {:<9} {:<12} {}",
-                    c.name, v, kind, res, note
+                    "{:<18} {:<11} {:<9} {:<12} {}{}",
+                    c.name, v, kind, res, note, flag
                 );
             }
         }
         println!();
     }
 
+    if any_unexpected {
+        println!("UNEXPECTED RESULT against the recorded vendor goldens (see the flags above)");
+        return ExitCode::FAILURE;
+    }
+    println!("ALL VENDOR COMPARISONS AS RECORDED ({} known divergences)", KNOWN_DIVERGENCES.len());
     ExitCode::SUCCESS
 }

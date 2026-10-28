@@ -10,11 +10,11 @@ cmake -B build -DOpenDDS_ROOT=<opendds>
 cmake --build build -j
 ```
 
-Run (argument 1 = `f` / `a` / `m`; `-DCPSConfigFile rtps.ini` selects RTPS):
+Run (the domain id, then `f` / `a` / `m`; `-DCPSConfigFile rtps.ini` selects RTPS):
 
 ```sh
-./build/od_sub m -DCPSConfigFile rtps.ini
-./build/od_pub m 50 -DCPSConfigFile rtps.ini
+./build/od_sub -DCPSConfigFile rtps.ini 0 m
+./build/od_pub -DCPSConfigFile rtps.ini 0 m 50
 ```
 
 ## What this shows

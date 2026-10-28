@@ -13,7 +13,7 @@ int main(int argc, char** argv){
   for(int i=1;;i++){
     dyn_Track s; memset(&s,0,sizeof(s));
     char nm[32]; snprintf(nm,sizeof(nm),"ctrack-%d",i);
-    s.id=100+i; s.name=nm; s.color=dyn_BLUE;
+    s.id=100+i; s.name=nm; s.hue=dyn_BLUE;
     path[0]=i; path[1]=i*2; path[2]=i*3;
     s.path._maximum=3; s.path._length=3; s.path._buffer=path; s.path._release=false;
     int k=i%3;

@@ -20,6 +20,8 @@
 //   * typedef-to-primitive member (CurrentInAmps battery)
 //   * @optional double  (exercised both present and absent)
 //   * two @key members (long + bounded string)
+// Scoped type names below avoid case-insensitive IDL name collisions with
+// the members `mode` and `reading` without changing those members or types.
 module confcombo {
 
   enum Mode { MODE_IDLE, MODE_ACTIVE, MODE_FAULT };
@@ -47,7 +49,7 @@ module confcombo {
   struct Telemetry {
     @key long                       unitId;
     @key string<32>                 region;
-    Mode                            mode;
+    confcombo::Mode                  mode;
     double                          batteryVolts;
     CurrentInAmps                   batteryCurrent;
     Position                        location;
@@ -57,7 +59,7 @@ module confcombo {
     sequence<string>                tags;
     sequence<sequence<long> >       matrix;
     map<string, long>               counters;
-    Reading                         reading;
+    confcombo::Reading               reading;
     long                            window[4];
     @optional double                calibration;
   };

@@ -1,0 +1,17 @@
+[package]
+name = "crate-rpc"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[workspace]
+
+[dependencies]
+zerodds-rpc = { path = "../../crates/rpc" }
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-wire = { path = "../../crates/wire" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-sql-filter = { path = "../../crates/sql-filter" }
+
+[build-dependencies]
+zerodds-build = { path = "../../crates/zerodds-build" }

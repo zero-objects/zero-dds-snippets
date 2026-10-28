@@ -29,3 +29,38 @@ __pycache__/
 c-ffi-hello/hello
 cpp-hello/hello
 cpp-typed/typed
+
+# Java class output and the .NET publish directory `ci/run-examples.sh`
+# builds into. The harness puts libzerodds next to the assembly there,
+# because .NET does not read DYLD_LIBRARY_PATH on macOS.
+out/
+**/out/
+*.class
+
+# Shared cargo target for the crate-* examples (CARGO_TARGET_DIR)
+.crate-target/
+
+# typescript-wasm-quickstart: npm install and its build step
+typescript-wasm-quickstart/package-lock.json
+typescript-wasm-quickstart/build/
+
+# cross-vendor-*: each leg generates and builds its peer in a build/ directory
+# of its own (two of them also the ZeroDDS side, in a CDR dialect of its own)
+cross-vendor-*/*/build/
+# ... and the RTI legs let rtiddsgen write its sources, makefile and objects
+# next to the IDL. Hand-written peers there (Rich_publisher.cxx, pub.cxx) are
+# tracked and stay so.
+cross-vendor-*/rti/objs/
+cross-vendor-*/rti/README_*.txt
+cross-vendor-*/rti/makefile_*
+cross-vendor-shapes/rti/ShapeType*.cxx
+cross-vendor-shapes/rti/ShapeType*.hpp
+cross-vendor-shapes/rti/application.hpp
+cross-vendor-shapes/rti/USER_QOS_PROFILES.xml
+cross-vendor-rich/rti/Rich.cxx
+cross-vendor-rich/rti/Rich.hpp
+cross-vendor-rich/rti/RichPlugin.*
+cross-vendor-dynamic-xtypes/rti/dyn_app.cxx
+cross-vendor-dynamic-xtypes/rti/dyn_app.hpp
+cross-vendor-dynamic-xtypes/rti/dyn_appPlugin.*
+cross-vendor-dynamic-xtypes/rti/rti_dyn_pub

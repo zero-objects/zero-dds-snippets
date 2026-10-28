@@ -23,7 +23,7 @@ npx tsc --noEmit -p tsconfig.json   # checks app.ts
 
 ## Reference
 
-This is the verbatim website snippet; see the
-**[bindings overview](https://zerodds.de/bindings/)**.
+- Explained on the website: [TypeScript (Browser/WASM)](https://zerodds.org/bindings/typescript-wasm/)
+- This example in the repository: [zero-dds-snippets/typescript-wasm-website-snippet](https://github.com/zero-objects/zero-dds-snippets/tree/main/typescript-wasm-website-snippet)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

@@ -54,31 +54,35 @@ Member/type names are load-bearing (Minimal hashes the member name; Complete
 carries it verbatim), so the IDL is shared verbatim across all four
 implementations.
 
-## Status — after the conformance fix (2026-06-14)
+## Status
 
 The original audit below found ZeroDDS matched **none** of the vendors. That
 audit drove a fix in `crates/types` + `crates/idl` (TypeKind octets, XCDR2
 per-type @appendable DHEADER framing, 0-based member ids, DISCARD member flags,
-PlainCollection `EK_BOTH` + DISCARD element flags). ZeroDDS now produces the
-**byte-identical MINIMAL TypeObject and consensus MINIMAL hash**:
+PlainCollection `EK_BOTH` + DISCARD element flags). Measured today:
 
-| case | ZeroDDS MIN hash | matches |
-|------|------------------|---------|
-| plain        | `deb922f0…` | CycloneDDS + Fast DDS |
-| appendable   | `3c916131…` | CycloneDDS + Fast DDS |
-| mutable      | `81e76ce1…` | CycloneDDS + Fast DDS |
-| inner        | `0c380bda…` | CycloneDDS + Fast DDS |
-| color_enum   | `8dd1306b…` | Fast DDS (no Cyclone golden) |
-| choice_union | `23e44a25…` | CycloneDDS |
+| case | ZeroDDS MINIMAL hash | ZeroDDS COMPLETE hash | agrees with |
+|------|----------------------|-----------------------|-------------|
+| plain           | `deb922f0…` | `7c0c6fab…` | MIN: Cyclone + Fast DDS · CMP: all three |
+| appendable      | `3c916131…` | `27cb33d5…` | MIN: Cyclone + Fast DDS · CMP: all three |
+| mutable         | `81e76ce1…` | `447863b1…` | MIN: Cyclone + Fast DDS · CMP: all three |
+| inner           | `0c380bda…` | `f00388e0…` | MIN: Cyclone + Fast DDS · CMP: all three |
+| color_enum      | `e28caefd…` | `c61e816d…` | RTI (MIN and CMP); no Cyclone golden |
+| long_seq4_alias | `7787a85f…` | `af65abba…` | CMP: RTI |
+| nested          | `23afc6e7…` | `512f3e28…` | CMP: RTI |
+| choice_union    | `23e44a25…` | `53fc8ab4…` | Cyclone (MIN and CMP) |
 
-`choice_union` matches CycloneDDS but not Fast DDS, because the two vendors
-disagree (Fast DDS uses 1-based union member ids and drops IS_MUST_UNDERSTAND
-on the discriminator); ZeroDDS follows Cyclone + spec §7.2.2.4.9. `nested` and
-`long_seq4_alias` likewise sit on genuine Cyclone↔Fast DDS divergences (enum
-literal framing, collection element flags, alias element encoding) — ZeroDDS is
-byte-identical to one vendor and 1 byte off the other. The **COMPLETE**
-TypeObject framing is the remaining open item. Run `cargo run -- --check` for
-the live MATCH/DIFF table.
+RTI's `.complete.bin` carries RTI's own outer framing, so RTI is compared on
+the hash; RTI's MINIMAL hash comes from a derivation no other implementation
+uses (see "A note on RTI" below). The splits: an enumeration carries its
+extensibility and IS_DEFAULT on its first literal in ZeroDDS, RTI, OpenDDS and
+Cyclone, and neither in Fast DDS, which moves `color_enum` and every type with
+an enumerated member (`nested`) off Fast DDS; Fast DDS also encodes an alias's
+element differently (`long_seq4_alias`) and numbers union members from 1
+(`choice_union`); CycloneDDS hashes a member name of `nested` differently; and
+`choice_union`'s COMPLETE object differs between all three vendors, ZeroDDS
+being Cyclone's. `cargo run -- --check` prints the table and exits non-zero
+on any comparison that is neither agreement nor one of these splits.
 
 ## Result — 14-byte hash table (original audit, ZeroDDS vs vendors)
 
@@ -139,9 +143,6 @@ CycloneDDS/FastDDS  33 00 00 00 | f1 51 | 01 00 | 01 00 00 00 | 00 00 00 00 |
    *larger* than the vendors' (116 B vs 80 B for `plain`) because the
    member-detail/annotation members are serialized with fixed padding instead
    of the XCDR2 optional/appendable member framing.
-
-See `../../../internal/idl-codegen/typeobject-byte-identity-findings.md` for the
-full classification and proposed fixes.
 
 ### A note on RTI minimal hashes and RTI's serialized `.complete.bin`
 

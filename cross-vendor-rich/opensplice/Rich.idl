@@ -1,0 +1,10 @@
+// RichF of ../zerodds/Rich.idl for OpenSplice 6.9's idlpp: keys through
+// `#pragma keylist`, no annotations. OpenSplice has no extensibility kinds,
+// so RichA (@appendable) and RichM (@mutable) have no counterpart here; a
+// struct of these members has the XCDR1 bytes of the @final original.
+struct RichF {
+  unsigned long id;
+  double value;
+  sequence<octet> blob;
+};
+#pragma keylist RichF id

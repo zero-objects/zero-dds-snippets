@@ -18,7 +18,7 @@ python async_chatter.py
 
 ## Reference
 
-This is the runnable companion to the code snippet on
-**[Python bindings](https://zerodds.de/bindings/python/)**.
+- Explained on the website: [Python](https://zerodds.org/bindings/python/)
+- This example in the repository: [zero-dds-snippets/python-aio](https://github.com/zero-objects/zero-dds-snippets/tree/main/python-aio)
 
-Part of **[ZeroDDS](https://zerodds.de)** — the pure-Rust OMG DDS implementation.
+Part of **[ZeroDDS](https://zerodds.org)** — the pure-Rust OMG DDS implementation.

@@ -1,0 +1,9 @@
+[package]
+name = "crate-corba-codegen"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+zerodds-corba-codegen = { path = "../../crates/corba-codegen" }
