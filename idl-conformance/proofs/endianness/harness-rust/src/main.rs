@@ -134,8 +134,7 @@ fn canonical_prim() -> Prim {
 }
 
 fn canonical_mapenum() -> MapEnum {
-    let mut m = ::std::collections::BTreeMap::new();
-    m.insert(3, Pt { x: 11, y: 12 });
+    let m = vec![zerodds_wire::MapEntry::new(3, Pt { x: 11, y: 12 })];
     MapEnum { h: Hue::H_BLUE, m, sels: vec![Sel::N(9)] }
 }
 

@@ -22,12 +22,6 @@ public final class Interop {
         return s;
     }
 
-    static ZdTypes.ZdEntry_string_long entry(String key, int value) {
-        var e = new ZdTypes.ZdEntry_string_long();
-        e.key = key;
-        e.value = value;
-        return e;
-    }
 
     static ZdTypes.combo.Telemetry canonical() {
         var x = new ZdTypes.combo.Telemetry();
@@ -39,7 +33,9 @@ public final class Interop {
         x.reading = new ZdTypes.combo.Reading();           // union switch(Mode) -> activeRate
         x.reading._d = ZdTypes.combo.Mode.MODE_ACTIVE;
         x.reading.activeRate = 60.0;
-        x.counters = new ZdTypes.ZdEntry_string_long[] {entry("drops", 3), entry("packets", 100)};
+        x.counters = new ZdTypes.ZdMap_string_long();            // map<string,long>, in wire order
+        x.counters.put("drops", 3);
+        x.counters.put("packets", 100);
         x.calibration = 0.001;                             // @optional double, present
         x.window = new int[] {10, 20, 30, 40};             // long[4]
         return x;
@@ -66,11 +62,9 @@ public final class Interop {
         }
         check(history, "history");
         check(g.reading._d == w.reading._d && g.reading.activeRate == w.reading.activeRate, "reading");
-        boolean counters = g.counters.length == w.counters.length;
-        for (int i = 0; counters && i < w.counters.length; i++) {
-            counters = Objects.equals(g.counters[i].key, w.counters[i].key) && g.counters[i].value == w.counters[i].value;
-        }
-        check(counters, "counters");
+        // Entry by entry, in order: the wire order is part of what is compared.
+        check(new java.util.ArrayList<>(g.counters.entrySet())
+                .equals(new java.util.ArrayList<>(w.counters.entrySet())), "counters");
         check(Objects.equals(g.calibration, w.calibration), "calibration");
         check(Arrays.equals(g.window, w.window), "window");
     }

@@ -34,6 +34,15 @@ fn participant_data() -> ParticipantBuiltinTopicData {
         kx_algo_info: None,
         sym_cipher_algo_info: None,
         participant_security_info: None,
+        // No secure builtin endpoints (DDS-Security 1.2 section 7.5.1.4,
+        // Table 10); not sent when 0.
+        available_builtin_endpoints_ext: 0,
+        // Absent is false; the writer's QoS does not travel in-line.
+        expects_inline_qos: false,
+        manual_liveliness_count: None,
+        entity_name: None,
+        // None: the builtin readers are RELIABLE (section 8.4.13.3).
+        builtin_endpoint_qos: None,
     }
 }
 

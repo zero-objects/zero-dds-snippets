@@ -36,7 +36,9 @@ GEN="$HERE/generated-$MAIN"
 OUT="$HERE/out-$MAIN"
 rm -rf "$GEN" "$OUT"
 mkdir -p "$GEN" "$OUT"
-"$IDLC" generate --lang java --out "$GEN" "$HERE/$IDL"
+# `--java-mapping omg`: the drivers read and write the public fields of the
+# OMG mapping; the default is the Bean mapping with accessors.
+"$IDLC" generate --lang java --java-mapping omg --out "$GEN" "$HERE/$IDL"
 
 sources=("$GEN/ZdTypes.java" "$GEN/ZdCodec.java" "$GEN/ZdTypeSupports.java" "$HERE/$MAIN.java")
 while IFS= read -r -d '' path; do sources+=("$path"); done < <(find "$WIRE/org/zerodds/wire" -name '*.java' -type f -print0)

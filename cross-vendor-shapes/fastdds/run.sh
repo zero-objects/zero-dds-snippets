@@ -19,6 +19,14 @@
 # into someone else's traffic.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# The Fast DDS reader announces no TypeConsistencyEnforcement (PID 0x0074).
+# DDS-XTypes 1.3 §7.6.3.4.1 has a writer assume DISALLOW_TYPE_COERCION for it,
+# which is the ZeroDDS default (xtypes.type_consistency_absent=disallow).
+# The ShapeTypes of the two sides are assignable but not equivalent.
+# Under DISALLOW the ZeroDDS writer refuses the reader ("type.inconsistent")
+# and the ZeroDDS -> Fast DDS direction receives nothing; this leg reads the
+# absent policy as ALLOW_TYPE_COERCION.
+export ZERODDS_TYPE_CONSISTENCY_ABSENT="${ZERODDS_TYPE_CONSISTENCY_ABSENT:-allow}"
 DOMAIN="${DOMAIN:-71}"
 FASTDDS_HOME="${FASTDDS_HOME:-/opt/fastdds}"
 FASTDDSGEN="${FASTDDSGEN:-fastddsgen}"

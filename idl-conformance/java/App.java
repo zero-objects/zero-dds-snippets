@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Fresh generated codec/descriptor integration through the local DDS API.
 // This is not evidence of UDP or cross-process interoperability.
+import java.util.ArrayList;
 import java.util.Arrays;
-import org.omg.dds.core.ReturnCode;
+import java.util.List;
+import java.util.Map;
+import org.omg.dds.core.ServiceEnvironment;
 import org.omg.dds.domain.DomainParticipantFactory;
+import org.omg.dds.sub.Sample;
 import org.zerodds.cdr.EndianMode;
 import org.zerodds.cdr.XcdrException;
 
@@ -14,43 +18,46 @@ public final class App {
 
     private static ZdTypes.combo.Telemetry sample(boolean optional) {
         var x = new ZdTypes.combo.Telemetry();
-        x.unitId = 7;
-        x.region = "eu-central";
-        x.operatingMode = ZdTypes.combo.Mode.MODE_ACTIVE;
-        x.batteryCurrent = 12.5;
+        x.setUnitId(7);
+        x.setRegion("eu-central");
+        x.setOperatingMode(ZdTypes.combo.Mode.MODE_ACTIVE);
+        x.setBatteryCurrent(12.5);
         var s0 = new ZdTypes.combo.Sample();
-        s0.seq = 0; s0.value = 1.5;
+        s0.setSeq(0); s0.setValue(1.5);
         var s1 = new ZdTypes.combo.Sample();
-        s1.seq = 1; s1.value = -2.25;
-        x.history = new ZdTypes.combo.Sample[] {s0, s1};
-        x.latest = new ZdTypes.combo.Reading();
-        x.latest._d = ZdTypes.combo.Mode.MODE_ACTIVE;
-        x.latest.activeRate = 98.6;
-        var packets = new ZdTypes.ZdEntry_string_long();
-        packets.key = "packets"; packets.value = 1000;
-        var errors = new ZdTypes.ZdEntry_string_long();
-        errors.key = "errors"; errors.value = 3;
-        x.counters = new ZdTypes.ZdEntry_string_long[] {packets, errors};
-        x.calibration = optional ? 0.0078125 : null;
-        x.window = new int[] {10, 20, 30, 40};
+        s1.setSeq(1); s1.setValue(-2.25);
+        x.setHistory(new ArrayList<>(List.of(s0, s1)));
+        var latest = new ZdTypes.combo.Reading();
+        latest.setDiscriminator(ZdTypes.combo.Mode.MODE_ACTIVE);
+        latest.setActiveRate(98.6);
+        x.setLatest(latest);
+        var counters = new ZdTypes.ZdMap_string_long();
+        counters.put("packets", 1000);
+        counters.put("errors", 3);
+        x.setCounters(counters);
+        x.setCalibration(optional ? 0.0078125 : null);
+        x.setWindow(new int[] {10, 20, 30, 40});
         return x;
     }
 
     private static void validate(ZdTypes.combo.Telemetry x, boolean optional) {
-        check(x.unitId == 7 && x.region.equals("eu-central"), "key fields");
-        check(x.operatingMode == ZdTypes.combo.Mode.MODE_ACTIVE, "enum member");
-        check(x.batteryCurrent == 12.5, "typedef double");
-        check(x.history.length == 2 && x.history[0].seq == 0 && x.history[0].value == 1.5
-                && x.history[1].seq == 1 && x.history[1].value == -2.25, "nested struct sequence");
-        check(x.latest._d == ZdTypes.combo.Mode.MODE_ACTIVE && x.latest.activeRate == 98.6, "union discriminator and arm");
-        check(x.counters.length == 2, "map length");
-        check(x.counters[0].key.equals("packets") && x.counters[0].value == 1000
-                && x.counters[1].key.equals("errors") && x.counters[1].value == 3, "map entries");
-        check(optional ? Double.valueOf(0.0078125).equals(x.calibration) : x.calibration == null, "optional value");
-        check(Arrays.equals(x.window, new int[] {10, 20, 30, 40}), "fixed array");
+        check(x.getUnitId() == 7 && x.getRegion().equals("eu-central"), "key fields");
+        check(x.getOperatingMode().value() == ZdTypes.combo.Mode._MODE_ACTIVE, "enum member");
+        check(x.getBatteryCurrent() == 12.5, "typedef double");
+        var history = new ArrayList<>(x.getHistory());
+        check(history.size() == 2 && history.get(0).getSeq() == 0 && history.get(0).getValue() == 1.5
+                && history.get(1).getSeq() == 1 && history.get(1).getValue() == -2.25, "nested struct sequence");
+        check(x.getLatest().getDiscriminator().value() == ZdTypes.combo.Mode._MODE_ACTIVE
+                && x.getLatest().getActiveRate() == 98.6, "union discriminator and arm");
+        var entries = new ArrayList<Map.Entry<String, Integer>>(x.getCounters().entrySet());
+        check(entries.size() == 2, "map length");
+        check(entries.get(0).getKey().equals("packets") && entries.get(0).getValue() == 1000
+                && entries.get(1).getKey().equals("errors") && entries.get(1).getValue() == 3, "map entries");
+        check(optional ? Double.valueOf(0.0078125).equals(x.getCalibration()) : x.getCalibration() == null, "optional value");
+        check(Arrays.equals(x.getWindow(), new int[] {10, 20, 30, 40}), "fixed array");
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         if (args.length != 1 || !args[0].matches("[0-9]{1,3}")) {
             throw new IllegalArgumentException("usage: App DOMAIN (0..232)");
         }
@@ -75,25 +82,36 @@ public final class App {
         var keyed = sample(true);
         byte[] key = support.keyHash(keyed);
         check(key.length == 16, "key hash size");
-        keyed.batteryCurrent = 99;
+        keyed.setBatteryCurrent(99);
         check(Arrays.equals(key, support.keyHash(keyed)), "non-key changed instance identity");
-        keyed.unitId++;
+        keyed.setUnitId(keyed.getUnitId() + 1);
         check(!Arrays.equals(key, support.keyHash(keyed)), "key mutation ignored");
 
-        try (var participant = DomainParticipantFactory.getInstance().createParticipant(domain)) {
+        // DDS-Java-PSM 1.0 §7.3.1: the implementation class is named by a system property.
+        System.setProperty(ServiceEnvironment.IMPLEMENTATION_CLASS_NAME_PROPERTY,
+                "org.zerodds.ServiceEnvironmentImpl");
+        var env = ServiceEnvironment.createInstance(App.class.getClassLoader());
+        try (var participant = DomainParticipantFactory.getInstance(env).createParticipant(domain)) {
             var publisher = participant.createPublisher();
             var subscriber = participant.createSubscriber();
+            // The class form: the binding finds the generated companion
+            // ZdTypeSupports.Support_combo_Telemetry next to ZdTypes.
             try (var topic = participant.createTopic("FreshJavaTelemetry", ZdTypes.combo.Telemetry.class);
-                 var reader = subscriber.createDataReader(topic, support);
-                 var writer = publisher.createDataWriter(topic, support)) {
+                 var reader = subscriber.createDataReader(topic);
+                 var writer = publisher.createDataWriter(topic)) {
                 for (boolean optional : new boolean[] {true, false}) {
                     var x = sample(optional);
                     var handle = writer.registerInstance(x);
                     check(writer.lookupInstance(x).equals(handle), "keyed local registration");
-                    check(writer.write(x) == ReturnCode.OK, "write return code");
-                    var got = reader.take();
-                    check(got.size() == 1 && got.get(0).data() != null, "exactly one valid typed sample");
-                    validate(got.get(0).data(), optional);
+                    writer.write(x);
+                    var got = new ArrayList<ZdTypes.combo.Telemetry>();
+                    try (Sample.Iterator<ZdTypes.combo.Telemetry> samples = reader.take()) {
+                        while (samples.hasNext()) {
+                            got.add(samples.next().getData());
+                        }
+                    }
+                    check(got.size() == 1 && got.get(0) != null, "exactly one valid typed sample");
+                    validate(got.get(0), optional);
                 }
             }
         }

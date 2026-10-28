@@ -19,7 +19,6 @@
 
 #include <chrono>
 #include <cstdio>
-#include <optional>
 #include <string>
 #include <thread>
 
@@ -31,36 +30,39 @@ static int g_failures = 0;
         if (!ok_) ++g_failures;                                                  \
     } while (0)
 
-static combo::Telemetry sample(std::optional<double> calibration, combo::Reading reading) {
+// The DDS-PSM-Cxx mapping (`--cpp-mapping psm`, the default): a member is
+// read through `x()` and set through `x(value)` (section 7.4.6).
+static combo::Telemetry sample(dds::core::optional<double> calibration, combo::Reading reading) {
     combo::Telemetry t{};
-    t.unitId = 42;
-    t.region = "eu-central-mission-1";
-    t.mode = combo::Mode::MODE_ACTIVE;
-    t.batteryCurrent = 3.14159;
-    t.history = {{1, 1.5}, {2, 2.5}, {3, -9.0}};
-    t.reading = reading;
-    t.counters = {{"drops", 0}, {"frames", 1000}, {"retries", 7}};
-    t.calibration = calibration;
-    t.window = {10, 20, 30, 40};
+    t.unitId(42);
+    t.region("eu-central-mission-1");
+    t.mode(combo::Mode::MODE_ACTIVE);
+    t.batteryCurrent(3.14159);
+    t.history({{1, 1.5}, {2, 2.5}, {3, -9.0}});
+    t.reading(reading);
+    t.counters({{"drops", 0}, {"frames", 1000}, {"retries", 7}});
+    t.calibration(calibration);
+    t.window({10, 20, 30, 40});
     return t;
 }
 
 static void compare(const combo::Telemetry& got, const combo::Telemetry& want) {
-    CHECK(got.unitId == want.unitId && got.region == want.region, "keys unitId + region");
-    CHECK(got.mode == want.mode, "enum member mode");
-    CHECK(got.batteryCurrent == want.batteryCurrent, "typedef double batteryCurrent");
-    bool history = got.history.size() == want.history.size();
-    for (std::size_t i = 0; history && i < want.history.size(); ++i)
-        history = got.history[i].seq == want.history[i].seq && got.history[i].value == want.history[i].value;
+    CHECK(got.unitId() == want.unitId() && got.region() == want.region(), "keys unitId + region");
+    CHECK(got.mode() == want.mode(), "enum member mode");
+    CHECK(got.batteryCurrent() == want.batteryCurrent(), "typedef double batteryCurrent");
+    bool history = got.history().size() == want.history().size();
+    for (std::size_t i = 0; history && i < want.history().size(); ++i)
+        history = got.history()[i].seq() == want.history()[i].seq()
+               && got.history()[i].value() == want.history()[i].value();
     CHECK(history, "sequence<Sample> history");
-    CHECK(got.reading._d == want.reading._d, "union discriminator");
-    if (want.reading._d == combo::Mode::MODE_ACTIVE)
-        CHECK(got.reading.activeRate == want.reading.activeRate, "union case activeRate");
+    CHECK(got.reading()._d() == want.reading()._d(), "union discriminator");
+    if (want.reading()._d() == combo::Mode::MODE_ACTIVE)
+        CHECK(got.reading().activeRate() == want.reading().activeRate(), "union case activeRate");
     else
-        CHECK(got.reading.faultCode == want.reading.faultCode, "union default case faultCode");
-    CHECK(got.counters == want.counters, "map<string,long> counters");
-    CHECK(got.calibration == want.calibration, "@optional double calibration");
-    CHECK(got.window == want.window, "long window[4]");
+        CHECK(got.reading().faultCode() == want.reading().faultCode(), "union default case faultCode");
+    CHECK(got.counters() == want.counters(), "map<string,long> counters");
+    CHECK(got.calibration() == want.calibration(), "@optional double calibration");
+    CHECK(got.window() == want.window(), "long window[4]");
 }
 
 static bool take_within(zerodds::TypedReader<combo::Telemetry>& reader, combo::Telemetry& out,
@@ -84,16 +86,18 @@ int main(int argc, char** argv) {
     }
 
     combo::Reading active{};
-    active._d = combo::Mode::MODE_ACTIVE;
-    active.activeRate = 9.81;
+    // IDL4 to C++ 1.0 §7.5.1.4: a case setter selects its case.
+    active.activeRate(9.81);
     combo::Reading fault{};
-    fault._d = combo::Mode::MODE_FAULT;
-    fault.faultCode = "E_OVERHEAT";
+    // The default case: MODE_FAULT is the one enumerator without a label of
+    // its own, and _d() names it for the sample.
+    fault.faultCode("E_OVERHEAT");
+    fault._d(combo::Mode::MODE_FAULT);
 
-    const combo::Telemetry sent[2] = {sample(0.999, active), sample(std::nullopt, fault)};
+    const combo::Telemetry sent[2] = {sample(0.999, active), sample(dds::core::optional<double>(), fault)};
     for (const combo::Telemetry& want : sent) {
-        std::printf("%s\n", want.calibration ? "optional present, union MODE_ACTIVE:"
-                                             : "optional absent, union default:");
+        std::printf("%s\n", want.calibration().is_set() ? "optional present, union MODE_ACTIVE:"
+                                                        : "optional absent, union default:");
         writer.write(want);
         combo::Telemetry got{};
         if (!take_within(reader, got, std::chrono::milliseconds(3000))) {

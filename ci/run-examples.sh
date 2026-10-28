@@ -116,9 +116,14 @@ probe() {
         # probe that accepts it turns a missing binding into a type error
         # blamed on the example.
         ts-node-build)
-            # Built by this run (`ensure_built`) with the package's own tsc.
-            [ -x "$ZERODDS_SRC/crates/ts-node/node_modules/.bin/tsc" ] || \
-                why="crates/ts-node has no node_modules (npm install --install-links=false there); this run builds its dist with them" ;;
+            # Built by this run (`ensure_built`) with the packages' own tsc:
+            # @zerodds/node, and the @zerodds/wire it depends on by path
+            # and the generated TypeScript imports.
+            if [ ! -x "$ZERODDS_SRC/runtime/typescript/node_modules/.bin/tsc" ]; then
+                why="runtime/typescript has no node_modules (npm ci there); this run builds @zerodds/wire with them"
+            elif [ ! -x "$ZERODDS_SRC/crates/ts-node/node_modules/.bin/tsc" ]; then
+                why="crates/ts-node has no node_modules (npm install --install-links=false there); this run builds its dist with them"
+            fi ;;
         ts-wasm-build)
             [ -f "$ZERODDS_SRC/crates/ts-wasm/dist/index.d.ts" ] || \
                 why="crates/ts-wasm is not built (npm install && npm run build there)" ;;
@@ -281,7 +286,8 @@ PY
 # ---------------------------------------------------------------------------
 # What the examples load is built from ZERODDS_SRC by this run, once, before
 # the first example that needs it: the C ABI library ZERODDS_LIB names, and
-# the JavaScript of @zerodds/node that `tsx` resolves through NODE_PATH.
+# the JavaScript of @zerodds/node that `tsx` resolves through NODE_PATH, and
+# the @zerodds/wire it and the generated TypeScript import.
 #
 # The harness used to export the path of whatever target/release held and
 # accept any crates/ts-node/dist, and an example then measured a library
@@ -289,6 +295,7 @@ PY
 # libzerodds.so built before the runtime change it was run to check.
 # ---------------------------------------------------------------------------
 BUILT_CDYLIB=""   # "", yes, or the reason it failed
+BUILT_TS_WIRE=""
 BUILT_TS_NODE=""
 build_step() { # description dir command...
     what="$1"; where="$2"; shift 2
@@ -316,6 +323,11 @@ ensure_built() { # needs; sets BUILD_WHY and returns 1 when a build failed
     esac
     case ",$1," in
         *,ts-node-build,*)
+            if [ -z "$BUILT_TS_WIRE" ]; then
+                BUILT_TS_WIRE="$(build_step @zerodds/wire "$ZERODDS_SRC/runtime/typescript" \
+                    npm run --silent build)"
+            fi
+            [ "$BUILT_TS_WIRE" = yes ] || { BUILD_WHY="$BUILT_TS_WIRE"; return 1; }
             if [ -z "$BUILT_TS_NODE" ]; then
                 BUILT_TS_NODE="$(build_step @zerodds/node "$ZERODDS_SRC/crates/ts-node" \
                     npm run --silent build)"

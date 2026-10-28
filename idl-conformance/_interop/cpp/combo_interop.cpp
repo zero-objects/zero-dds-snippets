@@ -23,10 +23,11 @@ static combo::Telemetry canonical() {
     t.mode = combo::Mode::MODE_ACTIVE;        // enum, index 1
     t.batteryCurrent = 13.75;                 // typedef double
     t.history = {{1, 0.5}, {2, 1.5}, {3, -2.25}};
-    t.reading._d = combo::Mode::MODE_ACTIVE;  // union switch(Mode) -> activeRate
-    t.reading.activeRate = 60.0;
-    t.counters = {{"drops", 3}, {"packets", 100}};  // map<string,long>, key-sorted
-    t.calibration = 0.001;                    // @optional double, present
+    t.reading.activeRate(60.0);               // union switch(Mode): the setter selects MODE_ACTIVE
+    t.counters.set_max_size(2);               // a map's capacity starts at 0; insert stays within it
+    t.counters.insert("drops", 3);            // map<string,long>, in wire order
+    t.counters.insert("packets", 100);
+    t.calibration = new double(0.001);        // @optional double, present: an owned pointer in the native mapping
     t.window = {10, 20, 30, 40};              // long[4]
     return t;
 }
@@ -47,10 +48,10 @@ static void check(const combo::Telemetry& g) {
             CHK(g.history[i].value == w.history[i].value, "history[].value");
         }
     }
-    CHK(g.reading._d == w.reading._d, "reading._d");
-    CHK(g.reading.activeRate == w.reading.activeRate, "reading.activeRate");
+    CHK(g.reading._d() == w.reading._d(), "reading._d");
+    CHK(g.reading.activeRate() == w.reading.activeRate(), "reading.activeRate");
     CHK(g.counters == w.counters, "counters");
-    CHK(g.calibration.has_value() && *g.calibration == *w.calibration, "calibration");
+    CHK(g.calibration != nullptr && *g.calibration == *w.calibration, "calibration");
     CHK(g.window == w.window, "window");
 }
 

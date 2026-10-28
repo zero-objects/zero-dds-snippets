@@ -93,36 +93,35 @@ public final class FeaturesInterop {
         x.i8 = (byte) -128; x.u8 = 255; x.i16 = (short) -32768; x.u16 = 65535;
         x.i32 = -2147483648; x.u32 = 4294967295L;
         x.i64 = -9223372036854775808L; x.u64 = -1L; // 0xFFFFFFFFFFFFFFFF
-        x.f32 = 3.5f; x.f64 = -1234.5; x.b = true; x.o = 0xAB; x.ch = 'Z';
+        x.f32 = 3.5f; x.f64 = -1234.5; x.b = true; x.o = (byte) 0xAB; x.ch = 'Z';
         return x;
     }
 
     // @bit_bound enum + map<long,Pt> + sequence<Sel>: h=BLUE; m={3:{11,12}}; sels=[Sel{_d=2,n=9}].
     static ZdTypes.feat.MapEnum canonicalMapEnum() {
-        var entry = new ZdTypes.ZdEntry_long_feat_Pt();
-        entry.key = 3; entry.value = pt(11, 12);
         var sel = new ZdTypes.feat.Sel();
         sel._d = 2; sel.n = 9;
         var x = new ZdTypes.feat.MapEnum();
         x.h = ZdTypes.feat.Hue.H_BLUE;
-        x.m = new ZdTypes.ZdEntry_long_feat_Pt[] {entry};
+        x.m = new ZdTypes.ZdMap_long_feat_Pt();
+        x.m.put(3, pt(11, 12));
         x.sels = new ZdTypes.feat.Sel[] {sel};
         return x;
     }
 
     // map<long,long> primitive-valued, no collection DHEADER (XCDR2 §7.4.3.5): m={7:42,8:99}.
     static ZdTypes.feat.MapPrim canonicalMapPrim() {
-        var a = new ZdTypes.ZdEntry_long_long(); a.key = 7; a.value = 42;
-        var b = new ZdTypes.ZdEntry_long_long(); b.key = 8; b.value = 99;
         var x = new ZdTypes.feat.MapPrim();
-        x.m = new ZdTypes.ZdEntry_long_long[] {a, b};
+        x.m = new ZdTypes.ZdMap_long_long();
+        x.m.put(7, 42);
+        x.m.put(8, 99);
         return x;
     }
 
     // fixed<P,S> as its decimal text: price=123.45 (wire 12 34 5c), qty=1234 (01 23 4c).
     static ZdTypes.feat.Money canonicalMoney() {
         var x = new ZdTypes.feat.Money();
-        x.price = "123.45"; x.qty = "1234";
+        x.price = new java.math.BigDecimal("123.45"); x.qty = new java.math.BigDecimal("1234");
         return x;
     }
 
@@ -185,17 +184,21 @@ public final class FeaturesInterop {
 
     static void checkMapEnum(ZdTypes.feat.MapEnum g) {
         check(g.h == ZdTypes.feat.Hue.H_BLUE, "mapenum.h");
-        check(g.m.length == 1 && g.m[0].key == 3 && g.m[0].value.x == 11 && g.m[0].value.y == 12, "mapenum.m");
+        var entries = new java.util.ArrayList<>(g.m.entrySet());
+        check(entries.size() == 1 && entries.get(0).getKey() == 3
+                && entries.get(0).getValue().x == 11 && entries.get(0).getValue().y == 12, "mapenum.m");
         check(g.sels.length == 1 && g.sels[0]._d == 2 && g.sels[0].n == 9, "mapenum.sels");
     }
 
     static void checkMapPrim(ZdTypes.feat.MapPrim g) {
-        check(g.m.length == 2 && g.m[0].key == 7 && g.m[0].value == 42
-                && g.m[1].key == 8 && g.m[1].value == 99, "mapprim.m");
+        var entries = new java.util.ArrayList<>(g.m.entrySet());
+        check(entries.size() == 2 && entries.get(0).getKey() == 7 && entries.get(0).getValue() == 42
+                && entries.get(1).getKey() == 8 && entries.get(1).getValue() == 99, "mapprim.m");
     }
 
     static void checkMoney(ZdTypes.feat.Money g) {
-        check(Objects.equals(g.price, "123.45") && Objects.equals(g.qty, "1234"), "fixed");
+        check(Objects.equals(g.price, new java.math.BigDecimal("123.45"))
+                && Objects.equals(g.qty, new java.math.BigDecimal("1234")), "fixed");
     }
 
     // ---- drivers -------------------------------------------------------

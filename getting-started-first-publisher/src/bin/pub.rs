@@ -43,6 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // no coherent or ordered access.
         presentation: PresentationQosPolicy::default(),
         data_representation_offer: None,
+        ..Default::default()
     })?;
 
     for i in 0u32..10 {

@@ -52,6 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         group_data: vec![],
         type_identifier: TypeIdentifier::Primitive(PrimitiveKind::UInt8),
         data_representation_offer: None,
+        ..Default::default()
     };
 
     let writer_eid = rt.register_user_writer(cfg)?;

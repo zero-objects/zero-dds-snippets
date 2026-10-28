@@ -51,11 +51,22 @@ static feat::Prim canon_prim() {
 // @bit_bound enum + map<long,Pt> + sequence<Sel>: h=BLUE; m={3:{11,12}}; sels=[Sel{_d=2,n=9}].
 static feat::MapEnum canon_mapenum() {
     feat::Sel sel{};
-    sel._d = 2; sel.n = 9;
-    return {feat::Hue::H_BLUE, {{3, {11, 12}}}, {sel}};
+    sel.n(9);  // the setter selects its case: _d() == 2
+    feat::MapEnum v{};
+    v.h = feat::Hue::H_BLUE;
+    v.m.set_max_size(1);  // a map's capacity starts at 0; insert stays within it
+    v.m.insert(3, feat::Pt{11, 12});
+    v.sels = {sel};
+    return v;
 }
 // map<long,long> primitive-valued, no collection DHEADER (XCDR2 §7.4.3.5): m={7:42,8:99}.
-static feat::MapPrim canon_mapprim() { return {{{7, 42}, {8, 99}}}; }
+static feat::MapPrim canon_mapprim() {
+    feat::MapPrim v{};
+    v.m.set_max_size(2);
+    v.m.insert(7, 42);
+    v.m.insert(8, 99);
+    return v;
+}
 // fixed<P,S> as its decimal text: price=123.45 (wire 12 34 5c), qty=1234 (01 23 4c).
 static feat::Money canon_fixed() { return {"123.45", "1234"}; }
 
@@ -95,7 +106,7 @@ static void check(const feat::Prim& g) {
 static void check(const feat::MapEnum& g) {
     CHK(g.h == feat::Hue::H_BLUE, "mapenum.h");
     CHK(g.m.size() == 1 && g.m[0].first == 3 && g.m[0].second.x == 11 && g.m[0].second.y == 12, "mapenum.m");
-    CHK(g.sels.size() == 1 && g.sels[0]._d == 2 && g.sels[0].n == 9, "mapenum.sels");
+    CHK(g.sels.size() == 1 && g.sels[0]._d() == 2 && g.sels[0].n() == 9, "mapenum.sels");
 }
 static void check(const feat::MapPrim& g) {
     CHK(g.m.size() == 2 && g.m[0] == std::make_pair(7, 42) && g.m[1] == std::make_pair(8, 99), "mapprim.m");

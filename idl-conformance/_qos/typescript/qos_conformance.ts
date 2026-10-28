@@ -48,10 +48,15 @@ async function main() {
   // ---- 1. RELIABILITY (now selectable) ----
   {
     const topic = participant.createTypedTopic("RelTopic", ReadingTypeSupport);
+    // KEEP_ALL on both sides: the 100 samples are one instance (id=1), and
+    // the default KEEP_LAST(1) keeps one sample per instance (DDS 1.4
+    // §2.2.3.18), so a reader taking after the burst would see only the last.
     const wq = defaultDataWriterQos();
     wq.reliability.kind = ReliabilityKind.Reliable;
+    wq.history.kind = HistoryKind.KeepAll;
     const rq = defaultDataReaderQos();
     rq.reliability.kind = ReliabilityKind.Reliable;
+    rq.history.kind = HistoryKind.KeepAll;
     const writer = participant.createPublisher().createTypedWriter(topic, wq);
     const reader = participant.createSubscriber().createTypedReader(topic, rq);
     await writer.waitForMatchedSubscription(1, 5000);

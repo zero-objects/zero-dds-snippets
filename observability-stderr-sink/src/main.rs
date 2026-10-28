@@ -48,6 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         group_data: vec![],
         type_identifier: TypeIdentifier::Primitive(PrimitiveKind::UInt8),
         data_representation_offer: None,
+        ..Default::default()
     })?;
 
     let (_reader_eid, _rx) = rt.register_user_reader(UserReaderConfig {

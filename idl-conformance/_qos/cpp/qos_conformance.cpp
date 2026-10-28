@@ -28,6 +28,25 @@
 using namespace std::chrono_literals;
 namespace P = dds::core::policy;
 using dds::core::Duration;
+
+// DDS-PSM-Cxx has no wait_for_matched on an entity; the matched status
+// counts the matched peers. Five seconds, as before.
+template <typename T>
+static bool wait_matched(dds::pub::DataWriter<T>& w, int32_t n) {
+    for (int i = 0; i < 500; ++i) {
+        if (w.publication_matched_status().current_count() >= n) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return false;
+}
+template <typename T>
+static bool wait_matched(dds::sub::DataReader<T>& r, int32_t n) {
+    for (int i = 0; i < 500; ++i) {
+        if (r.subscription_matched_status().current_count() >= n) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return false;
+}
 using TS = dds::topic::topic_type_support<qos::Reading>;
 
 // instance_state bits (from zerodds.h SampleInfo): 1=ALIVE 2=DISPOSED 4=NO_WRITERS
@@ -77,21 +96,21 @@ static void test_reliability() {
         dds::topic::Topic<qos::Reading> t(dp, "QosRelTopic");
         dds::pub::Publisher pub(dp);
         dds::sub::Subscriber sub(dp);
-        dds::core::DataWriterQos wq; wq.reliability = P::Reliability::Reliable_();
-        dds::core::DataReaderQos rq; rq.reliability = P::Reliability::Reliable_();
-        wq.history = P::History::KeepAll();
-        rq.history = P::History::KeepAll();
+        dds::pub::qos::DataWriterQos wq; wq << P::Reliability::Reliable();
+        dds::sub::qos::DataReaderQos rq; rq << P::Reliability::Reliable();
+        wq << P::History::KeepAll();
+        rq << P::History::KeepAll();
         dds::pub::DataWriter<qos::Reading> w(pub, t, wq);
         dds::sub::DataReader<qos::Reading> r(sub, t, rq);
-        w.wait_for_matched(1, Duration(5, 0));
-        r.wait_for_matched(1, Duration(5, 0));
+        wait_matched(w, 1);
+        wait_matched(r, 1);
         for (int i = 0; i < N; ++i) w.write(qos::Reading{1, i, i * 1.0});
         // collect
         std::vector<int> got;
         int waited = 0;
         while ((int)got.size() < N && waited < 5000) {
             auto loaned = r.take();
-            for (auto& s : loaned) if (s.info().valid_data) got.push_back(s.data().seq);
+            for (auto& s : loaned) if (s.info().valid()) got.push_back(s.data().seq());
             std::this_thread::sleep_for(5ms); waited += 5;
         }
         bool all = ((int)got.size() == N);
@@ -107,17 +126,17 @@ static void test_reliability() {
         dds::topic::Topic<qos::Reading> t(dp, "QosBeTopic");
         dds::pub::Publisher pub(dp);
         dds::sub::Subscriber sub(dp);
-        dds::core::DataWriterQos wq; wq.reliability = P::Reliability::BestEffort();
-        dds::core::DataReaderQos rq; rq.reliability = P::Reliability::BestEffort();
+        dds::pub::qos::DataWriterQos wq; wq << P::Reliability::BestEffort();
+        dds::sub::qos::DataReaderQos rq; rq << P::Reliability::BestEffort();
         dds::pub::DataWriter<qos::Reading> w(pub, t, wq);
         dds::sub::DataReader<qos::Reading> r(sub, t, rq);
-        w.wait_for_matched(1, Duration(5, 0));
-        r.wait_for_matched(1, Duration(5, 0));
+        wait_matched(w, 1);
+        wait_matched(r, 1);
         for (int i = 0; i < N; ++i) w.write(qos::Reading{2, i, i * 1.0});
         int got = 0, waited = 0;
         while (waited < 1500) {
             auto loaned = r.take();
-            for (auto& s : loaned) if (s.info().valid_data) ++got;
+            for (auto& s : loaned) if (s.info().valid()) ++got;
             std::this_thread::sleep_for(5ms); waited += 5;
         }
         std::cout << "  BEST_EFFORT: received " << got << "/" << N << " (loss tolerated)\n";
@@ -139,25 +158,25 @@ static void test_durability() {
         dds::topic::Topic<qos::Reading> tp(pubDp, "QosDurTL");
         dds::topic::Topic<qos::Reading> ts(subDp, "QosDurTL");
         dds::pub::Publisher pub(pubDp);
-        dds::core::DataWriterQos wq;
-        wq.reliability = P::Reliability::Reliable_();
-        wq.durability = P::Durability::TransientLocal();
-        wq.history = P::History::KeepLast(3);
+        dds::pub::qos::DataWriterQos wq;
+        wq << P::Reliability::Reliable();
+        wq << P::Durability::TransientLocal();
+        wq << P::History::KeepLast(3);
         dds::pub::DataWriter<qos::Reading> w(pub, tp, wq);
         for (int i = 0; i < 5; ++i) w.write(qos::Reading{7, i, i * 1.0}); // same key
         std::this_thread::sleep_for(300ms);
         // LATE join on a SECOND participant.
         dds::sub::Subscriber sub(subDp);
-        dds::core::DataReaderQos rq;
-        rq.reliability = P::Reliability::Reliable_();
-        rq.durability = P::Durability::TransientLocal();
-        rq.history = P::History::KeepLast(3);
+        dds::sub::qos::DataReaderQos rq;
+        rq << P::Reliability::Reliable();
+        rq << P::Durability::TransientLocal();
+        rq << P::History::KeepLast(3);
         dds::sub::DataReader<qos::Reading> r(sub, ts, rq);
-        r.wait_for_matched(1, Duration(5, 0));
+        wait_matched(r, 1);
         int got = 0, last = -1, waited = 0;
         while (waited < 2000) {
             auto loaned = r.take();
-            for (auto& s : loaned) if (s.info().valid_data) { ++got; last = s.data().seq; }
+            for (auto& s : loaned) if (s.info().valid()) { ++got; last = s.data().seq(); }
             if (got > 0 && waited > 400) break;
             std::this_thread::sleep_for(10ms); waited += 10;
         }
@@ -171,23 +190,23 @@ static void test_durability() {
         dds::topic::Topic<qos::Reading> tp(pubDp, "QosDurVol");
         dds::topic::Topic<qos::Reading> ts(subDp, "QosDurVol");
         dds::pub::Publisher pub(pubDp);
-        dds::core::DataWriterQos wq;
-        wq.reliability = P::Reliability::Reliable_();
-        wq.durability = P::Durability::Volatile();
-        wq.history = P::History::KeepLast(3);
+        dds::pub::qos::DataWriterQos wq;
+        wq << P::Reliability::Reliable();
+        wq << P::Durability::Volatile();
+        wq << P::History::KeepLast(3);
         dds::pub::DataWriter<qos::Reading> w(pub, tp, wq);
         for (int i = 0; i < 5; ++i) w.write(qos::Reading{8, i, i * 1.0});
         std::this_thread::sleep_for(300ms);
         dds::sub::Subscriber sub(subDp);
-        dds::core::DataReaderQos rq;
-        rq.reliability = P::Reliability::Reliable_();
-        rq.durability = P::Durability::Volatile();
+        dds::sub::qos::DataReaderQos rq;
+        rq << P::Reliability::Reliable();
+        rq << P::Durability::Volatile();
         dds::sub::DataReader<qos::Reading> r(sub, ts, rq);
-        r.wait_for_matched(1, Duration(5, 0));
+        wait_matched(r, 1);
         int got = 0, waited = 0;
         while (waited < 800) {
             auto loaned = r.take();
-            for (auto& s : loaned) if (s.info().valid_data) ++got;
+            for (auto& s : loaned) if (s.info().valid()) ++got;
             std::this_thread::sleep_for(10ms); waited += 10;
         }
         std::cout << "  VOLATILE late joiner got " << got << " (expected 0)\n";
@@ -208,24 +227,24 @@ static void test_history() {
         dds::topic::Topic<qos::Reading> tp(pubDp, "QosHistKL");
         dds::topic::Topic<qos::Reading> ts(subDp, "QosHistKL");
         dds::pub::Publisher pub(pubDp);
-        dds::core::DataWriterQos wq;
-        wq.reliability = P::Reliability::Reliable_();
-        wq.durability = P::Durability::TransientLocal();
-        wq.history = P::History::KeepLast(K);
+        dds::pub::qos::DataWriterQos wq;
+        wq << P::Reliability::Reliable();
+        wq << P::Durability::TransientLocal();
+        wq << P::History::KeepLast(K);
         dds::pub::DataWriter<qos::Reading> w(pub, tp, wq);
         for (int i = 0; i < 6; ++i) w.write(qos::Reading{11, i, i * 1.0}); // one instance
         std::this_thread::sleep_for(300ms);
         dds::sub::Subscriber sub(subDp);
-        dds::core::DataReaderQos rq;
-        rq.reliability = P::Reliability::Reliable_();
-        rq.durability = P::Durability::TransientLocal();
-        rq.history = P::History::KeepLast(K);
+        dds::sub::qos::DataReaderQos rq;
+        rq << P::Reliability::Reliable();
+        rq << P::Durability::TransientLocal();
+        rq << P::History::KeepLast(K);
         dds::sub::DataReader<qos::Reading> r(sub, ts, rq);
-        r.wait_for_matched(1, Duration(5, 0));
+        wait_matched(r, 1);
         std::vector<int> seqs; int waited = 0;
         while (waited < 1500) {
             auto loaned = r.take();
-            for (auto& s : loaned) if (s.info().valid_data) seqs.push_back(s.data().seq);
+            for (auto& s : loaned) if (s.info().valid()) seqs.push_back(s.data().seq());
             if (!seqs.empty() && waited > 400) break;
             std::this_thread::sleep_for(10ms); waited += 10;
         }
@@ -246,24 +265,24 @@ static void test_history() {
         dds::topic::Topic<qos::Reading> tp(pubDp, "QosHistKA");
         dds::topic::Topic<qos::Reading> ts(subDp, "QosHistKA");
         dds::pub::Publisher pub(pubDp);
-        dds::core::DataWriterQos wq;
-        wq.reliability = P::Reliability::Reliable_();
-        wq.durability = P::Durability::TransientLocal();
-        wq.history = P::History::KeepAll();
+        dds::pub::qos::DataWriterQos wq;
+        wq << P::Reliability::Reliable();
+        wq << P::Durability::TransientLocal();
+        wq << P::History::KeepAll();
         dds::pub::DataWriter<qos::Reading> w(pub, tp, wq);
         for (int i = 0; i < 6; ++i) w.write(qos::Reading{12, i, i * 1.0});
         std::this_thread::sleep_for(300ms);
         dds::sub::Subscriber sub(subDp);
-        dds::core::DataReaderQos rq;
-        rq.reliability = P::Reliability::Reliable_();
-        rq.durability = P::Durability::TransientLocal();
-        rq.history = P::History::KeepAll();
+        dds::sub::qos::DataReaderQos rq;
+        rq << P::Reliability::Reliable();
+        rq << P::Durability::TransientLocal();
+        rq << P::History::KeepAll();
         dds::sub::DataReader<qos::Reading> r(sub, ts, rq);
-        r.wait_for_matched(1, Duration(5, 0));
+        wait_matched(r, 1);
         std::vector<int> seqs; int waited = 0;
         while (waited < 1500) {
             auto loaned = r.take();
-            for (auto& s : loaned) if (s.info().valid_data) seqs.push_back(s.data().seq);
+            for (auto& s : loaned) if (s.info().valid()) seqs.push_back(s.data().seq());
             if ((int)seqs.size() >= 6) break;
             std::this_thread::sleep_for(10ms); waited += 10;
         }
@@ -283,24 +302,24 @@ static void test_deadline() {
     dds::topic::Topic<qos::Reading> ts(subDp, "QosDeadline");
     dds::pub::Publisher pub(pubDp);
     dds::sub::Subscriber sub(subDp);
-    dds::core::DataWriterQos wq;
-    wq.reliability = P::Reliability::Reliable_();
-    wq.deadline = P::Deadline(Duration::from_millis(100));
-    dds::core::DataReaderQos rq;
-    rq.reliability = P::Reliability::Reliable_();
-    rq.deadline = P::Deadline(Duration::from_millis(100));
+    dds::pub::qos::DataWriterQos wq;
+    wq << P::Reliability::Reliable();
+    wq << P::Deadline(Duration::from_millisecs(100));
+    dds::sub::qos::DataReaderQos rq;
+    rq << P::Reliability::Reliable();
+    rq << P::Deadline(Duration::from_millisecs(100));
     dds::pub::DataWriter<qos::Reading> w(pub, tp, wq);
     dds::sub::DataReader<qos::Reading> r(sub, ts, rq);
-    w.wait_for_matched(1, Duration(5, 0));
-    r.wait_for_matched(1, Duration(5, 0));
+    wait_matched(w, 1);
+    wait_matched(r, 1);
     w.write(qos::Reading{21, 0, 0.0});
     // Now miss the 100ms deadline by sleeping ~600ms with no further writes.
     std::this_thread::sleep_for(600ms);
     // Idiomatic C++ binding now surfaces the reader-side deadline status.
     auto s = r.requested_deadline_missed_status();
-    std::cout << "  requested_deadline_missed total_count=" << s.total_count
-              << " total_count_change=" << s.total_count_change << "\n";
-    expect("DEADLINE: missed deadline increments requested_deadline_missed", s.total_count > 0);
+    std::cout << "  requested_deadline_missed total_count=" << s.total_count()
+              << " total_count_change=" << s.total_count_change() << "\n";
+    expect("DEADLINE: missed deadline increments requested_deadline_missed", s.total_count() > 0);
 }
 
 // ------------------------------------------------------------------------
@@ -314,42 +333,42 @@ static void test_liveliness() {
     dds::topic::Topic<qos::Reading> ts(subDp, "QosLiveliness");
     dds::pub::Publisher pub(pubDp);
     dds::sub::Subscriber sub(subDp);
-    dds::core::DataWriterQos wq;
-    wq.reliability = P::Reliability::Reliable_();
-    wq.liveliness = P::Liveliness(P::LivelinessKind::Automatic, Duration::from_millis(200));
-    dds::core::DataReaderQos rq;
-    rq.reliability = P::Reliability::Reliable_();
-    rq.liveliness = P::Liveliness(P::LivelinessKind::Automatic, Duration::from_millis(200));
+    dds::pub::qos::DataWriterQos wq;
+    wq << P::Reliability::Reliable();
+    wq << P::Liveliness(P::LivelinessKind::AUTOMATIC, Duration::from_millisecs(200));
+    dds::sub::qos::DataReaderQos rq;
+    rq << P::Reliability::Reliable();
+    rq << P::Liveliness(P::LivelinessKind::AUTOMATIC, Duration::from_millisecs(200));
     {
         dds::sub::DataReader<qos::Reading> r(sub, ts, rq);
         {
             dds::pub::DataWriter<qos::Reading> w(pub, tp, wq);
-            w.wait_for_matched(1, Duration(5, 0));
-            r.wait_for_matched(1, Duration(5, 0));
+            wait_matched(w, 1);
+            wait_matched(r, 1);
             w.write(qos::Reading{31, 0, 0.0});
             // Past its 200 ms lease: an AUTOMATIC writer is kept alive by its
             // participant, not by the one write.
             std::this_thread::sleep_for(500ms);
             auto live = r.liveliness_changed_status();
-            std::cout << "  after match: alive_count=" << live.alive_count
-                      << " not_alive_count=" << live.not_alive_count
-                      << " alive_change=" << live.alive_count_change << "\n";
+            std::cout << "  after match: alive_count=" << live.alive_count()
+                      << " not_alive_count=" << live.not_alive_count()
+                      << " alive_change=" << live.alive_count_change() << "\n";
             // DDS 1.4 2.2.4.1: an AUTOMATIC writer is alive from its match.
             expect("LIVELINESS: the matched writer is the one alive writer",
-                   live.alive_count == 1 && live.not_alive_count == 0 &&
-                   live.alive_count_change == 1);
+                   live.alive_count() == 1 && live.not_alive_count() == 0 &&
+                   live.alive_count_change() == 1);
             // writer goes out of scope -> deleted normally
         }
         // Past the lease: the deleted writer has left the count, and a
         // normal deletion does not count it not alive.
         std::this_thread::sleep_for(900ms);
         auto live = r.liveliness_changed_status();
-        std::cout << "  after writer delete: alive_count=" << live.alive_count
-                  << " not_alive_count=" << live.not_alive_count
-                  << " alive_change=" << live.alive_count_change << "\n";
+        std::cout << "  after writer delete: alive_count=" << live.alive_count()
+                  << " not_alive_count=" << live.not_alive_count()
+                  << " alive_change=" << live.alive_count_change() << "\n";
         expect("LIVELINESS: a deleted writer leaves alive_count, not counted not alive",
-               live.alive_count == 0 && live.not_alive_count == 0 &&
-               live.alive_count_change == -1);
+               live.alive_count() == 0 && live.not_alive_count() == 0 &&
+               live.alive_count_change() == -1);
     }
 }
 
@@ -370,26 +389,26 @@ static void test_ownership() {
     dds::pub::Publisher pubLow(lowDp);
     dds::pub::Publisher pubHigh(highDp);
     dds::sub::Subscriber sub(subDp);
-    dds::core::DataReaderQos rq;
-    rq.reliability = P::Reliability::Reliable_();
-    rq.ownership = P::Ownership::Exclusive();
-    rq.history = P::History::KeepAll();
+    dds::sub::qos::DataReaderQos rq;
+    rq << P::Reliability::Reliable();
+    rq << P::Ownership::Exclusive();
+    rq << P::History::KeepAll();
     dds::sub::DataReader<qos::Reading> r(sub, tSub, rq);
 
-    dds::core::DataWriterQos wqLow;
-    wqLow.reliability = P::Reliability::Reliable_();
-    wqLow.ownership = P::Ownership::Exclusive();
-    wqLow.ownership_strength = P::OwnershipStrength(1);
-    dds::core::DataWriterQos wqHigh;
-    wqHigh.reliability = P::Reliability::Reliable_();
-    wqHigh.ownership = P::Ownership::Exclusive();
-    wqHigh.ownership_strength = P::OwnershipStrength(10);
+    dds::pub::qos::DataWriterQos wqLow;
+    wqLow << P::Reliability::Reliable();
+    wqLow << P::Ownership::Exclusive();
+    wqLow << P::OwnershipStrength(1);
+    dds::pub::qos::DataWriterQos wqHigh;
+    wqHigh << P::Reliability::Reliable();
+    wqHigh << P::Ownership::Exclusive();
+    wqHigh << P::OwnershipStrength(10);
 
     dds::pub::DataWriter<qos::Reading> wLow(pubLow, tLow, wqLow);
     dds::pub::DataWriter<qos::Reading> wHigh(pubHigh, tHigh, wqHigh);
-    wLow.wait_for_matched(1, Duration(5, 0));
-    wHigh.wait_for_matched(1, Duration(5, 0));
-    r.wait_for_matched(2, Duration(5, 0));
+    wait_matched(wLow, 1);
+    wait_matched(wHigh, 1);
+    wait_matched(r, 2);
 
     // Both write to the SAME instance (id=41). Encode value to distinguish source:
     // low strength -> value 1.0, high strength -> value 10.0.
@@ -402,7 +421,7 @@ static void test_ownership() {
     wHigh.write(qos::Reading{41, -1, 10.0});
     bool strongSeen = false;
     for (int waited = 0; !strongSeen && waited < 2000; waited += 10) {
-        for (auto& s : r.take()) if (s.info().valid_data && s.data().value >= 5.0) strongSeen = true;
+        for (auto& s : r.take()) if (s.info().valid() && s.data().value() >= 5.0) strongSeen = true;
         if (!strongSeen) std::this_thread::sleep_for(10ms);
     }
     expect("EXCLUSIVE: the high-strength writer's first sample arrives", strongSeen);
@@ -413,8 +432,8 @@ static void test_ownership() {
     int fromLow = 0, fromHigh = 0, waited = 0;
     while (waited < 1500) {
         auto loaned = r.take();
-        for (auto& s : loaned) if (s.info().valid_data) {
-            if (s.data().value < 5.0) ++fromLow; else ++fromHigh;
+        for (auto& s : loaned) if (s.info().valid()) {
+            if (s.data().value() < 5.0) ++fromLow; else ++fromHigh;
         }
         std::this_thread::sleep_for(10ms); waited += 10;
     }
@@ -440,22 +459,22 @@ static void test_partition() {
         dds::topic::Topic<qos::Reading> tp(pubDp, "QosPartition");
         dds::topic::Topic<qos::Reading> ts2(subDp, "QosPartition");
 
-        dds::core::PublisherQos pq;
-        if (pubName) pq.partition.name({ std::string(pubName) });
+        dds::pub::qos::PublisherQos pq;
+        if (pubName) pq << P::Partition(std::string(pubName));
         dds::pub::Publisher pub(pubDp, pq);
 
-        dds::core::SubscriberQos sq;
-        if (subName) sq.partition.name({ std::string(subName) });
+        dds::sub::qos::SubscriberQos sq;
+        if (subName) sq << P::Partition(std::string(subName));
         dds::sub::Subscriber sub(subDp, sq);
 
-        dds::core::DataWriterQos wq;
-        wq.reliability = P::Reliability::Reliable_();
-        wq.history = P::History::KeepLast(10);
+        dds::pub::qos::DataWriterQos wq;
+        wq << P::Reliability::Reliable();
+        wq << P::History::KeepLast(10);
         dds::pub::DataWriter<qos::Reading> dw(pub, tp, wq);
 
-        dds::core::DataReaderQos rq;
-        rq.reliability = P::Reliability::Reliable_();
-        rq.history = P::History::KeepLast(10);
+        dds::sub::qos::DataReaderQos rq;
+        rq << P::Reliability::Reliable();
+        rq << P::History::KeepLast(10);
         dds::sub::DataReader<qos::Reading> dr(sub, ts2, rq);
 
         // Give SEDP time to (not) match across partitions; don't wait_for_matched
@@ -466,7 +485,7 @@ static void test_partition() {
         int got = 0, waited = 0;
         while (waited < 1200) {
             auto loaned = dr.take();
-            for (auto& s : loaned) if (s.info().valid_data) ++got;
+            for (auto& s : loaned) if (s.info().valid()) ++got;
             std::this_thread::sleep_for(10ms); waited += 10;
             if (got > 0) break;
         }
@@ -486,8 +505,8 @@ static void test_partition() {
 // ------------------------------------------------------------------------
 static void test_cft() {
     std::cout << "\n== 8. CONTENT-FILTERED TOPIC ==\n";
-    // Idiomatic C++ binding: ContentFilteredTopic + CFT-aware DataReader
-    // constructor (binds via native_cft_handle()).
+    // DDS-PSM-Cxx 1.0 section 7.8: ContentFilteredTopic over a Topic with a
+    // Filter, and the DataReader constructor that takes it.
     // Writer on its own participant; reader+CFT on a second participant -> real
     // RTPS path (avoids the intra-runtime shortcut, which has no CFT eval).
     dds::domain::DomainParticipant pubDp(0);
@@ -495,34 +514,34 @@ static void test_cft() {
     dds::topic::Topic<qos::Reading> tpw(pubDp, "QosCft");
     dds::topic::Topic<qos::Reading> t(subDp, "QosCft");
 
-    // Filter: seq > 4
-    std::vector<std::string> params; // literal expression, no positional params
+    // Filter: seq > 4, a literal expression with no positional parameters.
     dds::topic::ContentFilteredTopic<qos::Reading> cft(
-        subDp, "QosCftFiltered", t, "seq > 4", params);
-    expect("CFT create_contentfilteredtopic succeeds", cft.native_cft_handle() != nullptr);
+        t, "QosCftFiltered", dds::topic::Filter("seq > 4"));
+    expect("CFT create_contentfilteredtopic succeeds",
+           !cft.is_nil() && cft.filter_expression() == "seq > 4");
 
     dds::pub::Publisher pub(pubDp);
     dds::sub::Subscriber sub(subDp);
 
-    dds::core::DataWriterQos wq;
-    wq.reliability = P::Reliability::Reliable_();
-    wq.history = P::History::KeepLast(20);
+    dds::pub::qos::DataWriterQos wq;
+    wq << P::Reliability::Reliable();
+    wq << P::History::KeepLast(20);
     dds::pub::DataWriter<qos::Reading> dw(pub, tpw, wq);
 
-    dds::core::DataReaderQos rq;
-    rq.reliability = P::Reliability::Reliable_();
-    rq.history = P::History::KeepLast(20);
+    dds::sub::qos::DataReaderQos rq;
+    rq << P::Reliability::Reliable();
+    rq << P::History::KeepLast(20);
     dds::sub::DataReader<qos::Reading> dr(sub, cft, rq); // CFT-aware ctor
-    expect("CFT create_datareader_with_cft succeeds", dr.native_handle() != nullptr);
+    expect("CFT create_datareader_with_cft succeeds", !dr.is_nil());
 
-    dw.wait_for_matched(1, Duration(5, 0));
+    wait_matched(dw, 1);
     // write seq 0..9
     for (int i = 0; i < 10; ++i) dw.write(qos::Reading{61, i, i * 1.0});
 
     std::vector<int> seqs; int waited = 0;
     while (waited < 1500) {
         auto loaned = dr.take();
-        for (auto& s : loaned) if (s.info().valid_data) seqs.push_back(s.data().seq);
+        for (auto& s : loaned) if (s.info().valid()) seqs.push_back(s.data().seq());
         std::this_thread::sleep_for(10ms); waited += 10;
         if (seqs.size() >= 5) break;
     }
@@ -552,17 +571,17 @@ static void test_keyed_lifecycle() {
     dds::topic::Topic<qos::Reading> ts(subDp, "QosKeyed");
     dds::pub::Publisher pub(pubDp);
     dds::sub::Subscriber sub(subDp);
-    dds::core::DataWriterQos wq;
-    wq.reliability = P::Reliability::Reliable_();
-    wq.history = P::History::KeepAll();
+    dds::pub::qos::DataWriterQos wq;
+    wq << P::Reliability::Reliable();
+    wq << P::History::KeepAll();
     // Default writer_data_lifecycle.autodispose_unregistered_instances = true; keep it.
-    dds::core::DataReaderQos rq;
-    rq.reliability = P::Reliability::Reliable_();
-    rq.history = P::History::KeepAll();
+    dds::sub::qos::DataReaderQos rq;
+    rq << P::Reliability::Reliable();
+    rq << P::History::KeepAll();
     dds::pub::DataWriter<qos::Reading> w(pub, tp, wq);
     dds::sub::DataReader<qos::Reading> r(sub, ts, rq);
-    w.wait_for_matched(1, Duration(5, 0));
-    r.wait_for_matched(1, Duration(5, 0));
+    wait_matched(w, 1);
+    wait_matched(r, 1);
 
     // Two instances by key: id=100, id=200.
     w.write(qos::Reading{100, 0, 1.0});
@@ -574,8 +593,8 @@ static void test_keyed_lifecycle() {
         while (waited < ms) {
             auto loaned = r.take();
             for (auto& s : loaned) {
-                int id = s.info().valid_data ? s.data().id : -1;
-                out.emplace_back(id, s.info().instance_state);
+                int id = s.info().valid() ? s.data().id() : -1;
+                out.emplace_back(id, s.info().state().instance_state().to_ulong());
             }
             std::this_thread::sleep_for(10ms); waited += 10;
         }
@@ -596,21 +615,21 @@ static void test_keyed_lifecycle() {
         int waited = 0;
         while (waited < ms) {
             auto loaned = r.take();
-            for (auto& s : loaned) if (s.info().instance_state & bit) return true;
+            for (auto& s : loaned) if (s.info().state().instance_state().to_ulong() & bit) return true;
             std::this_thread::sleep_for(10ms); waited += 10;
         }
         return false;
     };
 
     // DISPOSE key=100 via the idiomatic binding.
-    w.dispose_instance(qos::Reading{100, 0, 0.0});
+    w.dispose_instance(w.lookup_instance(qos::Reading{100, 0, 0.0}));
     std::cout << "  dispose_instance(key=100)\n";
     bool sawDisposed = poll_for_state(IS_DISPOSED, 1000);
     std::cout << "  after dispose: disposed-marker seen=" << sawDisposed << "\n";
     expect("KEYED: dispose(key) -> reader sees NOT_ALIVE_DISPOSED", sawDisposed);
 
     // UNREGISTER key=200 via the idiomatic binding (resolves handle from key).
-    w.unregister_instance(qos::Reading{200, 0, 0.0});
+    w.unregister_instance(w.lookup_instance(qos::Reading{200, 0, 0.0}));
     std::cout << "  unregister_instance(key=200)\n";
     bool sawNoWriters = poll_for_state(IS_NO_WRITERS, 1000);
     std::cout << "  after unregister: no-writers-marker seen=" << sawNoWriters << "\n";

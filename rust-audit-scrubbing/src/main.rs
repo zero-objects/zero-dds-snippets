@@ -6,12 +6,17 @@
 // secrets before delegating to an inner LoggingPlugin. The struct, the `log`
 // method, and the `scrub_secrets` fn are reproduced below VERBATIM.
 //
-// The wrapper implements both `LoggingPlugin` methods: `log` (the scrubbing
-// body, verbatim) and `plugin_class_id`, forwarded to the wrapped inner plugin
-// (the natural behaviour for a transparent wrapper). The demo wraps a real
+// The wrapper implements every `LoggingPlugin` method: `log` (the scrubbing
+// body, verbatim), and `plugin_class_id` and the three operations of
+// DDS-Security 1.2 Table 46 (`set_log_options`, `enable_logging`,
+// `set_listener`) forwarded to the wrapped inner plugin, the natural
+// behaviour for a transparent wrapper. The demo wraps a real
 // StderrLoggingPlugin and logs a message containing a 64-char hex key to show
 // it being redacted.
-use zerodds_security::logging::{LogLevel, LoggingPlugin};
+use std::sync::Arc;
+
+use zerodds_security::SecurityError;
+use zerodds_security::logging::{LogLevel, LogOptions, LoggerListener, LoggingPlugin};
 use zerodds_security_logging::StderrLoggingPlugin;
 
 // ===== BEGIN verbatim website snippet =====
@@ -30,6 +35,18 @@ impl<P: LoggingPlugin> LoggingPlugin for ScrubbingLogger<P> {
     // Required by the `LoggingPlugin` trait; forward to the wrapped plugin.
     fn plugin_class_id(&self) -> &str {
         self.inner.plugin_class_id()
+    }
+
+    fn set_log_options(&self, options: LogOptions) -> Result<(), SecurityError> {
+        self.inner.set_log_options(options)
+    }
+
+    fn enable_logging(&self) -> Result<(), SecurityError> {
+        self.inner.enable_logging()
+    }
+
+    fn set_listener(&self, listener: Option<Arc<dyn LoggerListener>>) -> Result<(), SecurityError> {
+        self.inner.set_listener(listener)
     }
 }
 

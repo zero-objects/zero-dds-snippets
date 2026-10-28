@@ -91,12 +91,12 @@ ZeroDDS language backends (see `../../_interop/goldens/`).
   (alias `-de final`) makes ZeroDDS emit Cyclone's 48-byte form. (This inverts an
   earlier revision of this proof, when ZeroDDS still defaulted to `@final`.)
 
-² `mut`/xcdr1 vs FastDDS — two PL_CDR1 framing axes, every member value
+² `mut`/xcdr1 vs FastDDS — one PL_CDR1 framing axis, every member value
   byte-identical. ZeroDDS's default `PidFlagPolicy::SentinelMustUnderstand` —
   what Cyclone DDS and RTI Connext 7.7 write — sets `FLAG_MUST_UNDERSTAND` on
-  the sentinel (`0x7F02`), where Fast DDS writes a bare `0x3F02`; and ZeroDDS
-  states the `string` member's parameter length padded to four (8), Fast DDS
-  the unpadded 7. (XCDR2-LE/BE — the default DataWriter path — are
+  the sentinel (`0x7F02`), where Fast DDS writes a bare `0x3F02`. Both state
+  the `string` member's parameter length as its exact 7 (DDS-XTypes 1.3
+  §7.4.1.2). (XCDR2-LE/BE — the default DataWriter path — are
   byte-identical to FastDDS.)
 
 ³ `wstr`/BE vs Cyclone — Cyclone does **not** byte-swap the UTF-16 code units in

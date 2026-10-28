@@ -8,7 +8,7 @@
 #               zerodds-cdylib     $ZERODDS_LIB, the built C ABI shared library
 #               zerodds-jar        the OMG DDS Java binding jar
 #               maturin-installed  `import zerodds` works
-#               ts-node-build      crates/ts-node built
+#               ts-node-build      crates/ts-node and runtime/typescript built
 #               ts-wasm-build      crates/ts-wasm built
 #               pki-files          $ZERODDS_PKI holds the six DDS-Security files
 #               rti-connext        an RTI Connext install with a runtime licence

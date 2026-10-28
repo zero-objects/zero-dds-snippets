@@ -341,10 +341,10 @@ fn check_liveliness() -> Outcome {
     rd.wait_for_matched_publication(1, StdDuration::from_secs(5)).ok();
     // Past the lease, without a write.
     std::thread::sleep(StdDuration::from_millis(600));
-    let matched = rd.get_liveliness_changed_status();
+    let matched = rd.get_liveliness_changed_status().expect("the reader is enabled");
     drop(auto);
     std::thread::sleep(StdDuration::from_millis(600));
-    let deleted = rd.get_liveliness_changed_status();
+    let deleted = rd.get_liveliness_changed_status().expect("the reader is enabled");
 
     let manual = publisher
         .create_datawriter::<Reading>(&pt, writer_qos(LivelinessKind::ManualByTopic, 200))
@@ -353,9 +353,9 @@ fn check_liveliness() -> Outcome {
     rd.wait_for_matched_publication(1, StdDuration::from_secs(5)).ok();
     manual.write(&r(1, 0, 0.0)).unwrap();
     std::thread::sleep(StdDuration::from_millis(100));
-    let written = rd.get_liveliness_changed_status();
+    let written = rd.get_liveliness_changed_status().expect("the reader is enabled");
     std::thread::sleep(StdDuration::from_millis(600));
-    let silent = rd.get_liveliness_changed_status();
+    let silent = rd.get_liveliness_changed_status().expect("the reader is enabled");
 
     let seen = format!(
         "AUTOMATIC matched {}/{} ({:+}), deleted {}/{} ({:+}); MANUAL_BY_TOPIC written {}/{}, silent {}/{} ({:+})",

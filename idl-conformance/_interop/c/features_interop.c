@@ -75,7 +75,7 @@ static void canon_outerkey(feat_OuterKey* v) {
     v->payload = 999;
 }
 /* @bit_bound enum (2B) + map<long,Pt> + sequence<Sel>. h=BLUE; m={3:{11,12}}; sels=[Sel{_d=2,n=9}]. */
-static zd_map_long_feat_Pt_entry ME_M[1];
+static Int32feat_PtMapElement ME_M[1];
 static feat_Sel ME_SELS[1];
 static void canon_mapenum(feat_MapEnum* v) {
     memset(v,0,sizeof(*v));
@@ -87,7 +87,7 @@ static void canon_mapenum(feat_MapEnum* v) {
     v->sels._length = 1; v->sels._buffer = ME_SELS;
 }
 /* map<long,long> primitive-valued -> NO collection DHEADER (XCDR2 §7.4.3.5). m={7:42,8:99}. */
-static zd_map_long_long_entry MP_M[2];
+static Int32Int32MapElement MP_M[2];
 static void canon_mapprim(feat_MapPrim* v) {
     memset(v,0,sizeof(*v));
     MP_M[0].key = 7; MP_M[0].value = 42; MP_M[1].key = 8; MP_M[1].value = 99;

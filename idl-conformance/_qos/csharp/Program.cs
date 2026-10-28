@@ -488,8 +488,16 @@ try
         Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
         History = new HistoryPolicy(HistoryKind.KeepAll),
     };
+    // KEEP_ALL like every other check here: all ten samples share the key
+    // Id = 1, and under the default KEEP_LAST 1 only the last of a burst is
+    // still there when the reader takes.
+    var drq = new DataReaderQos
+    {
+        Reliability = new ReliabilityPolicy(ReliabilityKind.Reliable, Duration.FromSeconds(2)),
+        History = new HistoryPolicy(HistoryKind.KeepAll),
+    };
     using var w = new DataWriter<Reading>(pub, topic, dwq);
-    using var r = new DataReader<Reading>(sub, cft);
+    using var r = new DataReader<Reading>(sub, cft, drq);
     w.WaitForMatched(1, Duration.FromSeconds(5));
     r.WaitForMatched(1, Duration.FromSeconds(5));
 

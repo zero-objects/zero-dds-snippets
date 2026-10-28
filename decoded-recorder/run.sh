@@ -85,16 +85,26 @@ replayed() { # file -> the count zerodds-replay says it emitted
 R_REC=$(replayed "$LOG/readings.zddsrec")
 R_JSON=$(replayed "$LOG/readings.ndjson")
 R_SQL=$(replayed "$LOG/readings.db")
-echo "replayed: .zddsrec ${R_REC:-?}, NDJSON ${R_JSON:-?}, SQLite ${R_SQL:-?}"
+# A .zddsrec holds frames, and a frame is a sample or a change of an
+# instance's state: the publisher's writer unregisters its instances when it
+# is deleted, and the capture keeps that. NDJSON and SQLite hold the samples
+# alone. The samples of the capture are its frames of kind Alive, and the
+# replay emits every frame.
+"$TOOLS/zerodds-replay" dump "$LOG/readings.zddsrec" >"$LOG/dump.csv" 2>/dev/null
+REC_ALIVE=$(grep -c ',Alive,' "$LOG/dump.csv")
+REC_STATE=$(grep -c ',NotAlive' "$LOG/dump.csv")
+echo "replayed: .zddsrec ${R_REC:-?} frames (${REC_ALIVE} samples, ${REC_STATE} state changes), NDJSON ${R_JSON:-?}, SQLite ${R_SQL:-?}"
 
 echo
 echo "logs: $LOG"
 FAILED=""
 [ "$PUBRC" = 0 ] || FAILED="$FAILED publisher-exit=$PUBRC"
 for pair in "spy:$SPY_N" "ndjson:$JSON_N" "sqlite:${SQL_N:-}" \
-            "replay-zddsrec:${R_REC:-}" "replay-ndjson:${R_JSON:-}" "replay-sqlite:${R_SQL:-}"; do
+            "zddsrec-samples:${REC_ALIVE:-}" "replay-ndjson:${R_JSON:-}" "replay-sqlite:${R_SQL:-}"; do
     [ "${pair#*:}" = "$COUNT" ] || FAILED="$FAILED ${pair%%:*}=${pair#*:}"
 done
+[ "${R_REC:-}" = "$((REC_ALIVE + REC_STATE))" ] || \
+    FAILED="$FAILED replay-zddsrec=${R_REC:-} (the capture has $((REC_ALIVE + REC_STATE)) frames)"
 if [ -z "$FAILED" ]; then
     echo "RESULT: PASS ($COUNT samples decoded live, recorded three ways, replayed from each)"
 else

@@ -46,7 +46,7 @@ fn enum_holder() -> EnumHolder {
 
 /// union_long_default: the DEFAULT arm selected — note="hi" (disc=0 here).
 fn union_long_default() -> LongUnion {
-    LongUnion::Note("hi".to_string())
+    LongUnion::Note(0, "hi".to_string())
 }
 
 /// union_long_struct: the struct arm — case 2 -> where = {x=7, y=8}.
@@ -56,7 +56,7 @@ fn union_long_struct() -> LongUnion {
 
 /// union_enum_default: enum-discriminated, DEFAULT arm -> fallback=42 (disc=BLUE=2).
 fn union_enum_default() -> EnumUnion {
-    EnumUnion::Fallback(42)
+    EnumUnion::Fallback(Color::BLUE, 42)
 }
 
 /// opt_holder: id=1; maybe_num=Some(77); maybe_str=None; maybe_obj=Some{a=5,b=6}.

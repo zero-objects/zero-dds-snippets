@@ -14,7 +14,7 @@
 #define SAMPLE_CAPACITY 4096u
 
 static void canonical(combo_Telemetry *s, combo_Sample history[3],
-                      zd_map_zd_string_long_entry counters[2]) {
+                      StringInt32MapElement counters[2]) {
     memset(s, 0, sizeof(*s));
     s->unitId = 4242;
     s->region = "eu-central-1";
@@ -27,19 +27,20 @@ static void canonical(combo_Telemetry *s, combo_Sample history[3],
     s->history._buffer = history;
     s->reading._d = combo_MODE_ACTIVE;
     s->reading._u.activeRate = 60.0;
-    counters[0] = (zd_map_zd_string_long_entry){"drops", 3};
-    counters[1] = (zd_map_zd_string_long_entry){"packets", 100};
+    counters[0] = (StringInt32MapElement){"drops", 3};
+    counters[1] = (StringInt32MapElement){"packets", 100};
     s->counters._length = 2;
     s->counters._buffer = counters;
-    s->_has_calibration = true;
-    s->calibration = 0.001;
+    // An @optional member is a pointer, NULL when it is absent.
+    static double calibration = 0.001;
+    s->calibration = &calibration;
     for (int i = 0; i < 4; ++i) s->window[i] = (i + 1) * 10;
 }
 
 static int encode(const char *path) {
     combo_Telemetry sample;
     combo_Sample history[3];
-    zd_map_zd_string_long_entry counters[2];
+    StringInt32MapElement counters[2];
     canonical(&sample, history, counters);
     uint8_t bytes[SAMPLE_CAPACITY];
     zdw_writer writer;
@@ -90,7 +91,7 @@ static int decode(const char *path) {
     }
     combo_Telemetry expected;
     combo_Sample history[3];
-    zd_map_zd_string_long_entry counters[2];
+    StringInt32MapElement counters[2];
     canonical(&expected, history, counters);
     int ok = 1;
 #define CHECK(test, label) do { if (!(test)) { fprintf(stderr, "MISMATCH %s\n", label); ok = 0; } } while (0)
@@ -111,13 +112,14 @@ static int decode(const char *path) {
     CHECK(got.counters._length == expected.counters._length, "counters.length");
     if (got.counters._length == expected.counters._length) {
         for (uint32_t i = 0; i < expected.counters._length; ++i) {
-            const zd_map_zd_string_long_entry entry = got.counters._buffer[i];
+            const StringInt32MapElement entry = got.counters._buffer[i];
             CHECK(entry.key && strcmp(entry.key, counters[i].key) == 0, "counters.key");
             CHECK(entry.value == counters[i].value, "counters.value");
         }
     }
-    CHECK(got._has_calibration == expected._has_calibration, "calibration.present");
-    CHECK(got.calibration == expected.calibration, "calibration.value");
+    CHECK((got.calibration != NULL) == (expected.calibration != NULL), "calibration.present");
+    if (got.calibration && expected.calibration)
+        CHECK(*got.calibration == *expected.calibration, "calibration.value");
     for (int i = 0; i < 4; ++i) CHECK(got.window[i] == expected.window[i], "window");
 #undef CHECK
     if (!ok) return 1;

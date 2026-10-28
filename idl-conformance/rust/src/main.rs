@@ -47,13 +47,15 @@ fn make_sample() -> Telemetry {
             Sample { seq: 2, value: 1.5 },
             Sample { seq: 3, value: -2.25 },
         ],
-        latest: Reading::FaultCode("E_OVERHEAT".to_string()),
-        counters: {
-            let mut m = std::collections::BTreeMap::new();
-            m.insert("packets".to_string(), 100_i32);
-            m.insert("drops".to_string(), 3_i32);
-            m
-        },
+        // The default case carries its discriminator: MODE_FAULT, as in
+        // every other column.
+        latest: Reading::FaultCode(Mode::MODE_FAULT, "E_OVERHEAT".to_string()),
+        // The map's entries in ascending key order, the order the golden
+        // was written in.
+        counters: vec![
+            zerodds_wire::MapEntry::new("drops".to_string(), 3_i32),
+            zerodds_wire::MapEntry::new("packets".to_string(), 100_i32),
+        ],
         calibration: Some(0.001_f64),
         window: [10, 20, 30, 40],
     }

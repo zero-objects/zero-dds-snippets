@@ -28,9 +28,12 @@ mod generated {
 use generated::{Reading, Sensor, SensorMode, Vec3};
 
 fn sample(note: Option<&str>) -> Sensor {
-    let mut calibration = ::std::collections::BTreeMap::new();
-    calibration.insert(1u32, Vec3 { x: 1.0, y: 0.0, z: 0.0 });
-    calibration.insert(2u32, Vec3 { x: 0.0, y: 1.0, z: 0.0 });
+    // An IDL map is the sequence of `MapEntry` XTypes 1.3 §7.5.1.3.6 binds
+    // it to; `zerodds-idlc --rust-map btree-map` would make it a `BTreeMap`.
+    let calibration = vec![
+        zerodds_wire::MapEntry::new(1u32, Vec3 { x: 1.0, y: 0.0, z: 0.0 }),
+        zerodds_wire::MapEntry::new(2u32, Vec3 { x: 0.0, y: 1.0, z: 0.0 }),
+    ];
     Sensor {
         id: 7,
         name: "lidar-front".to_string(),
@@ -40,7 +43,9 @@ fn sample(note: Option<&str>) -> Sensor {
         readings: vec![
             Reading::Pose(Vec3 { x: 1.0, y: 2.0, z: 3.0 }),
             Reading::Scalar(42.5),
-            Reading::Raw(0xAB),
+            // The default case carries the discriminator it went out under;
+            // 3 is no label of the union.
+            Reading::Raw(3, 0xAB),
         ],
         calibration,
         note: note.map(str::to_string),

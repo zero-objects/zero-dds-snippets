@@ -11,7 +11,6 @@
 //! XCDR2 serialization a ZeroDDS DataWriter places on the network (default
 //! data representation, little-endian).
 
-use std::collections::BTreeMap;
 use std::process::ExitCode;
 
 use zerodds_dcps::DdsType;
@@ -28,10 +27,12 @@ use generated::combo::{Mode, Reading, Sample, Telemetry};
 /// The canonical sample — IDENTICAL values across every language PSM, so the
 /// encoded bytes must match byte-for-byte.
 fn canonical() -> Telemetry {
-    let mut counters: BTreeMap<String, i32> = BTreeMap::new();
-    // BTreeMap iterates key-sorted: "drops" < "packets".
-    counters.insert("drops".to_string(), 3);
-    counters.insert("packets".to_string(), 100);
+    // A map is its entries in the order they go on the wire (`Vec<MapEntry<K, V>>`,
+    // the rc.7 default Rust form): "drops", then "packets", as every column writes them.
+    let counters = vec![
+        zerodds_wire::MapEntry::new("drops".to_string(), 3),
+        zerodds_wire::MapEntry::new("packets".to_string(), 100),
+    ];
 
     Telemetry {
         unitId: 4242,

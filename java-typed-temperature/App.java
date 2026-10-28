@@ -5,7 +5,10 @@ import sensor_msgs.msg.Temperature;
 
 public class App {
     public static void main(String[] args) throws Exception {
-        var env = ServiceEnvironment.createInstance("org.zerodds.ServiceEnvironmentImpl");
+        // DDS-Java-PSM 1.0 §7.3.1: the implementation class is named by a system property.
+        System.setProperty(ServiceEnvironment.IMPLEMENTATION_CLASS_NAME_PROPERTY,
+                "org.zerodds.ServiceEnvironmentImpl");
+        var env = ServiceEnvironment.createInstance(App.class.getClassLoader());
         var factory = DomainParticipantFactory.getInstance(env);
         var participant = factory.createParticipant(0);
 
@@ -22,8 +25,11 @@ public class App {
         // (reader created after write only delivers future samples; re-write to prove roundtrip)
         writer.write(t);
         Thread.sleep(50);
-        for (Sample<Temperature> s : reader.take()) {
-            System.out.println("got: " + s.getData().getCelsius() + " / " + s.getData().getSensor_id());
+        try (Sample.Iterator<Temperature> samples = reader.take()) {
+            while (samples.hasNext()) {
+                Sample<Temperature> s = samples.next();
+                System.out.println("got: " + s.getData().getCelsius() + " / " + s.getData().getSensor_id());
+            }
         }
     }
 }

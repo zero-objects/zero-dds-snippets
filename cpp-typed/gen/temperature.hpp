@@ -3,12 +3,19 @@
 #include "zerodds/wire.hpp"
 #include "dds/topic/TopicTraits.hpp"
 #include <stdexcept>
+#include "zerodds/psm/convert.hpp"
+#include <map>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 namespace zd_temperature { constexpr zerodds::wire::Endianness zd_endianness = zerodds::wire::Endianness::Little; }
 
+namespace zd_native {
 namespace sensor_msgs {
 namespace msg {
 struct Temperature;
@@ -17,8 +24,16 @@ struct Temperature {
 public:
     std::int32_t celsius = {};
     std::string sensor_id;
+    // Exchanges every member with `zd_other` (DDS-PSM-Cxx 1.0 7.12).
+    void swap(Temperature& zd_other) {
+        std::swap(celsius, zd_other.celsius);
+        std::swap(sensor_id, zd_other.sensor_id);
+    }
 
 };
+
+// Exchanges two values (DDS-PSM-Cxx 1.0 7.12).
+inline void swap(Temperature& zd_a, Temperature& zd_b) { zd_a.swap(zd_b); }
 
 // The IDL spelling of each member, beside the spelling this header
 // uses, in IDL declaration order.
@@ -34,6 +49,77 @@ inline constexpr std::array<std::pair<const char*, const char*>, 2> Temperature_
 inline constexpr const char* Temperature_idl_name = "Temperature";
 } // namespace msg
 } // namespace sensor_msgs
+} // namespace zd_native
+
+// ---- The PSM layer: DDS-PSM-Cxx 1.0 §8.1 over the native types above. ----
+// The native types are in `zd_native`; these classes are what an application writes.
+// `zerodds::psm::Conv` hands them to the codec.
+
+namespace sensor_msgs {
+namespace msg {
+class Temperature;
+}
+}
+
+namespace sensor_msgs {
+namespace msg {
+/// `Temperature` as DDS-PSM-Cxx 1.0 §8.1.1 maps it: a class with accessors (§7.4.6).
+class Temperature {
+public:
+    Temperature() = default;
+    Temperature(int32_t celsius, const std::string& sensor_id)
+        : celsius_(celsius), sensor_id_(sensor_id) {}
+
+    int32_t celsius() const { return celsius_; }
+    int32_t& celsius() { return celsius_; }
+    void celsius(int32_t value) { celsius_ = value; }
+    const std::string& sensor_id() const { return sensor_id_; }
+    std::string& sensor_id() { return sensor_id_; }
+    void sensor_id(const std::string& value) { sensor_id_ = value; }
+
+    void swap(Temperature& other) {
+        using std::swap;
+        swap(celsius_, other.celsius_);
+        swap(sensor_id_, other.sensor_id_);
+    }
+
+    bool operator==(const Temperature& other) const {
+        return celsius_ == other.celsius_
+               && sensor_id_ == other.sensor_id_;
+    }
+    bool operator!=(const Temperature& other) const { return !(*this == other); }
+
+private:
+    int32_t celsius_{};
+    std::string sensor_id_{};
+};
+
+inline void swap(Temperature& a, Temperature& b) { a.swap(b); }
+}
+}
+
+namespace zerodds {
+namespace psm {
+
+template <>
+struct Conv<::sensor_msgs::msg::Temperature> {
+    using Native = ::zd_native::sensor_msgs::msg::Temperature;
+    static Native to_native(const ::sensor_msgs::msg::Temperature& v) {
+        Native n;
+        n.celsius = Shape<decltype(n.celsius), typename Conv<int32_t>::Native>::apply(Conv<int32_t>::to_native(v.celsius()));
+        n.sensor_id = Shape<decltype(n.sensor_id), typename Conv<std::string>::Native>::apply(Conv<std::string>::to_native(v.sensor_id()));
+        return n;
+    }
+    static ::sensor_msgs::msg::Temperature from_native(const Native& n) {
+        ::sensor_msgs::msg::Temperature v;
+        v.celsius(Conv<int32_t>::from_native(Shape<typename Conv<int32_t>::Native, decltype(n.celsius)>::apply(n.celsius)));
+        v.sensor_id(Conv<std::string>::from_native(Shape<typename Conv<std::string>::Native, decltype(n.sensor_id)>::apply(n.sensor_id)));
+        return v;
+    }
+};
+
+} // namespace psm
+} // namespace zerodds
 
 
 namespace zd_temperature {
@@ -42,7 +128,7 @@ static void zd_enc_p_long(zerodds::wire::Writer& w, const std::int32_t& v);
 
 static void zd_enc_string(zerodds::wire::Writer& w, const std::string& v);
 
-static void zd_enc_sensor_msgs_msg_Temperature(zerodds::wire::Writer& w, const ::sensor_msgs::msg::Temperature& v);
+static void zd_enc_sensor_msgs_msg_Temperature(zerodds::wire::Writer& w, const ::zd_native::sensor_msgs::msg::Temperature& v);
 
 static void zd_enc_p_long(zerodds::wire::Writer& w, const std::int32_t& v) {
     static_cast<void>(w);
@@ -56,7 +142,7 @@ static void zd_enc_string(zerodds::wire::Writer& w, const std::string& v) {
     w.write_string(v);
 }
 
-static void zd_enc_sensor_msgs_msg_Temperature(zerodds::wire::Writer& w, const ::sensor_msgs::msg::Temperature& v) {
+static void zd_enc_sensor_msgs_msg_Temperature(zerodds::wire::Writer& w, const ::zd_native::sensor_msgs::msg::Temperature& v) {
     static_cast<void>(w);
     static_cast<void>(v);
     zerodds::wire::DHeader d = w.write_dheader();
@@ -77,7 +163,7 @@ static void zd_dec_p_long(zerodds::wire::Reader& r, std::int32_t& v, zerodds::wi
 
 static void zd_dec_string(zerodds::wire::Reader& r, std::string& v, zerodds::wire::TryConstruct zd_tc);
 
-static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::sensor_msgs::msg::Temperature& v, zerodds::wire::TryConstruct zd_tc);
+static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::zd_native::sensor_msgs::msg::Temperature& v, zerodds::wire::TryConstruct zd_tc);
 
 static void zd_dec_p_long(zerodds::wire::Reader& r, std::int32_t& v, zerodds::wire::TryConstruct zd_tc) {
     static_cast<void>(r);
@@ -93,7 +179,7 @@ static void zd_dec_string(zerodds::wire::Reader& r, std::string& v, zerodds::wir
     v = r.read_string_alloc();
 }
 
-static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::sensor_msgs::msg::Temperature& v, zerodds::wire::TryConstruct zd_tc) {
+static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::zd_native::sensor_msgs::msg::Temperature& v, zerodds::wire::TryConstruct zd_tc) {
     static_cast<void>(r);
     static_cast<void>(v);
     static_cast<void>(zd_tc);
@@ -123,6 +209,64 @@ static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::senso
 }
 
 
+// The same types under the other XCDR version, which a peer may
+// choose to write in. DDS-XTypes 1.3 §7.6.3.1.2.
+namespace xcdr1 {
+
+static void zd_def_p_long(std::int32_t& v);
+
+static void zd_def_string(std::string& v);
+
+static void zd_def_p_long(std::int32_t& v) { v = 0; }
+
+static void zd_def_string(std::string& v) { v.clear(); }
+
+static void zd_dec_p_long(zerodds::wire::Reader& r, std::int32_t& v, zerodds::wire::TryConstruct zd_tc);
+
+static void zd_dec_string(zerodds::wire::Reader& r, std::string& v, zerodds::wire::TryConstruct zd_tc);
+
+static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::zd_native::sensor_msgs::msg::Temperature& v, zerodds::wire::TryConstruct zd_tc);
+
+static void zd_dec_p_long(zerodds::wire::Reader& r, std::int32_t& v, zerodds::wire::TryConstruct zd_tc) {
+    static_cast<void>(r);
+    static_cast<void>(v);
+    static_cast<void>(zd_tc);
+    v = r.read_i32();
+}
+
+static void zd_dec_string(zerodds::wire::Reader& r, std::string& v, zerodds::wire::TryConstruct zd_tc) {
+    static_cast<void>(r);
+    static_cast<void>(v);
+    static_cast<void>(zd_tc);
+    v = r.read_string_alloc();
+}
+
+static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::zd_native::sensor_msgs::msg::Temperature& v, zerodds::wire::TryConstruct zd_tc) {
+    static_cast<void>(r);
+    static_cast<void>(v);
+    static_cast<void>(zd_tc);
+    bool zd_tail = false;
+    if ((r.reader_remaining() == 0)) {
+        zd_tail = true;
+    }
+    if (zd_tail) {
+        zd_def_p_long(v.celsius);
+    } else {
+        zd_dec_p_long(r, v.celsius, zerodds::wire::TryConstruct::Discard);
+    }
+    if (zd_tail == false && (r.reader_remaining() == 0)) {
+        zd_tail = true;
+    }
+    if (zd_tail) {
+        zd_def_string(v.sensor_id);
+    } else {
+        zd_dec_string(r, v.sensor_id, zerodds::wire::TryConstruct::Discard);
+    }
+}
+
+
+} // namespace xcdr1
+
 } // namespace zd_temperature
 
 // `dds::topic::topic_type_support<T>` — the trait `zerodds/dds.hpp` asks
@@ -134,7 +278,7 @@ static void zd_dec_sensor_msgs_msg_Temperature(zerodds::wire::Reader& r, ::senso
 namespace dds {
 namespace topic {
 
-/// The `CompleteTypeObject` of `::sensor_msgs::msg::Temperature`, XCDR2-LE, XTypes 1.3 §7.3.4.
+/// The `CompleteTypeObject` of `::zd_native::sensor_msgs::msg::Temperature`, XCDR2-LE, XTypes 1.3 §7.3.4.
 ///
 /// `zerodds_writer_create_typed` registers it and derives the
 /// `TypeIdentifier` from it before the endpoint is published, so a peer
@@ -153,7 +297,7 @@ inline constexpr std::uint8_t zd_type_object_sensor_msgs_msg_Temperature[] = {
 };
 
 template <>
-struct topic_type_support<::sensor_msgs::msg::Temperature> {
+struct topic_type_support<::zd_native::sensor_msgs::msg::Temperature> {
     /// The peer's topic type name, which XTypes 1.3 §7.6.3 matches by
     /// strict equality — the IDL scoped name, without the leading `::`
     /// that Cyclone, Fast DDS and RTI all omit.
@@ -170,8 +314,8 @@ struct topic_type_support<::sensor_msgs::msg::Temperature> {
     /// carries a DHEADER and a `@mutable` one an EMHEADER per member;
     /// under a `PLAIN_CDR2` identifier a reader that believes the header
     /// reads the delimiter as the first member.
-    static constexpr ::dds::topic::core::policy::DataRepresentationKind extensibility() {
-        return ::dds::topic::core::policy::DataRepresentationKind::APPENDABLE;
+    static constexpr ::zerodds::psm::DataRepresentationKind extensibility() {
+        return ::zerodds::psm::DataRepresentationKind::APPENDABLE;
     }
 
     static const std::uint8_t *type_object() { return zd_type_object_sensor_msgs_msg_Temperature; }
@@ -189,7 +333,7 @@ struct topic_type_support<::sensor_msgs::msg::Temperature> {
     /// under a `*_LE` identifier are read at the wrong offsets by every peer
     /// that believes the header. `zd_temperature::zd_endianness` above is
     /// the flag's answer, for a caller who builds the writer itself.
-    static std::vector<std::uint8_t> encode(const ::sensor_msgs::msg::Temperature &v) {
+    static std::vector<std::uint8_t> encode(const ::zd_native::sensor_msgs::msg::Temperature &v) {
         zerodds::wire::Writer w(zerodds::wire::Endianness::Little, 4);
         ::zd_temperature::zd_enc_sensor_msgs_msg_Temperature(w, v);
         return w.finish();
@@ -197,33 +341,69 @@ struct topic_type_support<::sensor_msgs::msg::Temperature> {
 
     /// One sample, from the octets and the encapsulation header's own
     /// answers: `version` is the representation identifier's, `be` its byte
-    /// order, DDSI-RTPS 2.5 §10.5.
-    static ::sensor_msgs::msg::Temperature decode(const std::uint8_t *raw, std::size_t len,
+    /// order, DDSI-RTPS 2.5 §10.5. The writer chose the version
+    /// (DDS-XTypes 1.3 §7.6.3.1.2), and each one is read through its own
+    /// codec.
+    static ::zd_native::sensor_msgs::msg::Temperature decode(const std::uint8_t *raw, std::size_t len,
                         ::zerodds::wire::Encoding version, bool be) {
-        // This file holds one codec, planned for the `--encoding` it was
-        // generated under. Running PlainCdr1 octets through it would read wrong
-        // values out of a well-formed sample and report nothing, so the other
-        // version is refused by name.
-        if (version != ::zerodds::wire::Encoding::PlainCdr2) {
-            throw std::runtime_error(
-                "::sensor_msgs::msg::Temperature: this codec was generated for PlainCdr2, and the "
-                "sample announces PlainCdr1. Generate a second file with "
-                "`--encoding xcdr1`.");
+        if (::zerodds::wire::is_v1(version)) {
+            zerodds::wire::Reader r(raw, len,
+                be ? zerodds::wire::Endianness::Big : zerodds::wire::Endianness::Little,
+                8);
+            ::zd_native::sensor_msgs::msg::Temperature v;
+            ::zd_temperature::xcdr1::zd_dec_sensor_msgs_msg_Temperature(r, v, zerodds::wire::TryConstruct::Discard);
+            if (r.reader_status() != zerodds::wire::Status::Ok) {
+                throw std::runtime_error(std::string("::zd_native::sensor_msgs::msg::Temperature: ") +
+                    zerodds::wire::status_name(r.reader_status()));
+            }
+            return v;
         }
         zerodds::wire::Reader r(raw, len,
             be ? zerodds::wire::Endianness::Big : zerodds::wire::Endianness::Little,
             4);
-        ::sensor_msgs::msg::Temperature v;
+        ::zd_native::sensor_msgs::msg::Temperature v;
         ::zd_temperature::zd_dec_sensor_msgs_msg_Temperature(r, v, zerodds::wire::TryConstruct::Discard);
         // The reader accumulates its first refusal rather than throwing, so a
         // decoder that returned here would hand back a half-filled value with
         // nothing said. `TypedReader<T>::take` catches, frees the FFI buffer
         // and rethrows.
         if (r.reader_status() != zerodds::wire::Status::Ok) {
-            throw std::runtime_error(std::string("::sensor_msgs::msg::Temperature: ") +
+            throw std::runtime_error(std::string("::zd_native::sensor_msgs::msg::Temperature: ") +
                 zerodds::wire::status_name(r.reader_status()));
         }
         return v;
+    }
+};
+
+template <>
+struct topic_type_support<::sensor_msgs::msg::Temperature> {
+    using native = topic_type_support<::zd_native::sensor_msgs::msg::Temperature>;
+    static const char *type_name() { return native::type_name(); }
+    static constexpr bool is_keyed() { return native::is_keyed(); }
+    static constexpr ::zerodds::psm::DataRepresentationKind extensibility() {
+        return native::extensibility();
+    }
+    static const std::uint8_t *type_object() { return native::type_object(); }
+    static std::size_t type_object_len() { return native::type_object_len(); }
+    static std::size_t type_object_dependency_count() {
+        return native::type_object_dependency_count();
+    }
+    static const std::uint8_t *type_object_dependency(std::size_t i) {
+        return native::type_object_dependency(i);
+    }
+    static std::size_t type_object_dependency_len(std::size_t i) {
+        return native::type_object_dependency_len(i);
+    }
+
+    /// The PSM sample, as the native one the codec writes.
+    static std::vector<std::uint8_t> encode(const ::sensor_msgs::msg::Temperature &v) {
+        return native::encode(::zerodds::psm::Conv<::sensor_msgs::msg::Temperature>::to_native(v));
+    }
+
+    /// The PSM sample, from the octets the native decoder reads.
+    static ::sensor_msgs::msg::Temperature decode(const std::uint8_t *raw, std::size_t len,
+                        ::zerodds::wire::Encoding version, bool be) {
+        return ::zerodds::psm::Conv<::sensor_msgs::msg::Temperature>::from_native(native::decode(raw, len, version, be));
     }
 };
 

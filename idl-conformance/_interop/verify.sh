@@ -36,13 +36,21 @@ IDLC="${CARGO_TARGET_DIR:-$REPO/target}/debug/zerodds-idlc"
 # the language's bins first, so a run that produced nothing cannot compare
 # the bins an earlier run left behind.
 ( cd "$REPO" && cargo build -q -p zerodds-idlc ) || { echo "zerodds-idlc does not build"; exit 1; }
+# The C++ column reads and writes the native types, the structures with
+# public fields the codec itself uses (`--cpp-mapping native`); the default
+# mapping is DDS-PSM-Cxx's classes with accessors, over the same codec.
+mapping() { # <lang>
+  case "$1" in c++) echo "--cpp-mapping native" ;; esac
+}
 gen() { # <lang> <outdir> [idl, default features.idl]
-  "$IDLC" generate --lang "$1" "$HERE/${3:-features.idl}" --out "$2"
+  # shellcheck disable=SC2046
+  "$IDLC" generate --lang "$1" $(mapping "$1") "$HERE/${3:-features.idl}" --out "$2"
 }
 fresh() { rm -f "$G"/*."$1".bin; }
 # The same features.idl under XCDR1, for the second stage below.
 gen_x1() { # <lang> <outdir>
-  "$IDLC" generate --lang "$1" "$HERE/features.idl" --out "$2" --encoding xcdr1
+  # shellcheck disable=SC2046
+  "$IDLC" generate --lang "$1" $(mapping "$1") "$HERE/features.idl" --out "$2" --encoding xcdr1
 }
 
 cmp_all() { # <lang>  — diff every ephemeral <feat>.<lang>.bin against the golden

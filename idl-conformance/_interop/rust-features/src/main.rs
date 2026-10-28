@@ -157,8 +157,9 @@ fn canonical_sel() -> Sel {
 
 /// feat::MapEnum — h=H_BLUE(2); m={3:{11,12}}; sels=[Sel::N(9)].
 fn canonical_mapenum() -> MapEnum {
-    let mut m = ::std::collections::BTreeMap::new();
-    m.insert(3, Pt { x: 11, y: 12 });
+    // A map is its entries in order (`Vec<MapEntry<K, V>>`, the rc.7 default
+    // Rust form; XTypes 1.3 §7.4.1.1.4).
+    let m = vec![zerodds_wire::MapEntry::new(3, Pt { x: 11, y: 12 })];
     MapEnum {
         h: Hue::H_BLUE,
         m,
@@ -180,9 +181,10 @@ fn canonical_fixed() -> Money {
 
 /// feat::MapPrim — m = {7:42, 8:99}. Primitive-valued map: NO collection DHEADER.
 fn canonical_mapprim() -> MapPrim {
-    let mut m = ::std::collections::BTreeMap::new();
-    m.insert(7, 42);
-    m.insert(8, 99);
+    let m = vec![
+        zerodds_wire::MapEntry::new(7, 42),
+        zerodds_wire::MapEntry::new(8, 99),
+    ];
     MapPrim { m }
 }
 

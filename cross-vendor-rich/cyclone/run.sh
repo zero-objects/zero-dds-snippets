@@ -18,6 +18,14 @@
 #   PYTHON        the interpreter with the binding (default python3)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# The Cyclone DDS reader announces no TypeConsistencyEnforcement (PID 0x0074).
+# DDS-XTypes 1.3 §7.6.3.4.1 has a writer assume DISALLOW_TYPE_COERCION for it,
+# which is the ZeroDDS default (xtypes.type_consistency_absent=disallow).
+# The Rich types of the two sides are assignable but not equivalent.
+# Under DISALLOW the ZeroDDS writer refuses the reader ("type.inconsistent")
+# and the ZeroDDS -> Cyclone DDS direction receives nothing; this leg reads the
+# absent policy as ALLOW_TYPE_COERCION.
+export ZERODDS_TYPE_CONSISTENCY_ABSENT="${ZERODDS_TYPE_CONSISTENCY_ABSENT:-allow}"
 DOMAIN_BASE="${DOMAIN_BASE:-73}"
 BLOB="${BLOB:-50}"
 PY="${PYTHON:-python3}"
