@@ -22,22 +22,24 @@ jobs:
     name: build and run (against the ZeroDDS source)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-        with: { path: zero-dds-snippets }
-      # The examples' path deps reach into ../../crates, so the ZeroDDS tree
-      # has to sit beside this repository under the name the paths expect.
+      # The examples' path deps (`../../crates`, deeper for nested examples)
+      # reach into the ZeroDDS tree from inside it: this repository is used
+      # as a directory of a ZeroDDS checkout, which is what ci/run-examples.sh
+      # assumes when ZERODDS_SRC is unset. So ZeroDDS goes into the workspace
+      # root, first (a checkout cleans its target directory), and this
+      # repository into a directory of it.
       - uses: actions/checkout@v5
         with:
           repository: zero-objects/zero-dds
-          path: zero-dds
+      - uses: actions/checkout@v5
+        with: { path: zerodds-examples }
       - uses: dtolnay/rust-toolchain@stable
       - name: Build the C ABI shared library the C/C++/C#/Java examples link
-        working-directory: zero-dds
         run: cargo build -p zerodds-c-api --release
       - name: Build and run every example
-        working-directory: zero-dds-snippets
+        working-directory: zerodds-examples
         env:
-          ZERODDS_SRC: ${{ github.workspace }}/zero-dds
+          ZERODDS_SRC: ${{ github.workspace }}
         run: ci/run-examples.sh
 
   crates-io:

@@ -106,7 +106,7 @@ typescript-node-typed|node,npm,ts-node-build|run|npm run typecheck && npm run st
 typescript-node-async|node,npm,ts-node-build|run|npm run typecheck && tsx src/run.ts|-|-
 typescript-node-website-snippet|node,npm,ts-node-build|build|tsc --noEmit -p tsconfig.json|-|The three files are the website's snippets verbatim and have no main. `tsc --noEmit` against the real @zerodds/node types is the whole check, and this run performed it.
 typescript-wasm-quickstart|node,npm,ts-wasm-build|run|npm install --silent --no-audit --no-fund --install-links=false && npm run typecheck && npm run build && npm run start|got: hello from browser|-
-typescript-wasm-vite-config|node,npm|build|tsc --noEmit -p tsconfig.json|-|A Vite configuration, not a program. `tsc --noEmit` is the whole check, and this run performed it.
+typescript-wasm-vite-config|node,npm,tsc|build|tsc --noEmit -p tsconfig.json|-|A Vite configuration, not a program. `tsc --noEmit` is the whole check, and this run performed it.
 typescript-wasm-website-snippet|node,npm,ts-wasm-build|build|tsc --noEmit -p tsconfig.json|-|The website's browser snippet verbatim; running it needs a DOM. `tsc --noEmit` is the whole check, and this run performed it.
 
 # --- Conformance corpora ----------------------------------------------------
