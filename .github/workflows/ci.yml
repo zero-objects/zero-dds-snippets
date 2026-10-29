@@ -24,8 +24,47 @@ defaults:
     shell: bash
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # The vendor toolchains the cross-vendor examples run against, each built
+  # by its ci/provision script into a prefix that is cached. The first build
+  # of OpenDDS takes the better part of an hour; the four run side by side
+  # here so the `run` job finds them in the cache. A prefix carries a stamp of
+  # its pins, and a script that finds its stamp does not build again.
+  # ---------------------------------------------------------------------------
+  vendors:
+    name: vendor toolchain (${{ matrix.vendor }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        vendor: [cyclone-iceoryx, fastdds, opendds, opensplice]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: zero-objects/zero-dds
+      - uses: actions/checkout@v5
+        with: { path: zerodds-examples }
+      - name: Cache key
+        id: key
+        run: |
+          echo "key=vendor-${{ matrix.vendor }}-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', format('zerodds-examples/ci/provision/{0}.sh', matrix.vendor), 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v5
+        with:
+          path: ~/vendors/${{ matrix.vendor }}
+          key: ${{ steps.key.outputs.key }}
+      - name: Provision ${{ matrix.vendor }}
+        env:
+          ZERODDS_SRC: ${{ github.workspace }}
+        run: bash zerodds-examples/ci/provision/${{ matrix.vendor }}.sh "$HOME/vendors/${{ matrix.vendor }}"
+
   run:
     name: build and run (against the ZeroDDS source)
+    # After the vendor jobs, whatever they concluded: a toolchain that did not
+    # build leaves its examples unverified, which fails this job by name,
+    # and every other example is still run.
+    needs: vendors
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
@@ -72,23 +111,34 @@ jobs:
       - name: OMG DDS Java binding jar (the probe looks for target/omgdds-*.jar)
         working-directory: crates/java-omgdds/java
         run: mvn -B -q install -DskipTests
-      # The zerodds extension and cyclonedds==11.0.1 go into one virtualenv
-      # whose python3 is first on PATH: the harness and the cyclone legs ask
-      # `python3`. cyclonedds 11.0.1 has wheels for CPython 3.10 to 3.13.
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - name: Python virtualenv with the zerodds extension and cyclonedds
+      # Two interpreters. The zerodds extension (abi3) goes into a virtualenv
+      # of the runner's python3, with the system packages visible: ROS 2
+      # builds rclpy for that python3, and rmw-spatial-bridge runs it.
+      # cyclonedds 11.0.1 has wheels for CPython 3.10 to 3.13 only; it gets a
+      # 3.13 virtualenv of its own, which the cyclone legs take from PYTHON.
+      - name: Python virtualenv with the zerodds extension
         run: |
-          python3 -m venv "$RUNNER_TEMP/venv"
+          python3 --version
+          python3 -m venv --system-site-packages "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --upgrade pip
-          "$RUNNER_TEMP/venv/bin/pip" install maturin "cyclonedds==11.0.1"
+          "$RUNNER_TEMP/venv/bin/pip" install maturin
           # The extension depends on zerodds-wire of the same version, which
           # reaches PyPI with the release; this tree has it in runtime/python.
           "$RUNNER_TEMP/venv/bin/pip" install ./runtime/python
           ( cd crates/py && VIRTUAL_ENV="$RUNNER_TEMP/venv" PATH="$RUNNER_TEMP/venv/bin:$PATH" maturin develop --release )
-          "$RUNNER_TEMP/venv/bin/python3" -c 'import zerodds, cyclonedds; print("zerodds and cyclonedds importable")'
+          "$RUNNER_TEMP/venv/bin/python3" -c 'import zerodds; print("zerodds importable")'
           echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-python@v6
+        id: py313
+        with:
+          python-version: "3.13"
+          update-environment: false
+      - name: Python 3.13 virtualenv with cyclonedds
+        run: |
+          "${{ steps.py313.outputs.python-path }}" -m venv "$RUNNER_TEMP/venv-cyclone"
+          "$RUNNER_TEMP/venv-cyclone/bin/pip" install "cyclonedds==11.0.1"
+          "$RUNNER_TEMP/venv-cyclone/bin/python3" -c 'import cyclonedds; print("cyclonedds importable")'
+          echo "PYTHON=$RUNNER_TEMP/venv-cyclone/bin/python3" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
@@ -117,6 +167,51 @@ jobs:
           cp "$pki_src/governance.p7s" "$pki/governance.p7s"
           cp "$pki_src/permissions_ping.p7s" "$pki/permissions.p7s"
           echo "ZERODDS_PKI=$pki" >> "$GITHUB_ENV"
+
+      # ---- the vendor toolchains -------------------------------------------
+      # Restored from the caches the vendor jobs filled, then handed to the
+      # same scripts: a prefix with its stamp is taken as it is, and the
+      # script installs the system packages it was linked against. A cache
+      # miss builds here. A script that fails leaves its examples unverified,
+      # which fails the run below by name; the other examples still run.
+      - name: Vendor cache keys
+        id: vk
+        run: |
+          {
+            echo "cyclone=vendor-cyclone-iceoryx-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/cyclone-iceoryx.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
+            echo "fastdds=vendor-fastdds-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/fastdds.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
+            echo "opendds=vendor-opendds-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/opendds.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
+            echo "opensplice=vendor-opensplice-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/opensplice.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v5
+        with: { path: ~/vendors/cyclone-iceoryx, key: "${{ steps.vk.outputs.cyclone }}" }
+      - uses: actions/cache/restore@v5
+        with: { path: ~/vendors/fastdds, key: "${{ steps.vk.outputs.fastdds }}" }
+      - uses: actions/cache/restore@v5
+        with: { path: ~/vendors/opendds, key: "${{ steps.vk.outputs.opendds }}" }
+      - uses: actions/cache/restore@v5
+        with: { path: ~/vendors/opensplice, key: "${{ steps.vk.outputs.opensplice }}" }
+      - name: Cyclone DDS C with the iceoryx plugin
+        continue-on-error: true
+        env: { ZERODDS_SRC: "${{ github.workspace }}" }
+        run: bash zerodds-examples/ci/provision/cyclone-iceoryx.sh "$HOME/vendors/cyclone-iceoryx"
+      - name: Fast DDS
+        continue-on-error: true
+        env: { ZERODDS_SRC: "${{ github.workspace }}" }
+        run: bash zerodds-examples/ci/provision/fastdds.sh "$HOME/vendors/fastdds"
+      - name: OpenDDS
+        continue-on-error: true
+        env: { ZERODDS_SRC: "${{ github.workspace }}" }
+        run: bash zerodds-examples/ci/provision/opendds.sh "$HOME/vendors/opendds"
+      - name: OpenSplice
+        continue-on-error: true
+        env: { ZERODDS_SRC: "${{ github.workspace }}" }
+        run: bash zerodds-examples/ci/provision/opensplice.sh "$HOME/vendors/opensplice"
+      # Not cached: rmw_zerodds_cpp is built from this ZeroDDS tree.
+      - name: ROS 2 and rmw_zerodds_cpp
+        continue-on-error: true
+        env: { ZERODDS_SRC: "${{ github.workspace }}" }
+        run: bash zerodds-examples/ci/provision/ros2-rmw.sh "$HOME/vendors/rmw-zerodds"
 
       # ---- the run ----------------------------------------------------------
       # crate-rt-linux asks for SCHED_FIFO at priority 80. RLIMIT_RTPRIO of
