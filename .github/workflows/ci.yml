@@ -37,8 +37,14 @@ jobs:
     timeout-minutes: 150
     strategy:
       fail-fast: false
+      # `recipe`: the file of the ZeroDDS tree a script builds from, part of
+      # its cache key; the script itself where there is none.
       matrix:
-        vendor: [cyclone-iceoryx, fastdds, opendds, opensplice]
+        include:
+          - { vendor: cyclone-iceoryx, recipe: zerodds-examples/ci/provision/cyclone-iceoryx.sh }
+          - { vendor: fastdds, recipe: tests/interop/ci/install_fastdds.sh }
+          - { vendor: opendds, recipe: zerodds-examples/ci/provision/opendds.sh }
+          - { vendor: opensplice, recipe: tools/opensplice/build-opensplice.sh }
     steps:
       - uses: actions/checkout@v5
         with:
@@ -48,7 +54,7 @@ jobs:
       - name: Cache key
         id: key
         run: |
-          echo "key=vendor-${{ matrix.vendor }}-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', format('zerodds-examples/ci/provision/{0}.sh', matrix.vendor), 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}" >> "$GITHUB_OUTPUT"
+          echo "key=vendor-${{ matrix.vendor }}-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', format('zerodds-examples/ci/provision/{0}.sh', matrix.vendor), matrix.recipe) }}" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v5
         with:
           path: ~/vendors/${{ matrix.vendor }}
@@ -178,10 +184,10 @@ jobs:
         id: vk
         run: |
           {
-            echo "cyclone=vendor-cyclone-iceoryx-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/cyclone-iceoryx.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
-            echo "fastdds=vendor-fastdds-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/fastdds.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
-            echo "opendds=vendor-opendds-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/opendds.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
-            echo "opensplice=vendor-opensplice-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/opensplice.sh', 'tests/interop/ci/install_fastdds.sh', 'tools/opensplice/build-opensplice.sh') }}"
+            echo "cyclone=vendor-cyclone-iceoryx-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/cyclone-iceoryx.sh', 'zerodds-examples/ci/provision/cyclone-iceoryx.sh') }}"
+            echo "fastdds=vendor-fastdds-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/fastdds.sh', 'tests/interop/ci/install_fastdds.sh') }}"
+            echo "opendds=vendor-opendds-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/opendds.sh', 'zerodds-examples/ci/provision/opendds.sh') }}"
+            echo "opensplice=vendor-opensplice-$ImageOS-${{ hashFiles('zerodds-examples/ci/provision/common.sh', 'zerodds-examples/ci/provision/opensplice.sh', 'tools/opensplice/build-opensplice.sh') }}"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v5
         with: { path: ~/vendors/cyclone-iceoryx, key: "${{ steps.vk.outputs.cyclone }}" }
