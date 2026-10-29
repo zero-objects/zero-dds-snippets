@@ -158,11 +158,19 @@ jobs:
           npm install --global --no-audit --no-fund typescript
           tsc --version
       # The six DDS-Security files rust-security-plugin-chain loads, from the
-      # test CA generator of the ZeroDDS tree. Test keys, made per run.
+      # test CA generator of the ZeroDDS tree. Test keys, made per run. The
+      # generator's governance and permissions grant the bench's domain 200;
+      # the example joins domain 0, so the copy grants that one before it is
+      # signed.
       - name: DDS-Security test PKI
         run: |
           pki_src="$RUNNER_TEMP/pki-src"
           cp -r tests/perf/dds-roundtrip-bench/security "$pki_src"
+          sed -i 's#<domains><id>200</id></domains>#<domains><id>0</id></domains>#' \
+            "$pki_src/governance.xml" "$pki_src/permissions_ping.xml" "$pki_src/permissions_pong.xml"
+          for f in governance.xml permissions_ping.xml; do
+            grep -q '<domains><id>0</id></domains>' "$pki_src/$f" || { echo "$f does not grant domain 0"; exit 1; }
+          done
           ( cd "$pki_src" && bash gen.sh )
           pki="$RUNNER_TEMP/pki"
           mkdir -p "$pki"
