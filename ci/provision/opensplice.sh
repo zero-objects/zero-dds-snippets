@@ -115,13 +115,15 @@ log "checking the install"
     for d in include/sys include/dcps/C++/SACPP; do
         [ -d "$PREFIX/$d" ] || die "no $PREFIX/$d; the legs compile against it"
     done
-    # idlpp on a keylist type, as the legs call it.
+    # idlpp on a keylist type in the form the legs use: a struct at global
+    # scope, in a file whose name is not the type's (idlpp takes the file
+    # name as an identifier and refuses a type spelled the same).
     probe_dir="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/provision-ospl.XXXXXX")"
     trap 'rm -rf "$probe_dir"' EXIT
     cd "$probe_dir"
-    printf 'module M { struct S { long id; long v; }; };\n#pragma keylist M::S id\n' > S.idl
-    idlpp -S -l cpp S.idl
-    for f in S.cpp SDcps.cpp SDcps_impl.cpp SSplDcps.cpp; do
+    printf 'struct P { long id; long v; };\n#pragma keylist P id\n' > Probe.idl
+    idlpp -S -l cpp Probe.idl
+    for f in Probe.cpp ProbeDcps.cpp ProbeDcps_impl.cpp ProbeSplDcps.cpp; do
         [ -f "$f" ] || die "idlpp wrote no $f"
     done
 )
