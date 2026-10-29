@@ -8,7 +8,9 @@
 # (RTPS 2.5 §9.6.1.1) and two cells on one domain read each other's traffic.
 #
 # Prereqs:
-#   * the ZeroDDS side built:   (cd ../zerodds && cargo build --release)
+#   * cargo: the ZeroDDS side is built here, in RTI's CDR dialect
+#     (ZERODDS_RICH_DIALECT=rti, see ../zerodds/build.rs), into a target
+#     directory of its own
 #   * RTI Connext with a runtime licence (NDDSHOME, rti_license.dat) and the
 #     peer built:               make -f makefile_Rich_$RTI_ARCH
 #     run.sh generates and builds it when it is not there; see README.md.
@@ -26,10 +28,21 @@ RTI_ARCH="${RTI_ARCH:-x64Linux4gcc8.5.0}"
 DOMAIN_BASE="${DOMAIN_BASE:-92}"
 BLOB="${BLOB:-50}"
 OBJS="$HERE/objs/$RTI_ARCH"
-ZD="${CARGO_TARGET_DIR:-$HERE/../zerodds/target}/release"
+ZD_TARGET="$HERE/build/zerodds-target"
+ZD="$ZD_TARGET/release"
 
+# ---- the ZeroDDS side, in RTI's dialect ------------------------------------
+# RTI writes a @mutable member it cannot size in advance under PID_EXTENDED
+# and declares its length rounded up to four (the unbounded `blob`: 54 octets
+# of value, length 56). A codec built in the specification's dialect reads
+# the length as the member's own (XTypes 1.3 §7.4.1.2) and refuses the
+# sample as a framing error, so RTI -> ZeroDDS @mutable delivers nothing.
+# The dialect is a build setting, so this leg has binaries of its own.
+( cd "$HERE/../zerodds" &&
+  CARGO_TARGET_DIR="$ZD_TARGET" ZERODDS_RICH_DIALECT=rti cargo build --quiet --release ) || {
+    echo "cargo build of the ZeroDDS side (ZERODDS_RICH_DIALECT=rti) failed"; exit 1; }
 for b in "$ZD/rich_pub" "$ZD/rich_sub"; do
-    [ -x "$b" ] || { echo "missing $b — (cd ../zerodds && cargo build --release)"; exit 1; }
+    [ -x "$b" ] || { echo "missing $b after the build"; exit 1; }
 done
 [ -x "$NDDSHOME/bin/rtiddsgen" ] || {
     echo "missing $NDDSHOME/bin/rtiddsgen — set NDDSHOME to a Connext install"; exit 1; }

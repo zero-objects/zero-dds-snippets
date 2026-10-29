@@ -1,0 +1,11 @@
+# The examples the GitHub run of this repository leaves to another host, by
+# decision, one `name|reason` line each. ci/run-examples.sh reads this file
+# through EX_ELSEWHERE and reports such an example as verified elsewhere
+# while its requirements are missing here.
+#
+# RTI Connext runs only under a licence, and the licence terms cover neither
+# a public CI runner nor test results in a public log. The maintainers' Linux
+# test host runs these three legs with every release.
+cross-vendor-shapes/rti|RTI Connext needs a licence the public CI does not hold; verified on the maintainers' Linux test host
+cross-vendor-rich/rti|RTI Connext needs a licence the public CI does not hold; verified on the maintainers' Linux test host
+cross-vendor-dynamic-xtypes/rti|RTI Connext needs a licence the public CI does not hold; verified on the maintainers' Linux test host

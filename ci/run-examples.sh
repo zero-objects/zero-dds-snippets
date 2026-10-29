@@ -20,9 +20,15 @@
 #   ZERODDS_SRC   the zero-dds checkout the path deps reach into.
 #                 Default: the parent of this repository.
 #   EX_TIMEOUT    per-example wall clock in seconds (default 600).
+#   EX_ELSEWHERE  a file of `name|reason` lines: examples this host cannot
+#                 verify by decision, each with the reason and where it is
+#                 verified instead. Such an example whose requirements are
+#                 missing is reported as verified elsewhere, not as a gap;
+#                 one whose requirements are met runs as any other.
 #
 # Exit status:
-#   0  every selected example ran or completed its explicit build-only check.
+#   0  every selected example ran or completed its explicit build-only check,
+#      or is named in EX_ELSEWHERE.
 #   1  at least one example failed or could not be verified.
 #   2  the harness itself could not run (bad manifest, unlisted example).
 #
@@ -74,6 +80,33 @@ export DYLD_LIBRARY_PATH="$ZERODDS_LIBDIR${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PAT
 
 manifest_lines() {
     grep -v '^[[:space:]]*#' "$MANIFEST" | grep -v '^[[:space:]]*$'
+}
+
+# The examples this host leaves to another by decision. Read once; a name the
+# manifest does not have is a stale entry and stops the run, because an
+# exception that matches nothing would go unnoticed when the example is
+# renamed.
+ELSEWHERE_LINES=""
+if [ -n "${EX_ELSEWHERE:-}" ]; then
+    [ -f "$EX_ELSEWHERE" ] || { echo "EX_ELSEWHERE=$EX_ELSEWHERE is not a file" >&2; exit 2; }
+    ELSEWHERE_LINES="$(grep -v '^[[:space:]]*#' "$EX_ELSEWHERE" | grep -v '^[[:space:]]*$')"
+    stale=""
+    while IFS='|' read -r n _; do
+        [ -z "$n" ] && continue
+        manifest_lines | cut -d'|' -f1 | grep -qxF -- "$n" || stale="$stale $n"
+    done <<EOF
+$ELSEWHERE_LINES
+EOF
+    if [ -n "$stale" ]; then
+        echo "$EX_ELSEWHERE names examples the manifest does not have:$stale" >&2
+        exit 2
+    fi
+fi
+elsewhere_reason() { # name; prints the reason and returns 0 when listed
+    printf '%s\n' "$ELSEWHERE_LINES" | while IFS='|' read -r n r; do
+        if [ "$n" = "$1" ]; then printf '%s' "$r"; exit 3; fi
+    done
+    [ $? -eq 3 ]
 }
 
 if [ "${1:-}" = "--list" ]; then
@@ -209,6 +242,15 @@ probe() {
             command -v iox-roudi >/dev/null 2>&1 || why="iox-roudi is not on PATH"
             [ -z "$why" ] && [ ! -f "${CYCLONE:-/opt/cyclone}/lib/libpsmx_iox.so" ] && \
                 why="no Cyclone iceoryx plugin at ${CYCLONE:-/opt/cyclone}/lib/libpsmx_iox.so (set CYCLONE)" ;;
+        rt-fifo)
+            # The example asks for SCHED_FIFO at priority 80. A process may
+            # take it with CAP_SYS_NICE or within its RLIMIT_RTPRIO
+            # (sched(7)); chrt(1) asks the kernel the same question.
+            if ! command -v chrt >/dev/null 2>&1; then
+                why="chrt is not on PATH, so this host cannot say whether SCHED_FIFO is allowed"
+            elif ! chrt -f 80 true >/dev/null 2>&1; then
+                why="SCHED_FIFO at priority 80 is refused here (needs CAP_SYS_NICE, or RLIMIT_RTPRIO of 80 or more: prlimit --pid \$\$ --rtprio=99:99 as root)"
+            fi ;;
         linux)
             # `sched_setscheduler`, `sched_setaffinity` and the PREEMPT_RT
             # knobs are Linux system calls. On another kernel there is no
@@ -226,8 +268,8 @@ probe() {
 # repository this run said nothing about. Bash 3.2 has no associative
 # arrays, so each bucket is a newline-separated "name<TAB>reason" list.
 # ---------------------------------------------------------------------------
-PASS_N=0; FAIL_N=0; UNVER_N=0; BLOCK_N=0; BUILT_N=0
-FAIL_LIST=""; UNVER_LIST=""
+PASS_N=0; FAIL_N=0; UNVER_N=0; BLOCK_N=0; BUILT_N=0; ELSE_N=0
+FAIL_LIST=""; UNVER_LIST=""; ELSE_LIST=""
 
 verdict() { # name status detail
     name="$1"; status="$2"; detail="${3:-}"
@@ -239,6 +281,8 @@ verdict() { # name status detail
 ";                                         printf 'UNVERIFIED  %-38s %s\n' "$name" "$detail" ;;
         blocked)    BLOCK_N=$((BLOCK_N+1)); printf 'BLOCKED     %-38s %s\n' "$name" "$detail" ;;
         built)      BUILT_N=$((BUILT_N+1)); printf 'BUILT-ONLY  %-38s %s\n' "$name" "$detail" ;;
+        elsewhere)  ELSE_N=$((ELSE_N+1)); ELSE_LIST="$ELSE_LIST$name	$detail
+";                                         printf 'ELSEWHERE   %-38s %s\n' "$name" "$detail" ;;
     esac
 }
 
@@ -357,7 +401,11 @@ run_one() { # name needs verdict cmd expect note
         fi
     done
     if [ -n "$missing" ]; then
-        verdict "$name" unverified "$missing"
+        if reason="$(elsewhere_reason "$name")"; then
+            verdict "$name" elsewhere "$reason (missing here: $missing)"
+        else
+            verdict "$name" unverified "$missing"
+        fi
         return
     fi
     if ! ensure_built "$needs"; then
@@ -476,12 +524,20 @@ printf 'failed            %3d\n' "$FAIL_N"
 printf 'built only        %3d   (no program to run; each line carries the reason)\n' "$BUILT_N"
 printf 'blocked           %3d   (a named defect; each line carries it)\n' "$BLOCK_N"
 printf 'not verified      %3d   (a requirement was missing on this host)\n' "$UNVER_N"
+printf 'verified elsewhere%3d   (named in EX_ELSEWHERE, with the reason)\n' "$ELSE_N"
 printf 'total in this run %3d\n' "$TOTAL"
 
 if [ "$UNVER_N" -gt 0 ]; then
     echo
     echo "This run verified nothing about these $UNVER_N example(s):"
     printf '%s' "$UNVER_LIST" | while IFS='	' read -r n r; do
+        [ -n "$n" ] && printf '  %-38s %s\n' "$n" "$r"
+    done
+fi
+if [ "$ELSE_N" -gt 0 ]; then
+    echo
+    echo "This host leaves these $ELSE_N example(s) to another, by decision:"
+    printf '%s' "$ELSE_LIST" | while IFS='	' read -r n r; do
         [ -n "$n" ] && printf '  %-38s %s\n' "$n" "$r"
     done
 fi

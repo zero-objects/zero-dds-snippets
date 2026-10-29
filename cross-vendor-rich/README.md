@@ -53,7 +53,11 @@ Three legs need a setting on one side, and each `run.sh` makes it:
 - **Fast DDS** writes and reads its own CDR dialect: `@mutable` members under
   bare parameter ids with true lengths, no must-understand flag on a key
   member. `fastdds/run.sh` builds the ZeroDDS side with
-  `ZERODDS_RICH_DIALECT=fastdds`, into a target directory of its own.
+  `ZERODDS_RICH_DIALECT=fastdds`, into a target directory of its own. Its
+  writer also announces `PID_TYPE_MAX_SIZE_SERIALIZED` = 24 for `RichF` and
+  sends samples of 76 octets; a ZeroDDS reader holds a writer to that bound
+  (DDSI-RTPS 2.5 Table 8.72), so `fastdds/run.sh` sets
+  `ZERODDS_READER_HONOR_DATA_MAX_SIZE_SERIALIZED=false`.
 - **OpenDDS 3.34** sets IS_MUST_UNDERSTAND on a key member only when
   `@must_understand` is written, reads a remote reader's ALLOW_TYPE_COERCION
   as DISALLOW and then matches identical type identifiers only;
@@ -63,7 +67,10 @@ Three legs need a setting on one side, and each `run.sh` makes it:
   encapsulation padding it does not append; ZeroDDS counts padding only where
   the payload length allows it.
 - **RTI Connext** bounds `sequence<octet>` at 100 unless `rtiddsgen` runs with
-  `-unboundedSupport`, which `rti/run.sh` passes.
+  `-unboundedSupport`, which `rti/run.sh` passes. It declares a PID_EXTENDED
+  member's length rounded up to four, which the specification's dialect reads
+  as a framing error, so `rti/run.sh` builds the ZeroDDS side with
+  `ZERODDS_RICH_DIALECT=rti`.
 
 ZeroDDS reads and writes every wire form above — XCDR1 plain CDR, XCDR1 PL_CDR
 (including RTI's PID_EXTENDED), XCDR2 CDR2 / D_CDR2 / PL_CDR2.

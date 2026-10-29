@@ -44,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // own bound in place, because a cache needs one.
         resource_limits: ResourceLimitsQosPolicy::default(),
         data_representation_offer: None,
+        ..Default::default()
     })?;
 
     let deadline = std::time::Instant::now() + Duration::from_secs(15);
@@ -53,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("sub: got {}", String::from_utf8_lossy(payload.as_ref()));
             }
 
-            Ok(UserSample::Lifecycle { key_hash, kind }) => {
+            Ok(UserSample::Lifecycle { key_hash, kind, .. }) => {
                 println!("lifecycle: {:?} {:?}", kind, key_hash);
             }
 
@@ -63,9 +64,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // release — but the arm is written out rather than swept into a
             // `_ =>`, so a future variant is a compile error here and not a
             // sample this loop drops without saying so.
-            Ok(UserSample::CoherentSetEnd { set_first_sn, .. }) => {
-                println!("coherent set ending at {set_first_sn} closed");
-            }
+            // `set_first_sn` is `None` when the writer names no first
+            // sequence number (Table 9.22: SEQUENCENUMBER_UNKNOWN).
+            Ok(UserSample::CoherentSetEnd { set_first_sn, .. }) => match set_first_sn {
+                Some(sn) => println!("coherent set starting at {sn} closed"),
+                None => println!("coherent set closed"),
+            },
 
             Err(_) => {}
         }

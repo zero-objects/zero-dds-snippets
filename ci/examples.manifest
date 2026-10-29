@@ -58,7 +58,7 @@ bindings-rust-main|cargo|run|cargo run --quiet|-|-
 async-pubsub|cargo|run|cargo run --quiet|-|-
 
 # --- Rust, path deps into the checkout --------------------------------------
-getting-started-first-publisher|cargo,zerodds-src|run|cargo run --quiet --bin pub|-|-
+getting-started-first-publisher|cargo,zerodds-src|run|cargo build --quiet --bins && cargo run --quiet --bin pub|-|Both binaries are built; pub runs, sub waits for a peer and is checked by its build.
 observability-stderr-sink|cargo,zerodds-src|run|cargo run --quiet|-|-
 qos-cookbook|cargo,zerodds-src|run|cargo run --quiet|-|-
 qos-policies-full-writer|cargo,zerodds-src|run|cargo run --quiet|-|-
@@ -145,7 +145,7 @@ cross-vendor-shapes|cargo,zerodds-src|build|cd zerodds && cargo build --quiet --
 cross-vendor-rich|cargo,zerodds-src|build|cd zerodds && cargo build --quiet --release|-|The ZeroDDS side of the three members under @final/@appendable/@mutable. Each leg is a row of its own: cross-vendor-rich/cyclone, /fastdds, /opendds, /opensplice and /rti.
 cross-vendor-dynamic-xtypes|cargo,zerodds-src|build|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy|-|Resolving a foreign vendor's type with no compiled Rust type behind it needs the foreign vendor. Each leg is a row of its own: cross-vendor-dynamic-xtypes/cyclone, /fastdds, /opendds and /rti.
 cross-vendor-shapes/rti|cargo,zerodds-src,rti-connext|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
-cross-vendor-rich/rti|cargo,zerodds-src,rti-connext|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
+cross-vendor-rich/rti|cargo,zerodds-src,rti-connext|run|bash run.sh|RESULT: PASS|run.sh builds the ZeroDDS side itself, in RTI's CDR dialect, into a target directory of its own.
 cross-vendor-dynamic-xtypes/rti|cargo,zerodds-src,rti-connext|run|cargo build --quiet --release --manifest-path "$ZERODDS_SRC/Cargo.toml" -p zerodds-spy && bash run.sh|RESULT: PASS|-
 cross-vendor-shapes/cyclone|cargo,zerodds-src,cyclone-py|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
 cross-vendor-shapes/fastdds|cargo,zerodds-src,fastdds,cmake,c++|run|(cd ../zerodds && cargo build --quiet --release) && bash run.sh|RESULT: PASS|-
@@ -192,7 +192,7 @@ crate-websocket-bridge|cargo,zerodds-src|run|cargo run --quiet|websocket-bridge:
 crate-xml|cargo,zerodds-src|run|cargo run --quiet|xml: parse_xml_tree root element = "dds"|-
 crate-xml-wire|cargo,zerodds-src|run|cargo run --quiet|xml-wire: decoded type Temperature, 1 field(s), roundtripped|-
 crate-zenoh-bridge|cargo,zerodds-src|run|cargo run --quiet|zenoh-bridge: key expression = fleet/VehicleTracking.TrackUpdate|-
-crate-rt-linux|cargo,zerodds-src,linux|run|cargo run --quiet|rt-linux: this thread is pinned to CPUs|-
+crate-rt-linux|cargo,zerodds-src,linux,rt-fifo|run|cargo run --quiet|rt-linux: this thread is pinned to CPUs|-
 
 # --- Native language frontends: idlc-typed samples through an endpoint SDK ---
 native-frontends|cargo,go,zerodds-src|run|cd go && ./run.sh|OK: ping-pong (sync+async) + reliable|Fresh generated Go codec + shared wire runtime; sync, async and 12-sample loss recovery measured on 2026-09-12. Other SDK languages are not examples in this directory.

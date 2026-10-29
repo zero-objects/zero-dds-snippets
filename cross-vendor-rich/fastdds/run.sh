@@ -30,6 +30,14 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 # and the ZeroDDS -> Fast DDS direction receives nothing; this leg reads the
 # absent policy as ALLOW_TYPE_COERCION.
 export ZERODDS_TYPE_CONSISTENCY_ABSENT="${ZERODDS_TYPE_CONSISTENCY_ABSENT:-allow}"
+# The Fast DDS writer announces PID_TYPE_MAX_SIZE_SERIALIZED (0x0060) = 24 for
+# RichF, whose `blob` is an unbounded sequence<octet>, and sends samples of 76
+# octets. DDSI-RTPS 2.5 Table 8.72 makes the announcement "the maximum size of
+# any SerializedPayload that may be sent by the matched Writer"; a ZeroDDS
+# reader refuses every payload beyond it (reader.honor_data_max_size_serialized,
+# default true), and the Fast DDS -> ZeroDDS direction receives nothing. This
+# leg takes the payload whatever the announcement says.
+export ZERODDS_READER_HONOR_DATA_MAX_SIZE_SERIALIZED="${ZERODDS_READER_HONOR_DATA_MAX_SIZE_SERIALIZED:-false}"
 DOMAIN_BASE="${DOMAIN_BASE:-73}"
 BLOB="${BLOB:-50}"
 FASTDDS_HOME="${FASTDDS_HOME:-/opt/fastdds}"

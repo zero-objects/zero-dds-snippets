@@ -30,37 +30,24 @@ data representations and best-effort reliability.
 
 RTI is **XCDR1-native** like Fast DDS, but encodes its `@mutable` sequence member
 with the **PID_EXTENDED long form** carrying the MUST_UNDERSTAND flag (`0x7F01`),
-where Fast DDS uses the short parameter id. ZeroDDS's PL_CDR1 decoder masks the
-RTPS flag bits (`& 0x3FFF`) so it accepts both.
+where Fast DDS uses the short parameter id. RTI declares that member's length
+rounded up to four (DDSI-RTPS 2.5 §9.4.2.11): 56 for the 54 octets of a
+50-element `blob`. XTypes 1.3 §7.4.1.2 makes the length the member's own, and a
+ZeroDDS codec built in the specification's dialect refuses the sample as a
+framing error. `run.sh` therefore builds the ZeroDDS side with
+`ZERODDS_RICH_DIALECT=rti`, into `build/zerodds-target`.
 
-## What this currently measures: nothing gets through
-
-`run.sh` runs all six cells — `@final` / `@appendable` / `@mutable` × both
-directions, each on a domain of its own — and every one of them reports **0
-samples**. RTI does not match the ZeroDDS endpoint at all; it refuses it during
-discovery, before any data:
-
-```
-PRESTypeObjectV2Table_assertTypeObjectRecord:BAD PARAMETER FAILURE
-  | TypeObjectV2 serializedSize mismatch (current: 111, new: 107)
-```
-
-Both stacks announce the *same* COMPLETE `TypeIdentifier` for `RichF`
-(`f2 c1 64 bf d8 e6 94 4d c9 ee 5e 2e 5f 5c 20 00`) and a *different*
-`typeobject_serialized_size` beside it — 107 from ZeroDDS, 111 from RTI. See
-`../README.md`. The manifest row
-`cross-vendor-rich/rti` is `blocked` on this and carries `run.sh` as the command
-the defect stops, so the harness reports `BLOCKER STALE` the day it passes.
+All six cells deliver — `@final` / `@appendable` / `@mutable` × both
+directions, each on a domain of its own, every sample integrity-checked.
 
 ## Run it
 
 ```sh
-(cd ../zerodds && cargo build --release)
 bash run.sh              # DOMAIN_BASE=92 by default, six consecutive domains
 ```
 
-`run.sh` generates the type support with `rtiddsgen`, builds the peer, checks
-that the six RTPS port bands are free before it measures anything, and prints
-the sample count of every cell.
+`run.sh` builds the ZeroDDS side in RTI's dialect, generates the type support
+with `rtiddsgen`, builds the peer, checks that the six RTPS port bands are free
+before it measures anything, and prints the sample count of every cell.
 
 Part of **[ZeroDDS](https://zerodds.de)**.

@@ -17,10 +17,25 @@ on:
 # sample crossed the wire or that a round-trip is lossless. That is why the
 # `run` lane exists and why it comes first.
 
+# `shell: bash` runs a step with `-eo pipefail`; the default is `bash -e`,
+# under which `cmd | tee log` reports tee's status and a failing cmd passes.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   run:
     name: build and run (against the ZeroDDS source)
     runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      # One target directory for the ZeroDDS tree and every example, as on a
+      # developer's checkout: each example otherwise compiles the DCPS runtime
+      # into a target directory of its own, and a hundred of those fill the
+      # runner's disk.
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_TERM_COLOR: always
     steps:
       # The examples' path deps (`../../crates`, deeper for nested examples)
       # reach into the ZeroDDS tree from inside it: this repository is used
@@ -33,14 +48,86 @@ jobs:
           repository: zero-objects/zero-dds
       - uses: actions/checkout@v5
         with: { path: zerodds-examples }
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
       - uses: dtolnay/rust-toolchain@stable
+      # The toolchain rust-toolchain.toml of the ZeroDDS tree names is the
+      # one cargo runs below; the WebAssembly target goes onto that one.
+      - name: WebAssembly target and wasm-pack
+        run: |
+          rustup show active-toolchain
+          rustup target add wasm32-unknown-unknown
+          curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
+
+      # ---- what the examples load, built from this ZeroDDS tree -------------
       - name: Build the C ABI shared library the C/C++/C#/Java examples link
         run: cargo build -p zerodds-c-api --release
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: OMG DDS Java binding jar (the probe looks for target/omgdds-*.jar)
+        working-directory: crates/java-omgdds/java
+        run: mvn -B -q install -DskipTests
+      # The zerodds extension and cyclonedds==11.0.1 go into one virtualenv
+      # whose python3 is first on PATH: the harness and the cyclone legs ask
+      # `python3`. cyclonedds 11.0.1 has wheels for CPython 3.10 to 3.13.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Python virtualenv with the zerodds extension and cyclonedds
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/venv/bin/pip" install maturin "cyclonedds==11.0.1"
+          ( cd crates/py && VIRTUAL_ENV="$RUNNER_TEMP/venv" PATH="$RUNNER_TEMP/venv/bin:$PATH" maturin develop --release )
+          "$RUNNER_TEMP/venv/bin/python3" -c 'import zerodds, cyclonedds; print("zerodds and cyclonedds importable")'
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      # The harness builds @zerodds/wire and @zerodds/node itself; it needs
+      # their node_modules. @zerodds/ts-wasm it takes as built.
+      - name: TypeScript packages (node_modules, ts-wasm build, tsc)
+        run: |
+          npm ci --no-audit --no-fund --prefix runtime/typescript
+          ( cd crates/ts-node && npm install --no-audit --no-fund --install-links=false )
+          ( cd crates/ts-wasm && npm install --no-audit --no-fund && npm run build:wasm && npm run build )
+          npm install --global --no-audit --no-fund typescript
+          tsc --version
+      # The six DDS-Security files rust-security-plugin-chain loads, from the
+      # test CA generator of the ZeroDDS tree. Test keys, made per run.
+      - name: DDS-Security test PKI
+        run: |
+          pki_src="$RUNNER_TEMP/pki-src"
+          cp -r tests/perf/dds-roundtrip-bench/security "$pki_src"
+          ( cd "$pki_src" && bash gen.sh )
+          pki="$RUNNER_TEMP/pki"
+          mkdir -p "$pki"
+          cp "$pki_src/certs/identity_ca.pem" "$pki/ca-cert.pem"
+          cp "$pki_src/certs/ping_cert.pem" "$pki/part-cert.pem"
+          cp "$pki_src/certs/ping_key.pem" "$pki/part-key.pem"
+          cp "$pki_src/certs/permissions_ca.pem" "$pki/permissions-ca-cert.pem"
+          cp "$pki_src/governance.p7s" "$pki/governance.p7s"
+          cp "$pki_src/permissions_ping.p7s" "$pki/permissions.p7s"
+          echo "ZERODDS_PKI=$pki" >> "$GITHUB_ENV"
+
+      # ---- the run ----------------------------------------------------------
+      # crate-rt-linux asks for SCHED_FIFO at priority 80. RLIMIT_RTPRIO of
+      # this step's shell is raised so it and its children may (sched(7));
+      # nothing runs as root. The RTI legs are named in
+      # ci/elsewhere-github.txt with the reason.
       - name: Build and run every example
         working-directory: zerodds-examples
         env:
           ZERODDS_SRC: ${{ github.workspace }}
-        run: ci/run-examples.sh
+          EX_ELSEWHERE: ci/elsewhere-github.txt
+        run: |
+          sudo prlimit --pid $$ --rtprio=99:99
+          ci/run-examples.sh
 
   crates-io:
     name: build against the published crates
@@ -53,10 +140,11 @@ jobs:
           set -euo pipefail
 
           # The release the examples are pinned to here. Bump it when a new
-          # rc is published, and check the loud-skip list below: crates that
-          # only exist from a later release keep their examples out of this
-          # lane until that release is on crates.io.
-          PUBLISHED=1.0.0-rc.6
+          # rc is published. An example whose dependency does not exist on
+          # crates.io at this release fails here, by design: it is named in
+          # the log, and the `run` lane above still builds and runs it
+          # against the source.
+          PUBLISHED=1.0.0-rc.7
 
           # The examples carry monorepo path deps (../../crates, ../../tools)
           # for local development inside the zerodds checkout. Outside the
@@ -66,39 +154,23 @@ jobs:
           find . -name Cargo.toml -not -path '*/target/*' -exec \
             sed -i -E "s#path = \"\.\./\.\./(crates|tools)/[^\"]*\"#version = \"$PUBLISHED\"#g" {} +
 
-          # Examples whose dependencies do not exist on crates.io at
-          # $PUBLISHED, with the crate that is missing. These are NOT quiet
-          # skips: each prints a warning that names the crate and the reason,
-          # and the `run` lane above still builds and runs them against the
-          # source. Delete an entry when its crate is published.
-          #
-          #   zerodds-build, zerodds-wire  — added after the rc.6 tag; the
-          #     rc.6 tree has neither crates/zerodds-build nor crates/wire, so
-          #     `version = "1.0.0-rc.6"` cannot resolve for them.
-          UNPUBLISHED_DEP_EXAMPLES="
-            idlc-buildrs
-            zerodds-build-sample
-            rust-xcdr1-representation
-            rust-typed
-            rust-async-showcase
-            cross-vendor-rich
-          "
-
-          skipped=0
+          # Every example is built, and the ones that fail are named
+          # together at the end: a lane that stops at the first failure
+          # says nothing about the examples after it.
           built=0
+          failed=""
           for dir in */; do
             [ -f "$dir/Cargo.toml" ] || continue
-            name="${dir%/}"
-            case " $(echo $UNPUBLISHED_DEP_EXAMPLES) " in
-              *" $name "*)
-                echo "::warning::$name is not in this lane — it needs zerodds-build / zerodds-wire, which crates.io does not have at $PUBLISHED. The 'run' lane builds and runs it against the source."
-                skipped=$((skipped + 1))
-                continue
-                ;;
-            esac
             echo "::group::$dir"
-            ( cd "$dir" && cargo build )
+            if ( cd "$dir" && cargo build ); then
+              built=$((built + 1))
+            else
+              failed="$failed ${dir%/}"
+            fi
             echo "::endgroup::"
-            built=$((built + 1))
           done
-          echo "crates.io lane: $built example(s) built, $skipped named as out of lane."
+          echo "crates.io lane: $built example(s) built against $PUBLISHED."
+          if [ -n "$failed" ]; then
+            echo "::error::did not build against $PUBLISHED:$failed"
+            exit 1
+          fi
