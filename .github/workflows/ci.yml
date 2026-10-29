@@ -1,9 +1,11 @@
 name: examples
+# Weekly and by hand, not on a push or a pull request: a full run provisions
+# the vendor stacks and builds every example.
+# Before a push, the examples run on the maintainers' Linux test host.
 on:
-  push: { branches: [main] }
-  pull_request:
   schedule:
-    - cron: '0 6 * * 1'   # weekly: catch crates.io drift even without a push
+    - cron: '0 6 * * 1'   # weekly: also catches crates.io drift
+  workflow_dispatch:
 
 # Two lanes, because they answer two different questions.
 #
