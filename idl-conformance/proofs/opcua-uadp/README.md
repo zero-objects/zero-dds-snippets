@@ -38,7 +38,7 @@ across integer / floating / boolean / string built-in types.
   The captured output is `goldens.txt`.
 * **ZeroDDS** builds the *same logical message* with `zerodds-opcua-pubsub`'s
   `NetworkMessage` / `DataSetMessage` API and `to_binary`. The conformance gate
-  `crates/opcua-pubsub/src/uadp/network_message.rs::uadp_byte_identical_to_open62541`
+  `crates/opcua-pubsub/src/uadp/network_message.rs::uapubsub_7_2_4_4_the_network_messages_open62541_writes`
   asserts each vector equals the `goldens.txt` hex, so a future regression in
   either the framing or a built-in encoder fails the build.
 
@@ -47,7 +47,7 @@ across integer / floating / boolean / string built-in types.
 ZeroDDS side:
 
 ```sh
-cargo test -p zerodds-opcua-pubsub --lib uadp_byte_identical_to_open62541
+cargo test -p zerodds-opcua-pubsub --lib uapubsub_7_2_4_4_the_network_messages_open62541_writes
 ```
 
 Vendor side (on a host with open62541 1.5 built with `UA_ENABLE_PUBSUB`):

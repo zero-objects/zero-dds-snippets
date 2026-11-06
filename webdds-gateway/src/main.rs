@@ -3,7 +3,7 @@
 //! reads too.
 //!
 //! - `dds_side sub SECONDS` prints every `Demo::Sensor` on topic `Sensor`
-//!   for SECONDS and then the count;
+//!   for SECONDS and then the count, with a RELIABLE reader;
 //! - `dds_side pub COUNT` waits for a reader, writes COUNT samples
 //!   (`sensor_id` 100, 101, …, `value` = `sensor_id` / 10) and waits until
 //!   they are acknowledged.
@@ -41,9 +41,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic = participant.create_topic::<Sensor>("Sensor", TopicQos::default())?;
     match mode.as_str() {
         "sub" => {
+            // RELIABLE: a sample the gateway's writer sends before this
+            // reader knows the writer is repaired, where a BEST_EFFORT
+            // reader would not get it.
+            let mut qos = DataReaderQos::default();
+            qos.reliability.kind = zerodds_dcps::qos::ReliabilityKind::Reliable;
             let reader = participant
                 .create_subscriber(SubscriberQos::default())
-                .create_datareader(&topic, DataReaderQos::default())?;
+                .create_datareader(&topic, qos)?;
             let end = Instant::now() + Duration::from_secs(n);
             let mut count = 0;
             while Instant::now() < end {

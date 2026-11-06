@@ -1,0 +1,9 @@
+# The cargo examples the crates.io lane of .github/workflows/ci.yml builds
+# against the source only, one `name|reason` line each: they use crates or
+# API newer than the release the lane is pinned to. The lane names each of
+# them instead of building it; the run lane builds and runs them against the
+# ZeroDDS source. A line goes when the release that carries its crates is
+# published.
+rust-type|zerodds-build with rust_type and zerodds-codec (GitHub #33) are newer than 1.0.0-rc.7; published with RC8
+rust-derive|zerodds-codec and zerodds-derive (GitHub #33) are newer than 1.0.0-rc.7; published with RC8
+rust-union|zerodds-codec and zerodds-derive (GitHub #33) are newer than 1.0.0-rc.7; published with RC8

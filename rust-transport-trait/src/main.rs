@@ -2,8 +2,6 @@
 // matches the real zerodds_transport::Transport SPI: the snippet shows exactly
 // these three methods (send / recv / local_locator). We implement the real trait
 // with exactly those signatures to prove the snippet reflects the live API.
-use std::sync::Arc;
-
 use zerodds_transport::{
     Locator, ReceivedDatagram, RecvError, SendError, Transport,
 };
@@ -20,7 +18,7 @@ impl Transport for NullTransport {
     fn recv(&self) -> Result<ReceivedDatagram, RecvError> {
         Ok(ReceivedDatagram {
             source: self.loc.clone(),
-            data: Arc::from(&b"x"[..]),
+            data: b"x".as_slice().into(),
         })
     }
 

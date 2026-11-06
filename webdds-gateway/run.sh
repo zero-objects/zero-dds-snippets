@@ -48,7 +48,10 @@ expect 201 "$(rest POST "$P/topics" '<topic><name>Sensor</name><type_name>Demo::
 expect 201 "$(rest POST "$P/publishers")" publisher
 expect 201 "$(rest POST "$P/publishers/pub1/data_writers" '<data_writer><topic_name>Sensor</topic_name></data_writer>')" writer
 expect 201 "$(rest POST "$P/subscribers")" subscriber
-expect 201 "$(rest POST "$P/subscribers/sub1/data_readers" '<data_reader><topic_name>Sensor</topic_name></data_reader>')" reader
+# RELIABLE: the DDS side's writer waits until the reader matched it, but the
+# reader may learn of the writer after the first sample; a BEST_EFFORT reader
+# would not get that sample repaired.
+expect 201 "$(rest POST "$P/subscribers/sub1/data_readers" '<data_reader><topic_name>Sensor</topic_name><qos><reliability><kind>RELIABLE_RELIABILITY_QOS</kind></reliability></qos></data_reader>')" reader
 
 # HTTP -> DDS: five samples over REST, one over SOAP.
 "$SIDE" sub 6 > "$out/sub.log" 2>&1 &

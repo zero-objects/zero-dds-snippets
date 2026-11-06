@@ -4,8 +4,11 @@ The browser/WASM quickstart for `@zerodds/wasm` (`src/app.ts`): `await init()` b
 the WASM module, then a participant is created over a WebSocket bridge
 (`createParticipantWebSocket('ws://localhost:9001', 0)`) and runs the same `Chatter`
 bytes pub/sub roundtrip as the Node demo. `run-with-bridge.mjs` makes it runnable under
-Node by polyfilling `WebSocket`/`fetch` and standing up an in-process echo bridge on
-port 9001, proving DCPS-over-WebSocket works end-to-end.
+Node by polyfilling `WebSocket`/`fetch` and standing up an in-process stand-in for the
+bridge daemon `zerodds-ws-bridged` on port 9001. It speaks the protocol of
+`zerodds-ws-bridge-1.0` as the daemon does: one connection per topic on `/topics/<slug>`,
+samples as binary frames (`ZDB1`, flags, encapsulation header, payload), each delivered to
+every connection on the same topic.
 
 ## Build & run
 

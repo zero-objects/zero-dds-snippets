@@ -1,6 +1,7 @@
 //! Publisher of `telemetry::Reading` for the decoded-recorder workflow.
 //!   reading_pub <domain> <count>
-//! Waits for a reader, then writes `count` samples, one every 100 ms.
+//! Waits for the four readers of zerodds-spy and zerodds-record, then
+//! writes `count` samples, one every 100 ms.
 #![allow(non_snake_case, unused_imports, dead_code, clippy::all)]
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/sensor.rs"));
@@ -21,9 +22,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let w = p
         .create_publisher(PublisherQos::default())
         .create_datawriter::<Reading>(&topic, DataWriterQos::default())?;
-    // The spy and the recorder both read; a sample written before they
-    // matched would be lost to a VOLATILE reader.
-    w.wait_for_matched_subscription(2, Duration::from_secs(8))?;
+    // The spy and the recorder read, each with a RELIABLE and a
+    // BEST_EFFORT reader (zerodds-cli-common `monitor_reader_configs`); a
+    // sample written before a VOLATILE reader matched is not its sample.
+    w.wait_for_matched_subscription(4, Duration::from_secs(8))?;
     println!(
         "[reading-pub] domain={domain} matched={}",
         w.matched_subscription_count()
