@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+// A track report as a C or C++ peer sees it: an `unsigned long` key and a
+// date-time group, DDHHMMZMONYY, as a bounded `string`.
+module app {
+    typedef string<12> Dtg;
+
+    @final struct Track {
+        @key uint32 id;
+        Dtg at;
+        sequence<Dtg, 8> seen;
+        string<16> callsign;
+    };
+};

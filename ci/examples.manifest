@@ -47,6 +47,8 @@
 # --- Rust, types generated from IDL by build.rs + zerodds-build -------------
 idlc-buildrs|cargo,zerodds-src|run|cargo run --quiet --bin idlc-buildrs-demo && cargo test --quiet|roundtripped|-
 zerodds-build-sample|cargo,zerodds-src|run|cargo run --quiet --bin zerodds-build-sample-demo && cargo test --quiet|bytes on the wire|-
+rust-type|cargo,zerodds-src|run|cargo run --quiet|read back:|GitHub #33: an IDL typedef and a member held as Rust types (rust_type in build.rs).
+rust-derive|cargo,cc,zerodds-src|run|cargo run --quiet && sh peer/run.sh|C peer: id|GitHub #33: a topic type defined in Rust (derive(DdsType)), checked against the IDL route; a C peer reads the sample.
 rust-xcdr1-representation|cargo,zerodds-src|run|cargo run --quiet|both round-trip cleanly|-
 rust-typed|cargo,zerodds-src|run|cargo run --quiet|TypeObject announced|-
 rust-complex-types-roundtrip|cargo,zerodds-src|run|cargo run --quiet|all complex-type round-trips pass|Generated RC7 Rust DdsType, map and nested union, optional present/absent under both XCDRs.

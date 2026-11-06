@@ -73,7 +73,7 @@ checked here; `crate-rt-linux` needs a Linux kernel and got no host (see
 `blocked` — a named defect stops it; the reason is in the row.
 `unverified` — a requirement was missing on this host. Never a pass.
 
-### Ran and checked (70)
+### Ran and checked (72)
 
 | example | language | type comes from | what the run showed |
 |---|---|---|---|
@@ -81,6 +81,8 @@ checked here; `crate-rt-linux` needs a Linux kernel and got no host (see
 | `zerodds-build-sample` | Rust | `build.rs` + `zerodds-build` | 36 bytes round-tripped; `#pragma keylist` and the `TypeObject` asserted |
 | `rust-xcdr1-representation` | Rust | `build.rs` + `zerodds-build` | XCDR2 19 bytes vs XCDR1 23 bytes, both round-trip |
 | `rust-typed` | Rust | `build.rs` + `zerodds-build` | wrote a sample; `type_object()` asserted non-`None` |
+| `rust-type` | Rust | `build.rs` + `zerodds-build` with `rust_type` | 83 octets read back; a time that is no date-time group and a key of zero rejected with their reasons (run on its own, not in the full run above) |
+| `rust-derive` | Rust, C | `derive(DdsType)`, IDL exported | the IDL route writes the same octets, `TypeIdentifier` and `TypeObject`; a call sign lent from the sample; the C peer reads id, time, union and sequence (run on its own, not in the full run above) |
 | `rust-async-showcase` | Rust | `build.rs` + `zerodds-build` | all 13 async surfaces, `ALL OK` |
 | `hello-publisher` | Rust | none (bytes) | `published: Hello, DDS!` |
 | `pubsub-roundtrip` | Rust | none (bytes) | 1 sample received |

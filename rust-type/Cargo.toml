@@ -1,0 +1,19 @@
+# The `rust_type` mapping of zerodds-build (GitHub #33): an IDL `string`
+# held as a checked date-time group, an IDL `unsigned long` as `NonZeroU32`.
+# Own `[workspace]` table, so it is built where it stands and not through
+# the repository's workspace.
+[package]
+name = "zerodds-example-rust-type"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-wire = { path = "../../crates/wire" }
+
+[build-dependencies]
+zerodds-build = { path = "../../crates/zerodds-build" }
+
+[workspace]

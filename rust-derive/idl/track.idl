@@ -1,0 +1,3 @@
+module app { @final struct Pair_double { double first; double second; }; };
+module app { @final union Position switch (short) { case 1: string grid; case 2: ::app::Pair_double latlon; }; };
+module app { @final struct Track { @key unsigned long id; string<12> at; sequence<string, 8> seen; string<16> callsign; ::app::Position position; }; };
