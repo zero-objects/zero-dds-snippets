@@ -257,9 +257,7 @@ jobs:
           # rc is published. An example whose dependency does not exist on
           # crates.io at this release fails here, by design: it is named in
           # the log, and the `run` lane above still builds and runs it
-          # against the source. One that is known to need a newer release
-          # is in ci/crates-io-pending.txt with the reason and is named
-          # instead of built.
+          # against the source.
           PUBLISHED=1.0.0-rc.7
 
           # The examples carry monorepo path deps (../../crates, ../../tools)
@@ -272,20 +270,11 @@ jobs:
 
           # Every example is built, and the ones that fail are named
           # together at the end: a lane that stops at the first failure
-          # says nothing about the examples after it. The examples of
-          # ci/crates-io-pending.txt need crates newer than $PUBLISHED; each
-          # is named with its reason, and the run lane builds and runs it.
+          # says nothing about the examples after it.
           built=0
           failed=""
-          pending=0
           for dir in */; do
             [ -f "$dir/Cargo.toml" ] || continue
-            reason="$(grep -v '^#' ci/crates-io-pending.txt | awk -F'|' -v n="${dir%/}" '$1 == n { print $2 }')"
-            if [ -n "$reason" ]; then
-              echo "::notice::${dir%/} not built against $PUBLISHED: $reason"
-              pending=$((pending + 1))
-              continue
-            fi
             echo "::group::$dir"
             if ( cd "$dir" && cargo build ); then
               built=$((built + 1))
@@ -294,7 +283,7 @@ jobs:
             fi
             echo "::endgroup::"
           done
-          echo "crates.io lane: $built example(s) built against $PUBLISHED, $pending newer than it (ci/crates-io-pending.txt)."
+          echo "crates.io lane: $built example(s) built against $PUBLISHED."
           if [ -n "$failed" ]; then
             echo "::error::did not build against $PUBLISHED:$failed"
             exit 1
