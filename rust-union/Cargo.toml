@@ -1,0 +1,20 @@
+# GitHub #33: a union whose discriminator has values that select no member,
+# derived in Rust in two forms and checked against the IDL route.
+# Own `[workspace]` table, so it is built where it stands and not through
+# the repository's workspace.
+[package]
+name = "zerodds-example-rust-union"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+zerodds-codec = { path = "../../crates/codec" }
+zerodds-dcps = { path = "../../crates/dcps" }
+zerodds-types = { path = "../../crates/types" }
+zerodds-wire = { path = "../../crates/wire" }
+
+[build-dependencies]
+zerodds-build = { path = "../../crates/zerodds-build" }
+
+[workspace]

@@ -83,6 +83,7 @@ checked here; `crate-rt-linux` needs a Linux kernel and got no host (see
 | `rust-typed` | Rust | `build.rs` + `zerodds-build` | wrote a sample; `type_object()` asserted non-`None` |
 | `rust-type` | Rust | `build.rs` + `zerodds-build` with `rust_type` | 83 octets read back; a time that is no date-time group and a key of zero rejected with their reasons (run on its own, not in the full run above) |
 | `rust-derive` | Rust, C | `derive(DdsType)`, IDL exported | the IDL route writes the same octets, `TypeIdentifier` and `TypeObject`; a call sign lent from the sample; the C peer reads id, time, union and sequence (run on its own, not in the full run above) |
+| `rust-union` | Rust | `derive(DdsType)` beside `build.rs` + `zerodds-build` | the unit variant form, the `no_member` form and the IDL route: one `TypeIdentifier`, `TypeObject` and dependencies, the same octets in all four encodings, each read back; `Signal(Position)` refused with its reason (run on its own, not in the full run above) |
 | `rust-async-showcase` | Rust | `build.rs` + `zerodds-build` | all 13 async surfaces, `ALL OK` |
 | `hello-publisher` | Rust | none (bytes) | `published: Hello, DDS!` |
 | `pubsub-roundtrip` | Rust | none (bytes) | 1 sample received |
