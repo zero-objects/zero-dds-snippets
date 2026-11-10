@@ -5,7 +5,8 @@ matrix of IDL cases in the same categories, and the enum-prefix switch of
 [GitHub #61](https://github.com/zero-objects/zero-dds/issues/61). Each file
 under `idl/` stopped the generator or rustc before; `build.rs` generates
 them with `dds_type_impls(true)`, `idl/enum_prefix.idl` also with
-`strip_enum_prefix(true)`.
+`strip_enum_prefix(true)`, and `idl/rust_naming.idl` with
+`rust_naming(RustNaming::Rust)` on top.
 
 | IDL | What failed |
 |---|---|
@@ -13,6 +14,7 @@ them with `dds_type_impls(true)`, `idl/enum_prefix.idl` also with
 | `idl/dropped.idl` | the key-only read dropped an array inside a `sequence`, a `map` or `@external` without its length (`E0284`); a `long double` array's zero was `Float128::ZERO`, which did not resolve |
 | `idl/defaults.idl` | `@default(CF)` with `const float CF` was refused; `@default(1)` on `fixed<5,2>` and on `long double` did not compile (`E0308`) |
 | `idl/enum_prefix.idl` | GitHub #61, a switch that did not exist |
+| `idl/rust_naming.idl` | GitHub #61, a naming scheme that did not exist: the generated Rust took every IDL name as written |
 
 What the generated Rust is called now:
 
@@ -23,7 +25,14 @@ What the generated Rust is called now:
 - a type, module or constant named like an item the code uses without a
   path takes a trailing `_` (`Option_`, `Vec_`, `Reader_`);
 - with `strip_enum_prefix(true)`, `MY_ENUM_A` of `MyEnum` is `MyEnum::A`;
-  `MY_ENUM_1` keeps its prefix, because `1` is no identifier.
+  `MY_ENUM_1` keeps its prefix, because `1` is no identifier;
+- with `rust_naming(RustNaming::Rust)`, the names are those of RFC 430:
+  module `Sensor_Data` is `sensor_data`, struct `HTTPReading` is
+  `HttpReading`, member `sensorId` is `sensor_id`, constant `maxSamples` is
+  `MAX_SAMPLES`, enumerator `READING_KIND_raw` is `ReadingKind::Raw` (with
+  the prefix cut). The module is compiled under `#[deny(nonstandard_style)]`.
+  `@rust_mapping(apply_naming_convention = ...)` on a module or a
+  declaration sets the scheme for it alone.
 
 The IDL names stay in the TypeObject, on the wire and in a content filter.
 

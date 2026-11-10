@@ -1,0 +1,20 @@
+// GitHub #61: generated with rust_naming(RustNaming::Rust) and
+// strip_enum_prefix(true), the names are written after RFC 430:
+// Sensor_Data is the module sensor_data, HTTPReading the struct HttpReading,
+// sensorId the field sensor_id, READING_KIND_raw the variant Raw.
+module Sensor_Data {
+    const long maxSamples = 8;
+    enum reading_kind { READING_KIND_raw, READING_KIND_filtered };
+    bitmask status_flags { flagReady, flag_error };
+    union reading_value switch (reading_kind) {
+        case READING_KIND_raw: long rawValue;
+        case READING_KIND_filtered: double filtered_value;
+    };
+    @appendable struct HTTPReading {
+        @key long sensorId;
+        @default(READING_KIND_filtered) reading_kind kind;
+        sequence<long> Samples;
+        reading_value lastValue;
+        status_flags flags;
+    };
+};
