@@ -1,0 +1,13 @@
+// GitHub #61: generated with strip_enum_prefix(true), MY_ENUM_A of MyEnum
+// is the Rust variant A. MY_ENUM_1 keeps its prefix: 1 is no identifier.
+enum MyEnum { MY_ENUM_A, MY_ENUM_B, MY_ENUM_1 };
+union Pick switch (MyEnum) {
+    case MY_ENUM_A: long a;
+    case MY_ENUM_B: short b;
+};
+@final struct Choice {
+    @key long id;
+    @default(MY_ENUM_B) MyEnum chosen;
+    MyEnum first;
+    Pick selection;
+};

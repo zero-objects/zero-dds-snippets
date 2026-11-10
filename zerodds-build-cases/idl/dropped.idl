@@ -1,0 +1,10 @@
+// Non-key members the key-only read steps over: an array inside a
+// sequence, inside a map, behind @external, and an array of long double.
+typedef char C4[4];
+@appendable struct Dropped {
+    sequence<C4> seqs;
+    map<long, C4> m;
+    @external char c[4];
+    long double ld[2];
+    @key long id;
+};

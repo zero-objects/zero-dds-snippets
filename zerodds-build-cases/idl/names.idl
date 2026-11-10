@@ -1,0 +1,21 @@
+// Names the generated Rust uses for something of its own. A member named
+// like a local of the codec (`r`, `w`, `value`, `zd_origin`, `pid`, `end`),
+// `gen` (reserved since the 2024 edition), keywords with no raw form
+// (`crate`, `Self`, `super`), modules `std` and `core`, and types named
+// like what the codec writes without a path (`Option`, `Vec`, `Reader`).
+module std { @final struct S { @key long id; }; };
+module core { @final struct T { @key long id; }; };
+module crate { @final struct Self { @key long id; long super; }; };
+@final struct Option { @key long id; };
+@final struct Vec { @key long id; };
+@final struct Reader { @key long id; };
+@appendable struct Locals {
+    long r;
+    long value;
+    long zd_origin;
+    long w;
+    long pid;
+    long end;
+    long gen;
+    @key long id;
+};

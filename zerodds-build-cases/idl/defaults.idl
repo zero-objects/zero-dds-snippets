@@ -1,0 +1,10 @@
+// Numeric @default values that take the member's type: a float constant,
+// an integer on a fixed<5,2>, an integer and a decimal on a long double.
+const float CF = 2.5;
+@final struct Defaults {
+    @key long id;
+    @default(CF) float f;
+    @default(1) fixed<5,2> fx;
+    @default(1) long double one;
+    @default(1.5) long double half;
+};
