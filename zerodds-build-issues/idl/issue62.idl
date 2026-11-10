@@ -1,0 +1,23 @@
+// zero-objects/zero-dds#62, as reported, and the same member with
+// `@optional` and `@external`: a member annotation followed by a
+// root-anchored scoped type.
+module shapes {
+    @final struct ShapeId {
+        unsigned long value;
+    };
+
+    @final struct Shape {
+        @key
+        ::shapes::ShapeId id;
+    };
+
+    @final struct ShapeWithOptional {
+        @key unsigned long index;
+        @optional ::shapes::ShapeId id;
+    };
+
+    @final struct ShapeWithExternal {
+        @key unsigned long index;
+        @external ::shapes::ShapeId id;
+    };
+};

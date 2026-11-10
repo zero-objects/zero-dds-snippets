@@ -1,0 +1,6 @@
+// zero-objects/zero-dds#63, as reported: a keyed @appendable struct with a
+// non-key char array.
+@appendable struct Sample {
+    @key long id;
+    char label[4];
+};

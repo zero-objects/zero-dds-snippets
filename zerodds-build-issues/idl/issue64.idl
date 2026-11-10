@@ -1,0 +1,7 @@
+// zero-objects/zero-dds#64, as reported: an integer @default on a float
+// and a double member.
+@final struct Sample {
+    @key long id;
+    @default(1) float f32_value;
+    @default(1) double f64_value;
+};
