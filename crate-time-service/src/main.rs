@@ -6,7 +6,7 @@ fn main() {
     let service = TimeService::default();
     let now = service.universal_time().unwrap();
 
-    let later = Uto::new(now.time() + 1_000_000, 50, 0);
+    let later = Uto::new(now.time() + 1_000_000, 50, 0).unwrap(); // BAD_PARAM above 48 bits
     let cmp = now.compare_time(ComparisonType::IntervalC, later);
     assert_ne!(cmp, TimeComparison::GreaterThan);
     println!("time-service: now vs now+1ms compares {cmp:?}");

@@ -9,7 +9,9 @@ OMG Time Service 1.1: a Uto one millisecond later is not less than now.
 cargo run
 ```
 
-Path deps into the local zero-dds checkout: `zerodds-time-service`.
+Builds `zerodds-time-service` from the source of zero-dds (`main`) until
+1.0.0-rc.8 is on crates.io: `Uto::new` returns a `Result` there (BAD_PARAM
+above 48 bits), in the published 1.0.0-rc.7.2 it returns the `Uto`.
 
 Output of the run this README was written from:
 

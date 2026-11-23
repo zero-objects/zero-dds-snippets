@@ -6,4 +6,8 @@ edition = "2024"
 [workspace]
 
 [dependencies]
-zerodds-time-service = { path = "../../crates/time-service" }
+# The source of zero-dds until 1.0.0-rc.8 is on crates.io: there `Uto::new`
+# returns a Result (BAD_PARAM above 48 bits, OMG Time Service 1.1 §2.1.2.1),
+# in the published 1.0.0-rc.7.2 it returns the Uto. Back to
+# `path = "../../crates/time-service"` with that release.
+zerodds-time-service = { git = "https://github.com/zero-objects/zero-dds", branch = "main" }
